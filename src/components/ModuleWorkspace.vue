@@ -161,8 +161,6 @@ interface WorkspacePanel {
   icon: string;
 }
 
-defineProps<Props>();
-
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
