@@ -1,21 +1,80 @@
-import { BrowserWindow, app } from "electron";
+import { BrowserWindow, app, ipcMain } from "electron";
 import path from "node:path";
 import os from "node:os";
 import {
   registerQuasarRuntime,
   resolveElectronAssetsPath
 } from "#q-app/electron/main";
+import {
+  PROJECTION_CHANNELS,
+  type ProjectionState
+} from "../src/shared/projection";
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
 
 const windows: {
   main: BrowserWindow | null;
-  projector: BrowserWindow | null;
 } = {
-  main: null,
-  projector: null
+  main: null
 };
+
+const projectionWindows = new Map<number, BrowserWindow>();
+let latestProjectionState: ProjectionState = { mode: "blank" };
+
+function parseProjectionState(value: unknown): ProjectionState | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const state = value as Record<string, unknown>;
+
+  if (state.mode === "blank") {
+    return { mode: "blank" };
+  }
+
+  if (
+    state.mode === "content" &&
+    typeof state.title === "string" &&
+    typeof state.body === "string"
+  ) {
+    return {
+      mode: "content",
+      title: state.title.slice(0, 200),
+      body: state.body.slice(0, 5000)
+    };
+  }
+
+  return null;
+}
+
+function broadcastProjectionState(state: ProjectionState): void {
+  for (const projectionWindow of projectionWindows.values()) {
+    if (!projectionWindow.isDestroyed()) {
+      projectionWindow.webContents.send(
+        PROJECTION_CHANNELS.stateChanged,
+        state
+      );
+    }
+  }
+}
+
+function registerProjectionIpc(): void {
+  ipcMain.on(PROJECTION_CHANNELS.setState, (event, value: unknown) => {
+    if (event.sender !== windows.main?.webContents) {
+      return;
+    }
+
+    const state = parseProjectionState(value);
+
+    if (!state) {
+      return;
+    }
+
+    latestProjectionState = state;
+    broadcastProjectionState(state);
+  });
+}
 
 async function loadAppWindow(
   targetWindow: BrowserWindow,
@@ -81,14 +140,21 @@ async function createWindow() {
     }
   });
 
-  windows.projector = projectorWindow;
+  projectionWindows.set(projectorWindow.id, projectorWindow);
 
   projectorWindow.once("ready-to-show", () => {
     projectorWindow.show();
   });
 
+  projectorWindow.webContents.on("did-finish-load", () => {
+    projectorWindow.webContents.send(
+      PROJECTION_CHANNELS.stateChanged,
+      latestProjectionState
+    );
+  });
+
   projectorWindow.on("closed", () => {
-    windows.projector = null;
+    projectionWindows.delete(projectorWindow.id);
   });
 
   await loadAppWindow(projectorWindow, "/projector");
@@ -106,6 +172,7 @@ async function createWindow() {
 
 void app.whenReady().then(() => {
   registerQuasarRuntime();
+  registerProjectionIpc();
   void createWindow();
 
   app.on("activate", () => {
