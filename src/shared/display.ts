@@ -1,0 +1,14 @@
+export interface DisplayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DisplayInfo {
+  id: number;
+  label: string;
+  isPrimary: boolean;
+  bounds: DisplayBounds;
+  scaleFactor: number;
+}
