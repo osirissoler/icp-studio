@@ -23,5 +23,5 @@ export const SONG_PART_TYPE_OPTIONS: ReadonlyArray<{
   { label: 'Puente', value: 'bridge', icon: 'commit' },
   { label: 'Introducción', value: 'intro', icon: 'first_page' },
   { label: 'Final', value: 'ending', icon: 'last_page' },
-  { label: 'Otra parte', value: 'other', icon: 'segment' },
+  { label: 'Parte', value: 'other', icon: 'segment' },
 ];
