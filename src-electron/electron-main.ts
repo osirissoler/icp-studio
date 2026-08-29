@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electron/main';
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import { WINDOW_CHANNELS } from '../src/shared/window';
 import type { DisplayInfo } from '../src/shared/display';
 
 // needed in case process is undefined under Linux
@@ -34,6 +35,7 @@ const windows: {
 };
 
 const projectionWindows = new Map<number, BrowserWindow>();
+let songEditorWindow: BrowserWindow | null = null;
 let latestProjectionState: ProjectionState = { mode: 'blank' };
 
 function parseProjectionState(value: unknown): ProjectionState | null {
@@ -105,6 +107,57 @@ async function loadAppWindow(targetWindow: BrowserWindow, route?: string): Promi
   }
 
   await targetWindow.loadFile('index.html');
+}
+
+async function createSongEditorWindow(): Promise<void> {
+  if (songEditorWindow && !songEditorWindow.isDestroyed()) {
+    if (songEditorWindow.isMinimized()) {
+      songEditorWindow.restore();
+    }
+
+    songEditorWindow.focus();
+    return;
+  }
+
+  const mainWindow = windows.main;
+
+  songEditorWindow = new BrowserWindow({
+    title: 'ICP Studio - Nueva alabanza',
+    icon: resolveElectronAssetsPath('icons/icon.png'),
+    width: 1100,
+    height: 760,
+    minWidth: 850,
+    minHeight: 620,
+    parent: mainWindow ?? undefined,
+    modal: false,
+    show: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#0c131d',
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
+    },
+  });
+
+  songEditorWindow.once('ready-to-show', () => {
+    songEditorWindow?.show();
+  });
+
+  songEditorWindow.on('closed', () => {
+    songEditorWindow = null;
+  });
+
+  await loadAppWindow(songEditorWindow, '/song-editor/new');
+}
+
+function registerWindowIpc(): void {
+  ipcMain.on(WINDOW_CHANNELS.openSongEditor, (event) => {
+    if (event.sender !== windows.main?.webContents) {
+      return;
+    }
+
+    void createSongEditorWindow();
+  });
 }
 
 async function createProjectionWindow(display: Display | null, index: number): Promise<void> {
@@ -224,6 +277,7 @@ void app.whenReady().then(() => {
   console.log('Pantallas detectadas:', connectedDisplays);
 
   registerProjectionIpc();
+  registerWindowIpc();
   void createWindow();
 
   app.on('activate', () => {
