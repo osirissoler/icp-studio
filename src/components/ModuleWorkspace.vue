@@ -1,20 +1,5 @@
 <template>
   <section class="workspace-shell">
-    <div class="workspace-toolbar">
-      <div>
-        <div class="workspace-title">
-          <q-icon :name="icon" size="26px" />
-          <span>{{ title }}</span>
-        </div>
-        <div class="workspace-description">{{ description }}</div>
-      </div>
-
-      <div class="workspace-help">
-        <q-icon name="open_with" size="18px" />
-        Arrastra los encabezados para ordenar los paneles
-      </div>
-    </div>
-
     <div ref="workspaceElement" class="workspace-panels">
       <template v-for="(panel, index) in panels" :key="panel.id">
         <article
@@ -31,12 +16,28 @@
             @dragend="stopDragging"
           >
             <div class="panel-heading">
-              <q-icon name="drag_indicator" class="drag-icon" />
-              <q-icon :name="panel.icon" size="19px" />
-              <span>{{ panel.title }}</span>
+              <q-icon name="drag_indicator" class="drag-icon">
+                <q-tooltip>Arrastra para cambiar la posición del panel</q-tooltip>
+              </q-icon>
+              <q-icon :name="panel.id === 'search' ? icon : panel.icon" size="19px" />
+              <span>{{ panel.id === 'search' ? title : panel.title }}</span>
+              <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
             </div>
 
-            <q-btn flat round dense size="sm" icon="more_horiz" @click.stop />
+            <q-btn
+              v-if="panel.id === 'search'"
+              flat
+              round
+              dense
+              size="sm"
+              icon="info_outline"
+              aria-label="Información del módulo"
+              @click.stop
+            >
+              <q-tooltip>{{ description }}</q-tooltip>
+            </q-btn>
+
+            <q-btn v-else flat round dense size="sm" icon="more_horiz" @click.stop />
           </header>
 
           <div class="panel-content">
@@ -271,50 +272,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .workspace-shell {
   min-height: calc(100vh - 66px);
-  padding: 20px;
+  padding: 12px;
   background: #0c131d;
   color: #e8eef6;
-}
-
-.workspace-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 16px;
-}
-
-.workspace-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.workspace-title .q-icon {
-  color: #60a5fa;
-}
-
-.workspace-description {
-  margin: 4px 0 0 36px;
-  color: #8492a6;
-  font-size: 12px;
-}
-
-.workspace-help {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #718096;
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 .workspace-panels {
   display: flex;
   align-items: stretch;
-  height: calc(100vh - 142px);
+  height: calc(100vh - 90px);
   min-height: 480px;
   overflow: hidden;
 }
@@ -366,6 +332,21 @@ onBeforeUnmount(() => {
 
 .drag-icon {
   color: #5e6c7e;
+}
+
+.panel-context {
+  overflow: hidden;
+  color: #738196;
+  font-size: 10px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-context::before {
+  margin-right: 8px;
+  color: #415066;
+  content: '•';
 }
 
 .panel-content {
@@ -507,15 +488,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .workspace-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .workspace-help {
-    white-space: normal;
-  }
-
   .workspace-panels {
     height: auto;
     overflow: visible;
