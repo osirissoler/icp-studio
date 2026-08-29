@@ -71,9 +71,7 @@
               <div class="empty-state">
                 <q-icon :name="icon" size="44px" />
                 <div class="empty-title">Buscar en {{ title }}</div>
-                <div class="empty-text">
-                  Los resultados y elementos guardados aparecerán aquí.
-                </div>
+                <div class="empty-text">Los resultados y elementos guardados aparecerán aquí.</div>
               </div>
             </template>
 
@@ -466,9 +464,7 @@ onBeforeUnmount(() => {
 }
 
 .preview-screen {
-  background:
-    radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%),
-    #070b11;
+  background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #070b11;
 }
 
 .live-screen {

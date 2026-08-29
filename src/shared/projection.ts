@@ -1,18 +1,16 @@
 export const PROJECTION_CHANNELS = {
-  setState: "projection:set-state",
-  stateChanged: "projection:state-changed"
+  setState: 'projection:set-state',
+  stateChanged: 'projection:state-changed',
 } as const;
 
 export interface ProjectionContentState {
-  mode: "content";
+  mode: 'content';
   title: string;
   body: string;
 }
 
 export interface ProjectionBlankState {
-  mode: "blank";
+  mode: 'blank';
 }
 
-export type ProjectionState =
-  | ProjectionContentState
-  | ProjectionBlankState;
+export type ProjectionState = ProjectionContentState | ProjectionBlankState;

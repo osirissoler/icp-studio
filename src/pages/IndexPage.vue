@@ -11,13 +11,7 @@
 
       <q-card flat bordered class="projection-card">
         <q-card-section class="q-gutter-md">
-          <q-input
-            v-model="title"
-            outlined
-            label="Título"
-            maxlength="200"
-            counter
-          />
+          <q-input v-model="title" outlined label="Título" maxlength="200" counter />
 
           <q-input
             v-model="body"
@@ -53,19 +47,11 @@
         </q-card-actions>
       </q-card>
 
-      <q-banner
-        v-if="!isElectron"
-        rounded
-        class="q-mt-md bg-orange-1 text-orange-10"
-      >
+      <q-banner v-if="!isElectron" rounded class="q-mt-md bg-orange-1 text-orange-10">
         El control de proyección solo está disponible dentro de Electron.
       </q-banner>
 
-      <q-banner
-        v-else-if="statusMessage"
-        rounded
-        class="q-mt-md bg-blue-1 text-primary"
-      >
+      <q-banner v-else-if="statusMessage" rounded class="q-mt-md bg-blue-1 text-primary">
         {{ statusMessage }}
       </q-banner>
     </div>

@@ -1,11 +1,7 @@
 <template>
   <main class="projector-page">
     <Transition name="projection" mode="out-in">
-      <section
-        v-if="projectionState.mode === 'content'"
-        key="content"
-        class="projector-content"
-      >
+      <section v-if="projectionState.mode === 'content'" key="content" class="projector-content">
         <div class="projector-logo">ICP Studio</div>
 
         <h1 v-if="projectionState.title">
@@ -48,9 +44,7 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   overflow: hidden;
   color: white;
-  background:
-    radial-gradient(circle at 50% 35%, rgb(29 61 117 / 45%), transparent 38%),
-    #05070d;
+  background: radial-gradient(circle at 50% 35%, rgb(29 61 117 / 45%), transparent 38%), #05070d;
   place-items: center;
 }
 

@@ -112,12 +112,7 @@
               <q-item-label>Configuración</q-item-label>
             </q-item-section>
 
-            <q-tooltip
-              v-if="miniState"
-              anchor="center right"
-              self="center left"
-              :offset="[12, 0]"
-            >
+            <q-tooltip v-if="miniState" anchor="center right" self="center left" :offset="[12, 0]">
               Configuración
             </q-tooltip>
           </q-item>

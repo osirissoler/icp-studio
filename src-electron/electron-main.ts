@@ -1,21 +1,9 @@
-import {
-  BrowserWindow,
-  app,
-  ipcMain,
-  screen,
-  type Display
-} from "electron";
-import path from "node:path";
-import os from "node:os";
-import {
-  registerQuasarRuntime,
-  resolveElectronAssetsPath
-} from "#q-app/electron/main";
-import {
-  PROJECTION_CHANNELS,
-  type ProjectionState
-} from "../src/shared/projection";
-import type { DisplayInfo } from "../src/shared/display";
+import { BrowserWindow, app, ipcMain, screen, type Display } from 'electron';
+import path from 'node:path';
+import os from 'node:os';
+import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electron/main';
+import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import type { DisplayInfo } from '../src/shared/display';
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
@@ -32,9 +20,9 @@ function getConnectedDisplays(): DisplayInfo[] {
         x: display.bounds.x,
         y: display.bounds.y,
         width: display.bounds.width,
-        height: display.bounds.height
+        height: display.bounds.height,
       },
-      scaleFactor: display.scaleFactor
+      scaleFactor: display.scaleFactor,
     };
   });
 }
@@ -42,32 +30,32 @@ function getConnectedDisplays(): DisplayInfo[] {
 const windows: {
   main: BrowserWindow | null;
 } = {
-  main: null
+  main: null,
 };
 
 const projectionWindows = new Map<number, BrowserWindow>();
-let latestProjectionState: ProjectionState = { mode: "blank" };
+let latestProjectionState: ProjectionState = { mode: 'blank' };
 
 function parseProjectionState(value: unknown): ProjectionState | null {
-  if (typeof value !== "object" || value === null) {
+  if (typeof value !== 'object' || value === null) {
     return null;
   }
 
   const state = value as Record<string, unknown>;
 
-  if (state.mode === "blank") {
-    return { mode: "blank" };
+  if (state.mode === 'blank') {
+    return { mode: 'blank' };
   }
 
   if (
-    state.mode === "content" &&
-    typeof state.title === "string" &&
-    typeof state.body === "string"
+    state.mode === 'content' &&
+    typeof state.title === 'string' &&
+    typeof state.body === 'string'
   ) {
     return {
-      mode: "content",
+      mode: 'content',
       title: state.title.slice(0, 200),
-      body: state.body.slice(0, 5000)
+      body: state.body.slice(0, 5000),
     };
   }
 
@@ -77,10 +65,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
 function broadcastProjectionState(state: ProjectionState): void {
   for (const projectionWindow of projectionWindows.values()) {
     if (!projectionWindow.isDestroyed()) {
-      projectionWindow.webContents.send(
-        PROJECTION_CHANNELS.stateChanged,
-        state
-      );
+      projectionWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
     }
   }
 }
@@ -102,10 +87,7 @@ function registerProjectionIpc(): void {
   });
 }
 
-async function loadAppWindow(
-  targetWindow: BrowserWindow,
-  route?: string
-): Promise<void> {
+async function loadAppWindow(targetWindow: BrowserWindow, route?: string): Promise<void> {
   if (import.meta.env.QUASAR_DEV) {
     const appUrl = new URL(import.meta.env.QUASAR_APP_URL);
 
@@ -118,17 +100,14 @@ async function loadAppWindow(
   }
 
   if (route) {
-    await targetWindow.loadFile("index.html", { hash: route });
+    await targetWindow.loadFile('index.html', { hash: route });
     return;
   }
 
-  await targetWindow.loadFile("index.html");
+  await targetWindow.loadFile('index.html');
 }
 
-async function createProjectionWindow(
-  display: Display | null,
-  index: number
-): Promise<void> {
+async function createProjectionWindow(display: Display | null, index: number): Promise<void> {
   const displayWindowOptions = display
     ? {
         x: display.bounds.x,
@@ -137,7 +116,7 @@ async function createProjectionWindow(
         height: display.bounds.height,
         frame: false,
         movable: false,
-        resizable: false
+        resizable: false,
       }
     : {
         width: 1280,
@@ -146,30 +125,30 @@ async function createProjectionWindow(
         minHeight: 450,
         frame: true,
         movable: true,
-        resizable: true
+        resizable: true,
       };
 
   const projectorWindow = new BrowserWindow({
     title: display
       ? `ICP Studio - Proyector ${index + 1} - ${display.label}`
-      : "ICP Studio - Vista previa del proyector",
-    icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
+      : 'ICP Studio - Vista previa del proyector',
+    icon: resolveElectronAssetsPath('icons/icon.png'), // Windows and Linux
     ...displayWindowOptions,
     useContentSize: false,
     show: false,
     autoHideMenuBar: true,
     skipTaskbar: true,
-    backgroundColor: "#05070d",
+    backgroundColor: '#05070d',
     webPreferences: {
       contextIsolation: true,
-      preload: path.join(import.meta.dirname, "electron-preload.cjs")
-    }
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
+    },
   });
 
   const projectionId = display?.id ?? projectorWindow.id;
   projectionWindows.set(projectionId, projectorWindow);
 
-  projectorWindow.once("ready-to-show", () => {
+  projectorWindow.once('ready-to-show', () => {
     if (display) {
       projectorWindow.setBounds(display.bounds);
     }
@@ -177,24 +156,21 @@ async function createProjectionWindow(
     projectorWindow.show();
   });
 
-  projectorWindow.webContents.on("did-finish-load", () => {
-    projectorWindow.webContents.send(
-      PROJECTION_CHANNELS.stateChanged,
-      latestProjectionState
-    );
+  projectorWindow.webContents.on('did-finish-load', () => {
+    projectorWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, latestProjectionState);
   });
 
-  projectorWindow.on("closed", () => {
+  projectorWindow.on('closed', () => {
     projectionWindows.delete(projectionId);
   });
 
-  await loadAppWindow(projectorWindow, "/projector");
+  await loadAppWindow(projectorWindow, '/projector');
 }
 
 async function createWindow() {
   const mainWindow = new BrowserWindow({
-    title: "ICP Studio",
-    icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
+    title: 'ICP Studio',
+    icon: resolveElectronAssetsPath('icons/icon.png'), // Windows and Linux
     width: 1200,
     height: 760,
     minWidth: 960,
@@ -203,13 +179,13 @@ async function createWindow() {
     webPreferences: {
       contextIsolation: true,
       // https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/electron-preload-script
-      preload: path.join(import.meta.dirname, "electron-preload.cjs")
-    }
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
+    },
   });
 
   windows.main = mainWindow;
 
-  mainWindow.on("closed", () => {
+  mainWindow.on('closed', () => {
     windows.main = null;
   });
 
@@ -226,7 +202,7 @@ async function createWindow() {
     await Promise.all(
       externalDisplays.map((display, index) => {
         return createProjectionWindow(display, index);
-      })
+      }),
     );
   }
 
@@ -235,7 +211,7 @@ async function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // we're on production; no access to devtools pls
-    mainWindow.webContents.on("devtools-opened", () => {
+    mainWindow.webContents.on('devtools-opened', () => {
       mainWindow.webContents.closeDevTools();
     });
   }
@@ -245,20 +221,20 @@ void app.whenReady().then(() => {
   registerQuasarRuntime();
 
   const connectedDisplays = getConnectedDisplays();
-  console.log("Pantallas detectadas:", connectedDisplays);
+  console.log('Pantallas detectadas:', connectedDisplays);
 
   registerProjectionIpc();
   void createWindow();
 
-  app.on("activate", () => {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void createWindow();
     }
   });
 });
 
-app.on("window-all-closed", () => {
-  if (platform !== "darwin") {
+app.on('window-all-closed', () => {
+  if (platform !== 'darwin') {
     app.quit();
   }
 });

@@ -1,4 +1,4 @@
-import type { ProjectionState } from "./src/shared/projection";
+import type { ProjectionState } from './src/shared/projection';
 
 interface IcpStudioApi {
   projection: {
