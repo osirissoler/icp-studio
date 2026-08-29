@@ -42,29 +42,39 @@
 
           <div class="panel-content">
             <template v-if="panel.id === 'search'">
-              <q-input
-                v-model="searchText"
-                outlined
-                dense
-                clearable
-                :placeholder="searchPlaceholder"
-                class="search-input"
-              >
-                <template #prepend>
-                  <q-icon name="search" />
-                </template>
-              </q-input>
+              <div class="search-toolbar">
+                <q-input
+                  v-model="searchText"
+                  outlined
+                  dense
+                  clearable
+                  :placeholder="searchPlaceholder"
+                  class="search-input"
+                >
+                  <template #prepend>
+                    <q-icon name="search" />
+                  </template>
+                </q-input>
 
-              <div class="filter-row">
                 <q-btn
+                  v-if="isSongModule"
                   unelevated
-                  no-caps
                   color="primary"
                   icon="add"
-                  label="Agregar"
-                  class="add-button"
-                />
-                <q-btn flat round dense icon="filter_list">
+                  class="toolbar-button"
+                  aria-label="Crear nueva alabanza"
+                  @click="openSongEditor"
+                >
+                  <q-tooltip>Crear nueva alabanza</q-tooltip>
+                </q-btn>
+
+                <q-btn
+                  outline
+                  color="blue-grey-5"
+                  icon="filter_list"
+                  class="toolbar-button"
+                  aria-label="Filtrar contenido"
+                >
                   <q-tooltip>Filtros</q-tooltip>
                 </q-btn>
               </div>
@@ -179,8 +189,13 @@ const panelSizes = reactive<Record<PanelId, number>>({
 const props = defineProps<Props>();
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
+const isSongModule = computed(() => props.title === 'Alabanzas');
 
 let stopActiveResize: (() => void) | null = null;
+
+function openSongEditor(): void {
+  window.icpStudio?.windows.openSongEditor();
+}
 
 function startDragging(event: DragEvent, panelId: PanelId) {
   draggingPanelId.value = panelId;
@@ -358,6 +373,17 @@ onBeforeUnmount(() => {
   overflow: auto;
 }
 
+.search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-input {
+  min-width: 0;
+  flex: 1;
+}
+
 .search-input :deep(.q-field__control) {
   color: #e7edf5;
   background: #0d1621;
@@ -368,15 +394,11 @@ onBeforeUnmount(() => {
   color: #b8c3d1;
 }
 
-.filter-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-}
-
-.add-button {
-  border-radius: 7px;
+.toolbar-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
 }
 
 .empty-state {
