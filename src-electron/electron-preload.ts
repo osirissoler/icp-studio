@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { quasarRuntime } from '#q-app/electron/preload';
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import { WINDOW_CHANNELS } from '../src/shared/window';
+
+const windowApi = {
+  openSongEditor: (): void => {
+    ipcRenderer.send(WINDOW_CHANNELS.openSongEditor);
+  },
+};
 
 const projectionApi = {
   setState: (state: ProjectionState): void => {
@@ -25,4 +32,5 @@ const projectionApi = {
 contextBridge.exposeInMainWorld('quasarRuntime', quasarRuntime);
 contextBridge.exposeInMainWorld('icpStudio', {
   projection: projectionApi,
+  windows: windowApi,
 });
