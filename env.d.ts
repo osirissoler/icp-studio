@@ -5,6 +5,9 @@ interface IcpStudioApi {
     setState: (state: ProjectionState) => void;
     onState: (listener: (state: ProjectionState) => void) => () => void;
   };
+  windows: {
+    openSongEditor: () => void;
+  };
 }
 
 declare global {
