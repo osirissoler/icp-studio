@@ -41,7 +41,7 @@ async function loadAppWindow(
 }
 
 async function createWindow() {
-  windows.main = new BrowserWindow({
+  const mainWindow = new BrowserWindow({
     title: "ICP Studio",
     icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
     width: 1200,
@@ -56,13 +56,15 @@ async function createWindow() {
     }
   });
 
-  windows.main.on("closed", () => {
+  windows.main = mainWindow;
+
+  mainWindow.on("closed", () => {
     windows.main = null;
   });
 
-  await loadAppWindow(windows.main);
+  await loadAppWindow(mainWindow);
 
-  windows.projector = new BrowserWindow({
+  const projectorWindow = new BrowserWindow({
     title: "ICP Studio - Proyector",
     icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
     width: 1280,
@@ -79,23 +81,25 @@ async function createWindow() {
     }
   });
 
-  windows.projector.once("ready-to-show", () => {
-    windows.projector?.show();
+  windows.projector = projectorWindow;
+
+  projectorWindow.once("ready-to-show", () => {
+    projectorWindow.show();
   });
 
-  windows.projector.on("closed", () => {
+  projectorWindow.on("closed", () => {
     windows.projector = null;
   });
 
-  await loadAppWindow(windows.projector, "/projector");
+  await loadAppWindow(projectorWindow, "/projector");
 
   if (import.meta.env.QUASAR_DEBUG) {
     // if on DEV or Production with debug enabled
-    windows.main.webContents.openDevTools();
+    mainWindow.webContents.openDevTools();
   } else {
     // we're on production; no access to devtools pls
-    windows.main.webContents.on("devtools-opened", () => {
-      windows.main?.webContents.closeDevTools();
+    mainWindow.webContents.on("devtools-opened", () => {
+      mainWindow.webContents.closeDevTools();
     });
   }
 }
