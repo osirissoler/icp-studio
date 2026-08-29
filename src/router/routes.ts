@@ -10,6 +10,11 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
+  {
+  path: '/projector',
+  component: () => import('@/pages/ProjectorPage.vue'),
+},
+
   // Always leave this as last one,
   // but you can also remove it
   {
