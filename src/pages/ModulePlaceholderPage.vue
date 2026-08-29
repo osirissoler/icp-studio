@@ -32,10 +32,16 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 
+function getMetaText(key: string, fallback: string): string {
+  const value = route.meta[key];
+
+  return typeof value === 'string' ? value : fallback;
+}
+
 const moduleData = computed(() => ({
-  title: String(route.meta.title ?? 'Módulo'),
-  description: String(route.meta.description ?? ''),
-  icon: String(route.meta.icon ?? 'widgets'),
+  title: getMetaText('title', 'Módulo'),
+  description: getMetaText('description', ''),
+  icon: getMetaText('icon', 'widgets'),
 }));
 </script>
 
