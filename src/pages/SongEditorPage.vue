@@ -49,7 +49,6 @@
         <q-badge v-if="parts.length" floating color="primary">{{ parts.length }}</q-badge>
       </q-tab>
       <q-tab name="paste" icon="content_paste" label="Pegado rápido" />
-      <q-tab name="order" icon="reorder" label="Orden y revisión" />
       <q-tab name="preview" icon="preview" label="Vista previa" />
     </q-tabs>
 
@@ -169,8 +168,8 @@
           <section>
             <div class="panel-title">Pegar canción completa</div>
             <div class="panel-help">
-              Separa cada parte con su encabezado. También aceptamos textos separados por líneas
-              vacías.
+              Pega la letra directamente y deja una línea vacía entre cada parte. No necesitas
+              escribir títulos.
             </div>
 
             <q-input
@@ -178,7 +177,7 @@
               dark
               outlined
               type="textarea"
-              placeholder="Estrofa&#10;Escribe o pega aquí la primera estrofa...&#10;&#10;Coro&#10;Escribe aquí el coro...&#10;&#10;Estrofa&#10;Escribe aquí la siguiente estrofa..."
+              placeholder="Escribe o pega aquí la primera parte...&#10;Segunda línea de la misma parte...&#10;&#10;Escribe aquí la siguiente parte...&#10;&#10;Escribe aquí otra parte..."
               class="paste-input q-mt-md"
             />
 
@@ -196,26 +195,23 @@
           </section>
 
           <aside class="paste-guide">
-            <div class="guide-title">Encabezados reconocidos</div>
-            <div class="guide-types">
-              <q-chip
-                v-for="option in partTypeOptions"
-                :key="option.value"
-                dense
-                square
-                color="blue-grey-9"
-                text-color="blue-grey-2"
-                :icon="option.icon"
-              >
-                {{ option.label }}
-              </q-chip>
+            <div class="guide-title">Cómo separar las partes</div>
+
+            <div class="separator-example">
+              <span>Primera parte</span>
+              <strong>línea vacía</strong>
+              <span>Segunda parte</span>
             </div>
 
             <q-separator dark class="q-my-md" />
 
             <div class="guide-note">
-              Los números son opcionales. Puedes escribir “Estrofa” o “Estrofa 1”; ambas formas se
-              reconocerán correctamente.
+              Normalmente solo tienes que dejar una línea vacía. Si quieres una señal más visible,
+              también puedes escribir <code>---</code> entre dos partes.
+            </div>
+            <div class="guide-note q-mt-sm">
+              Cada bloque se creará como “Parte”. Después podrás cambiarlo a Estrofa, Coro o Puente
+              únicamente si lo necesitas.
             </div>
             <div class="guide-note q-mt-sm">
               Al procesar el texto se reemplazarán las partes actuales y pasarás a “Crear por
@@ -225,22 +221,94 @@
         </div>
       </q-tab-panel>
 
-      <q-tab-panel name="order">
-        <div class="empty-editor-state">
-          <q-icon name="reorder" size="52px" />
-          <div class="text-h6">Orden y revisión</div>
-          <div class="state-description">
-            En el próximo paso mostraremos aquí la secuencia completa para organizarla.
-          </div>
-        </div>
-      </q-tab-panel>
+      <q-tab-panel name="preview" class="preview-panel">
+        <div
+          v-if="parts.length && selectedPreviewPart"
+          ref="previewKeyboardArea"
+          class="preview-layout"
+          tabindex="0"
+          @keydown="handlePreviewKeydown"
+        >
+          <aside class="preview-list">
+            <div class="preview-list-title">Partes de la alabanza</div>
 
-      <q-tab-panel name="preview">
-        <div class="empty-editor-state">
+            <button
+              v-for="(part, index) in parts"
+              :key="part.id"
+              type="button"
+              class="preview-list-item"
+              :class="{ 'preview-list-item--active': selectedPreviewPart.id === part.id }"
+              @click="selectPreviewPart(part.id)"
+            >
+              <span class="preview-thumbnail">
+                <span>{{ part.content.trim() || 'Sin letra' }}</span>
+              </span>
+              <span class="preview-item-copy">
+                <strong>{{ index + 1 }} · {{ getPartLabel(part.type) }}</strong>
+                <small>{{
+                  selectedPreviewPart.id === part.id ? 'Seleccionada' : 'Haz clic para ver'
+                }}</small>
+              </span>
+            </button>
+          </aside>
+
+          <section class="preview-workarea">
+            <div class="preview-information">
+              <div>
+                <div class="panel-title">{{ songTitle.trim() || 'Alabanza sin título' }}</div>
+                <div class="panel-help">
+                  {{ getPartLabel(selectedPreviewPart.type) }} · Parte
+                  {{ selectedPreviewIndex + 1 }} de {{ parts.length }}
+                </div>
+              </div>
+
+              <q-chip square color="blue-grey-9" text-color="blue-grey-2" icon="visibility">
+                Vista del operador
+              </q-chip>
+            </div>
+
+            <div class="song-slide-preview">
+              <div v-if="selectedPreviewPart.content.trim()" class="slide-lyrics">
+                {{ selectedPreviewPart.content }}
+              </div>
+              <div v-else class="slide-empty">Esta parte todavía no tiene letra.</div>
+            </div>
+
+            <div class="preview-navigation">
+              <q-btn
+                outline
+                round
+                color="blue-grey-4"
+                icon="arrow_back"
+                :disable="selectedPreviewIndex <= 0"
+                aria-label="Parte anterior"
+                @click="showPreviousPart"
+              >
+                <q-tooltip>Parte anterior</q-tooltip>
+              </q-btn>
+
+              <span>{{ selectedPreviewIndex + 1 }} / {{ parts.length }}</span>
+
+              <q-btn
+                outline
+                round
+                color="blue-grey-4"
+                icon="arrow_forward"
+                :disable="selectedPreviewIndex >= parts.length - 1"
+                aria-label="Parte siguiente"
+                @click="showNextPart"
+              >
+                <q-tooltip>Parte siguiente</q-tooltip>
+              </q-btn>
+            </div>
+          </section>
+        </div>
+
+        <div v-else class="empty-editor-state">
           <q-icon name="preview" size="52px" />
-          <div class="text-h6">Vista previa</div>
+          <div class="text-h6">No hay contenido para previsualizar</div>
           <div class="state-description">
-            Aquí revisaremos cómo se verá cada parte antes de guardar la alabanza.
+            Crea las partes manualmente o utiliza Pegado rápido para generar la presentación.
           </div>
         </div>
       </q-tab-panel>
@@ -249,11 +317,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { SONG_PART_TYPE_OPTIONS, type SongPart, type SongPartType } from '../shared/song';
 
-type EditorTab = 'parts' | 'paste' | 'order' | 'preview';
+type EditorTab = 'parts' | 'paste' | 'preview';
 
 const $q = useQuasar();
 const activeTab = ref<EditorTab>('parts');
@@ -263,12 +331,26 @@ const musicalKey = ref('');
 const pastedText = ref('');
 const parts = ref<SongPart[]>([]);
 const draggedPartId = ref<string | null>(null);
+const selectedPartId = ref<string | null>(null);
+const previewKeyboardArea = ref<HTMLElement | null>(null);
 let nextPartId = 1;
 
 const partTypeOptions = SONG_PART_TYPE_OPTIONS;
 const quickPartOptions = SONG_PART_TYPE_OPTIONS.filter((option) =>
   ['verse', 'chorus', 'bridge', 'other'].includes(option.value),
 );
+
+const selectedPreviewPart = computed(() => {
+  return parts.value.find((part) => part.id === selectedPartId.value) ?? parts.value[0] ?? null;
+});
+
+const selectedPreviewIndex = computed(() => {
+  if (!selectedPreviewPart.value) {
+    return -1;
+  }
+
+  return parts.value.findIndex((part) => part.id === selectedPreviewPart.value?.id);
+});
 
 function createPart(type: SongPartType, content = ''): SongPart {
   const part: SongPart = {
@@ -286,8 +368,50 @@ function addPart(type: SongPartType): void {
 }
 
 function getPartLabel(type: SongPartType): string {
-  return partTypeOptions.find((option) => option.value === type)?.label ?? 'Otra parte';
+  return partTypeOptions.find((option) => option.value === type)?.label ?? 'Parte';
 }
+
+function selectPreviewPart(partId: string): void {
+  selectedPartId.value = partId;
+}
+
+function showPreviousPart(): void {
+  const previousPart = parts.value[selectedPreviewIndex.value - 1];
+
+  if (previousPart) {
+    selectedPartId.value = previousPart.id;
+  }
+}
+
+function showNextPart(): void {
+  const nextPart = parts.value[selectedPreviewIndex.value + 1];
+
+  if (nextPart) {
+    selectedPartId.value = nextPart.id;
+  }
+}
+
+function handlePreviewKeydown(event: KeyboardEvent): void {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+    event.preventDefault();
+    showPreviousPart();
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' ') {
+    event.preventDefault();
+    showNextPart();
+  }
+}
+
+watch(activeTab, async (tab) => {
+  if (tab !== 'preview') {
+    return;
+  }
+
+  await nextTick();
+  previewKeyboardArea.value?.focus();
+});
 
 function duplicatePart(partId: string): void {
   const sourceIndex = parts.value.findIndex((part) => part.id === partId);
@@ -372,7 +496,7 @@ function detectPartType(line: string): SongPartType | null {
     return 'ending';
   }
 
-  if (heading === 'otra parte' || heading === 'otro') {
+  if (heading === 'parte' || heading === 'otra parte' || heading === 'otro') {
     return 'other';
   }
 
@@ -386,10 +510,10 @@ function parseSongText(text: string): SongPart[] {
 
   if (!containsHeadings) {
     return normalizedText
-      .split(/\n\s*\n/)
+      .split(/\n[ \t]*(?:---+[ \t]*)?\n+/)
       .map((block) => block.trim())
       .filter(Boolean)
-      .map((content) => createPart('verse', content));
+      .map((content) => createPart('other', content));
   }
 
   const parsedParts: SongPart[] = [];
@@ -434,6 +558,7 @@ function processPastedSong(): void {
   }
 
   parts.value = parsedParts;
+  selectedPartId.value = parsedParts[0]?.id ?? null;
   activeTab.value = 'parts';
 
   $q.notify({
@@ -522,7 +647,8 @@ function closeEditor(): void {
 }
 
 .parts-panel,
-.paste-panel {
+.paste-panel,
+.preview-panel {
   overflow: auto;
   padding: 18px;
 }
@@ -667,11 +793,32 @@ function closeEditor(): void {
   font-weight: 700;
 }
 
-.guide-types {
+.separator-example {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 10px;
+  margin-top: 14px;
+  flex-direction: column;
+  gap: 7px;
+  color: #aab6c5;
+  font-size: 11px;
+}
+
+.separator-example strong {
+  padding: 7px;
+  color: #60a5fa;
+  background: #0c1622;
+  border: 1px dashed #355071;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.guide-note code {
+  padding: 1px 5px;
+  color: #93c5fd;
+  background: #0a121c;
+  border-radius: 4px;
 }
 
 .guide-note {
@@ -680,9 +827,160 @@ function closeEditor(): void {
   line-height: 1.5;
 }
 
+.preview-information {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.preview-layout {
+  display: grid;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  outline: none;
+}
+
+.preview-list {
+  min-height: 0;
+  padding: 11px;
+  background: #111b28;
+  border: 1px solid #29384c;
+  border-radius: 10px;
+}
+
+.preview-list-title {
+  padding: 4px 5px 11px;
+  color: #aab6c5;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.preview-list-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+  padding: 8px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.preview-list-item:hover {
+  background: #172333;
+}
+
+.preview-list-item--active {
+  background: #132c49;
+  border-color: #285486;
+}
+
+.preview-thumbnail {
+  display: flex;
+  width: 82px;
+  aspect-ratio: 16 / 9;
+  flex: 0 0 82px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  overflow: hidden;
+  color: #dbe6f3;
+  background:
+    radial-gradient(circle at center, rgb(41 78 132 / 48%), transparent 55%),
+    #05070d;
+  border: 1px solid #32445d;
+  border-radius: 5px;
+  font-size: 6px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.preview-thumbnail > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.preview-item-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.preview-item-copy strong {
+  color: #cbd6e3;
+  font-size: 11px;
+}
+
+.preview-item-copy small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #728196;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-workarea {
+  min-width: 0;
+}
+
+.song-slide-preview {
+  display: flex;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(28px, 6vw, 72px);
+  overflow: hidden;
+  color: white;
+  background:
+    radial-gradient(circle at 50% 40%, rgb(41 78 132 / 55%), transparent 45%),
+    #05070d;
+  border: 1px solid #314158;
+  border-radius: 10px;
+  box-shadow: 0 18px 45px rgb(0 0 0 / 28%);
+  text-align: center;
+}
+
+.slide-lyrics {
+  font-size: clamp(22px, 3vw, 46px);
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
+  white-space: pre-line;
+}
+
+.slide-empty {
+  color: #5f6d80;
+  font-size: 13px;
+}
+
+.preview-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+  color: #8492a6;
+  font-size: 11px;
+}
+
 @media (max-width: 800px) {
   .song-details,
-  .paste-layout {
+  .paste-layout,
+  .preview-layout {
     grid-template-columns: 1fr;
   }
 
