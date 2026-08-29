@@ -1,11 +1,5 @@
 import type { ProjectionState } from "./src/shared/projection";
 
-/**
- * Add types (that are not auto-magically added by Quasar CLI already)
- * for custom environment variables and APIs exposed by Electron.
- */
-interface ImportMetaEnv {}
-
 interface IcpStudioApi {
   projection: {
     setState: (state: ProjectionState) => void;
@@ -14,6 +8,14 @@ interface IcpStudioApi {
 }
 
 declare global {
+  /**
+   * Add types for custom environment variables configured through Quasar.
+   */
+  interface ImportMetaEnv {}
+
+  /**
+   * APIs exposed securely by Electron's preload script.
+   */
   interface Window {
     icpStudio?: IcpStudioApi;
   }
