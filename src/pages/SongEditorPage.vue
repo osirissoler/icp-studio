@@ -169,7 +169,8 @@
           <section>
             <div class="panel-title">Pegar canción completa</div>
             <div class="panel-help">
-              Separa cada parte con su encabezado. También aceptamos textos separados por líneas vacías.
+              Separa cada parte con su encabezado. También aceptamos textos separados por líneas
+              vacías.
             </div>
 
             <q-input
@@ -250,11 +251,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useQuasar } from 'quasar';
-import {
-  SONG_PART_TYPE_OPTIONS,
-  type SongPart,
-  type SongPartType,
-} from '../shared/song';
+import { SONG_PART_TYPE_OPTIONS, type SongPart, type SongPartType } from '../shared/song';
 
 type EditorTab = 'parts' | 'paste' | 'order' | 'preview';
 
