@@ -97,6 +97,10 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
+    path: '/song-editor/new',
+    component: () => import('../pages/SongEditorPage.vue'),
+  },
+  {
     path: '/projector',
     component: () => import('../pages/ProjectorPage.vue'),
   },
