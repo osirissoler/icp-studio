@@ -1,4 +1,10 @@
-import { BrowserWindow, app, ipcMain, screen } from "electron";
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  screen,
+  type Display
+} from "electron";
 import path from "node:path";
 import os from "node:os";
 import {
@@ -119,6 +125,72 @@ async function loadAppWindow(
   await targetWindow.loadFile("index.html");
 }
 
+async function createProjectionWindow(
+  display: Display | null,
+  index: number
+): Promise<void> {
+  const displayWindowOptions = display
+    ? {
+        x: display.bounds.x,
+        y: display.bounds.y,
+        width: display.bounds.width,
+        height: display.bounds.height,
+        frame: false,
+        movable: false,
+        resizable: false
+      }
+    : {
+        width: 1280,
+        height: 720,
+        minWidth: 800,
+        minHeight: 450,
+        frame: true,
+        movable: true,
+        resizable: true
+      };
+
+  const projectorWindow = new BrowserWindow({
+    title: display
+      ? `ICP Studio - Proyector ${index + 1} - ${display.label}`
+      : "ICP Studio - Vista previa del proyector",
+    icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
+    ...displayWindowOptions,
+    useContentSize: false,
+    show: false,
+    autoHideMenuBar: true,
+    skipTaskbar: true,
+    backgroundColor: "#05070d",
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(import.meta.dirname, "electron-preload.cjs")
+    }
+  });
+
+  const projectionId = display?.id ?? projectorWindow.id;
+  projectionWindows.set(projectionId, projectorWindow);
+
+  projectorWindow.once("ready-to-show", () => {
+    if (display) {
+      projectorWindow.setBounds(display.bounds);
+    }
+
+    projectorWindow.show();
+  });
+
+  projectorWindow.webContents.on("did-finish-load", () => {
+    projectorWindow.webContents.send(
+      PROJECTION_CHANNELS.stateChanged,
+      latestProjectionState
+    );
+  });
+
+  projectorWindow.on("closed", () => {
+    projectionWindows.delete(projectionId);
+  });
+
+  await loadAppWindow(projectorWindow, "/projector");
+}
+
 async function createWindow() {
   const mainWindow = new BrowserWindow({
     title: "ICP Studio",
@@ -143,41 +215,20 @@ async function createWindow() {
 
   await loadAppWindow(mainWindow);
 
-  const projectorWindow = new BrowserWindow({
-    title: "ICP Studio - Proyector",
-    icon: resolveElectronAssetsPath("icons/icon.png"), // Windows and Linux
-    width: 1280,
-    height: 720,
-    minWidth: 800,
-    minHeight: 450,
-    useContentSize: true,
-    show: false,
-    autoHideMenuBar: true,
-    backgroundColor: "#05070d",
-    webPreferences: {
-      contextIsolation: true,
-      preload: path.join(import.meta.dirname, "electron-preload.cjs")
-    }
-  });
+  const primaryDisplayId = screen.getPrimaryDisplay().id;
+  const externalDisplays = screen
+    .getAllDisplays()
+    .filter((display) => display.id !== primaryDisplayId);
 
-  projectionWindows.set(projectorWindow.id, projectorWindow);
-
-  projectorWindow.once("ready-to-show", () => {
-    projectorWindow.show();
-  });
-
-  projectorWindow.webContents.on("did-finish-load", () => {
-    projectorWindow.webContents.send(
-      PROJECTION_CHANNELS.stateChanged,
-      latestProjectionState
+  if (externalDisplays.length === 0) {
+    await createProjectionWindow(null, 0);
+  } else {
+    await Promise.all(
+      externalDisplays.map((display, index) => {
+        return createProjectionWindow(display, index);
+      })
     );
-  });
-
-  projectorWindow.on("closed", () => {
-    projectionWindows.delete(projectorWindow.id);
-  });
-
-  await loadAppWindow(projectorWindow, "/projector");
+  }
 
   if (import.meta.env.QUASAR_DEBUG) {
     // if on DEV or Production with debug enabled
