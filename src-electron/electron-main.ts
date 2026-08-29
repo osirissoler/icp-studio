@@ -121,6 +121,10 @@ async function createSongEditorWindow(): Promise<void> {
 
   const mainWindow = windows.main;
 
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
   songEditorWindow = new BrowserWindow({
     title: 'ICP Studio - Nueva alabanza',
     icon: resolveElectronAssetsPath('icons/icon.png'),
@@ -128,7 +132,7 @@ async function createSongEditorWindow(): Promise<void> {
     height: 760,
     minWidth: 850,
     minHeight: 620,
-    parent: mainWindow ?? undefined,
+    parent: mainWindow,
     modal: false,
     show: false,
     autoHideMenuBar: true,
