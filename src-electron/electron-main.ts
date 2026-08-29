@@ -1,4 +1,4 @@
-import { BrowserWindow, app, ipcMain } from "electron";
+import { BrowserWindow, app, ipcMain, screen } from "electron";
 import path from "node:path";
 import os from "node:os";
 import {
@@ -9,9 +9,29 @@ import {
   PROJECTION_CHANNELS,
   type ProjectionState
 } from "../src/shared/projection";
+import type { DisplayInfo } from "../src/shared/display";
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
+
+function getConnectedDisplays(): DisplayInfo[] {
+  const primaryDisplayId = screen.getPrimaryDisplay().id;
+
+  return screen.getAllDisplays().map((display, index) => {
+    return {
+      id: display.id,
+      label: display.label || `Pantalla ${index + 1}`,
+      isPrimary: display.id === primaryDisplayId,
+      bounds: {
+        x: display.bounds.x,
+        y: display.bounds.y,
+        width: display.bounds.width,
+        height: display.bounds.height
+      },
+      scaleFactor: display.scaleFactor
+    };
+  });
+}
 
 const windows: {
   main: BrowserWindow | null;
@@ -172,6 +192,10 @@ async function createWindow() {
 
 void app.whenReady().then(() => {
   registerQuasarRuntime();
+
+  const connectedDisplays = getConnectedDisplays();
+  console.log("Pantallas detectadas:", connectedDisplays);
+
   registerProjectionIpc();
   void createWindow();
 
