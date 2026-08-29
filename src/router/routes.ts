@@ -3,11 +3,11 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    component: () => import('layouts/MainLayout.vue'),
+    component: () => import('../layouts/MainLayout.vue'),
     children: [
       {
         path: '',
-        component: () => import('pages/IndexPage.vue'),
+        component: () => import('../pages/IndexPage.vue'),
         meta: {
           title: 'Servicios',
           icon: 'event_note',
@@ -15,7 +15,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'alabanzas',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Alabanzas',
           description: 'Organiza canciones, letras, estrofas y coros.',
@@ -24,7 +24,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'biblia',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Biblia',
           description: 'Busca, previsualiza y agrega pasajes bíblicos al servicio.',
@@ -33,7 +33,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'imagenes',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Imágenes',
           description: 'Administra imágenes y fondos para la proyección.',
@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'videos',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Videos',
           description: 'Organiza y reproduce videos durante el servicio.',
@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'documentos',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Documentos',
           description: 'Previsualiza y presenta documentos y archivos PDF.',
@@ -60,7 +60,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'presentaciones',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Presentaciones',
           description: 'Importa y presenta diapositivas durante el servicio.',
@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'juegos',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Juegos',
           description: 'Crea y ejecuta juegos bíblicos interactivos.',
@@ -78,7 +78,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'biblioteca',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Biblioteca',
           description: 'Encuentra todo el contenido guardado en la computadora.',
@@ -87,7 +87,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'configuracion',
-        component: () => import('pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
           title: 'Configuración',
           description: 'Configura pantallas, apariencia y control remoto.',
@@ -98,11 +98,11 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/projector',
-    component: () => import('pages/ProjectorPage.vue'),
+    component: () => import('../pages/ProjectorPage.vue'),
   },
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue'),
+    component: () => import('../pages/ErrorNotFound.vue'),
   },
 ];
 
