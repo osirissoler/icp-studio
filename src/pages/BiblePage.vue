@@ -56,34 +56,6 @@
                 </button>
               </div>
             </div>
-
-            <q-btn
-              unelevated
-              color="primary"
-              icon="search"
-              aria-label="Buscar pasaje"
-              class="toolbar-button"
-              :loading="searching"
-              :disable="!canSearchReference"
-              @click="searchReference"
-            >
-              <q-tooltip>Buscar pasaje</q-tooltip>
-            </q-btn>
-
-            <q-btn
-              outline
-              color="primary"
-              icon="playlist_add"
-              aria-label="Agregar selección al servicio"
-              class="toolbar-button"
-              :disable="selectedVerses.length === 0"
-              @click="addSelectedToService"
-            >
-              <q-badge v-if="selectedVerses.length" floating color="primary">
-                {{ selectedVerses.length }}
-              </q-badge>
-              <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
-            </q-btn>
           </div>
 
           <div v-else class="manual-search">
@@ -154,21 +126,6 @@
               >
                 <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
               </q-btn>
-
-              <q-btn
-                outline
-                color="primary"
-                icon="playlist_add"
-                aria-label="Agregar selección al servicio"
-                class="toolbar-button"
-                :disable="selectedVerses.length === 0"
-                @click="addSelectedToService"
-              >
-                <q-badge v-if="selectedVerses.length" floating color="primary">
-                  {{ selectedVerses.length }}
-                </q-badge>
-                <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
-              </q-btn>
             </div>
           </div>
           </div>
@@ -180,11 +137,11 @@
             {{ errorMessage }}
           </q-banner>
 
-          <q-banner v-if="serviceMessage" dense rounded class="service-banner">
+          <q-banner v-if="actionMessage" dense rounded class="action-banner">
             <template #avatar>
               <q-icon name="playlist_add_check" color="positive" />
             </template>
-            {{ serviceMessage }}
+            {{ actionMessage }}
           </q-banner>
 
           <div v-if="searching" class="panel-state">
@@ -224,6 +181,34 @@
                 <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
                   {{ searchResult.versionCode }}
                 </q-chip>
+
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="primary"
+                  icon="add_to_queue"
+                  aria-label="Agregar seleccionados a previsualización"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="addSelectedToPreview"
+                >
+                  <q-tooltip>Agregar seleccionados a previsualización</q-tooltip>
+                </q-btn>
+
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="primary"
+                  icon="playlist_add"
+                  aria-label="Agregar seleccionados al servicio"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="addSelectedToService"
+                >
+                  <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+                </q-btn>
               </div>
             </div>
 
@@ -328,27 +313,48 @@
             </template>
           </div>
 
-          <div v-if="selectedVerses.length > 1" class="preview-navigation">
+          <div v-if="previewVerses.length" class="preview-queue">
+            <button
+              v-for="(verse, index) in previewVerses"
+              :key="verseKey(verse)"
+              type="button"
+              class="preview-queue-item"
+              :class="{
+                'preview-queue-item--active':
+                  selectedVerse && verseKey(selectedVerse) === verseKey(verse),
+              }"
+              @click="selectPreviewVerse(verse)"
+            >
+              <span class="preview-position">{{ index + 1 }}</span>
+              <span class="preview-item-content">
+                <strong>{{ verse.reference }}</strong>
+                <small>{{ verse.text }}</small>
+              </span>
+              <q-btn
+                flat
+                round
+                dense
+                size="sm"
+                icon="close"
+                aria-label="Quitar de previsualización"
+                @click.stop="removePreviewVerse(verse)"
+              >
+                <q-tooltip>Quitar de previsualización</q-tooltip>
+              </q-btn>
+            </button>
+          </div>
+
+          <div v-if="previewVerses.length > 1" class="preview-navigation">
             <q-btn flat round dense icon="chevron_left" @click="movePreview(-1)">
-              <q-tooltip>Versículo anterior seleccionado</q-tooltip>
+              <q-tooltip>Versículo anterior en previsualización</q-tooltip>
             </q-btn>
-            <span>{{ previewPosition }} de {{ selectedVerses.length }} seleccionados</span>
+            <span>{{ previewPosition }} de {{ previewVerses.length }}</span>
             <q-btn flat round dense icon="chevron_right" @click="movePreview(1)">
-              <q-tooltip>Versículo siguiente seleccionado</q-tooltip>
+              <q-tooltip>Versículo siguiente en previsualización</q-tooltip>
             </q-btn>
           </div>
 
           <div class="preview-actions">
-            <q-btn
-              outline
-              no-caps
-              color="primary"
-              icon="playlist_add"
-              label="Agregar al servicio"
-              :disable="selectedVerses.length === 0"
-              @click="addSelectedToService"
-            />
-
             <q-btn
               unelevated
               no-caps
@@ -431,13 +437,14 @@ const searchMode = ref<SearchMode>('reference');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
 const selectedVerses = ref<BibleVerse[]>([]);
+const previewVerses = ref<BibleVerse[]>([]);
 const serviceVerses = ref<BibleVerse[]>([]);
 const liveVerse = ref<BibleVerse | null>(null);
 const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
 const errorMessage = ref('');
-const serviceMessage = ref('');
+const actionMessage = ref('');
 
 const manualBookCode = ref<string | null>(null);
 const manualChapter = ref<number | null>(null);
@@ -542,7 +549,7 @@ const previewPosition = computed(() => {
     return 0;
   }
 
-  const index = selectedVerses.value.findIndex(
+  const index = previewVerses.value.findIndex(
     (verse) => verseKey(verse) === verseKey(currentVerse),
   );
 
@@ -610,7 +617,7 @@ function updateReferenceText(value: string | number | null): void {
 function clearReferenceSearch(): void {
   referenceText.value = '';
   errorMessage.value = '';
-  serviceMessage.value = '';
+  actionMessage.value = '';
   showBookSuggestions.value = true;
 
   void nextTick(() => {
@@ -643,7 +650,7 @@ async function executeSearch(reference: string): Promise<void> {
   showBookSuggestions.value = false;
   searching.value = true;
   errorMessage.value = '';
-  serviceMessage.value = '';
+  actionMessage.value = '';
   searchResult.value = null;
   selectedVerse.value = null;
   selectedVerses.value = [];
@@ -859,19 +866,55 @@ function moveResultSelection(direction: -1 | 1): void {
 function movePreview(direction: -1 | 1): void {
   const currentVerse = selectedVerse.value;
 
-  if (selectedVerses.value.length === 0 || !currentVerse) {
+  if (previewVerses.value.length === 0) {
     return;
   }
 
-  const currentIndex = selectedVerses.value.findIndex(
-    (verse) => verseKey(verse) === verseKey(currentVerse),
-  );
+  const currentIndex = currentVerse
+    ? previewVerses.value.findIndex(
+        (verse) => verseKey(verse) === verseKey(currentVerse),
+      )
+    : -1;
 
   const nextIndex =
-    (currentIndex + direction + selectedVerses.value.length) %
-    selectedVerses.value.length;
+    (currentIndex + direction + previewVerses.value.length) %
+    previewVerses.value.length;
 
-  selectedVerse.value = selectedVerses.value[nextIndex] ?? null;
+  selectedVerse.value = previewVerses.value[nextIndex] ?? null;
+}
+
+function addSelectedToPreview(): void {
+  const existingKeys = new Set(previewVerses.value.map(verseKey));
+  const newVerses = selectedVerses.value.filter(
+    (verse) => !existingKeys.has(verseKey(verse)),
+  );
+
+  previewVerses.value = [...previewVerses.value, ...newVerses];
+
+  if (newVerses[0]) {
+    selectedVerse.value = newVerses[0];
+  }
+
+  actionMessage.value =
+    newVerses.length > 0
+      ? `${newVerses.length} versículos agregados a previsualización.`
+      : 'Los versículos seleccionados ya estaban en previsualización.';
+}
+
+function selectPreviewVerse(verse: BibleVerse): void {
+  selectedVerse.value = verse;
+}
+
+function removePreviewVerse(verse: BibleVerse): void {
+  const key = verseKey(verse);
+
+  previewVerses.value = previewVerses.value.filter(
+    (previewVerse) => verseKey(previewVerse) !== key,
+  );
+
+  if (selectedVerse.value && verseKey(selectedVerse.value) === key) {
+    selectedVerse.value = previewVerses.value[0] ?? null;
+  }
 }
 
 function addSelectedToService(): void {
@@ -881,7 +924,7 @@ function addSelectedToService(): void {
   );
 
   serviceVerses.value = [...serviceVerses.value, ...newVerses];
-  serviceMessage.value =
+  actionMessage.value =
     newVerses.length > 0
       ? `${newVerses.length} versículos agregados al servicio.`
       : 'Los versículos seleccionados ya estaban agregados.';
@@ -1016,6 +1059,12 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.result-action-button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+}
+
 .book-suggestions {
   position: absolute;
   z-index: 20;
@@ -1060,7 +1109,7 @@ onMounted(() => {
 }
 
 .error-banner,
-.service-banner {
+.action-banner {
   margin-top: 10px;
   font-size: 12px;
 }
@@ -1071,7 +1120,7 @@ onMounted(() => {
   border: 1px solid rgb(248 113 113 / 25%);
 }
 
-.service-banner {
+.action-banner {
   color: #bbf7d0;
   background: rgb(20 83 45 / 25%);
   border: 1px solid rgb(74 222 128 / 22%);
@@ -1267,6 +1316,72 @@ onMounted(() => {
 
 .service-empty {
   min-height: 180px;
+}
+
+.preview-queue {
+  display: flex;
+  max-height: 180px;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 9px;
+  overflow-y: auto;
+}
+
+.preview-queue-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  color: #bac6d4;
+  background: #0d1621;
+  border: 1px solid #26364b;
+  border-radius: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preview-queue-item:hover,
+.preview-queue-item--active {
+  background: #12243a;
+  border-color: #3b82f6;
+}
+
+.preview-position {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  color: #93c5fd;
+  background: #172d49;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.preview-item-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.preview-item-content strong {
+  color: #dce6f2;
+  font-size: 10px;
+}
+
+.preview-item-content small {
+  overflow: hidden;
+  color: #8492a6;
+  font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-label {
