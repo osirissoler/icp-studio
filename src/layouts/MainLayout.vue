@@ -138,7 +138,7 @@ interface NavigationItem {
 
 const $q = useQuasar();
 const leftDrawerOpen = ref(true);
-const miniState = ref(false);
+const miniState = ref(true);
 
 const mainNavigation: NavigationItem[] = [
   { label: 'Servicios', icon: 'event_note', to: '/' },
