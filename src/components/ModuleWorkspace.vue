@@ -211,7 +211,7 @@ interface WorkspacePanel {
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
-const columnSizes = reactive<[number, number, number]>([1.35, 1, 1]);
+const columnSizes = reactive<[number, number, number]>([0.9, 1.15, 1.15]);
 const topRowPercent = ref(50);
 const panels = ref<WorkspacePanel[]>([
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
@@ -366,7 +366,7 @@ onBeforeUnmount(() => {
   display: grid;
   height: calc(100vh - 90px);
   min-height: 560px;
-  grid-template-columns: minmax(220px, 1.35fr) 12px minmax(220px, 1fr) 12px minmax(220px, 1fr);
+  grid-template-columns: minmax(220px, 0.9fr) 12px minmax(220px, 1.15fr) 12px minmax(220px, 1.15fr);
   grid-template-rows: minmax(0, 1fr) 12px minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
