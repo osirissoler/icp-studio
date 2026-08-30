@@ -10,6 +10,11 @@ node_modules
 /dist
 /quasar.config.*.temporary.compiled*
 
+# Motores de conversión incluidos localmente en los instaladores
+/resources/converter/LibreOffice.app/
+/resources/converter/program/
+/resources/converter/bin/
+
 # Cordova related directories and files
 /src-cordova/node_modules
 /src-cordova/platforms
