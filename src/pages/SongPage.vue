@@ -321,6 +321,31 @@ function applySongs(nextSongs: Song[]): void {
       serviceSong,
   );
 
+  for (const serviceItem of presentationStore.serviceItems) {
+    if (serviceItem.type !== 'song') {
+      continue;
+    }
+
+    const updatedSong = songs.value.find(
+      (song) => song.id === serviceItem.sourceId,
+    );
+
+    if (!updatedSong) {
+      continue;
+    }
+
+    presentationStore.updateServiceItem({
+      ...serviceItem,
+      title: updatedSong.title,
+      footer: updatedSong.title,
+      frames: updatedSong.parts.map((part, index) => ({
+        id: part.id,
+        label: `${index + 1} · ${partLabel(part.type)}`,
+        text: part.content,
+      })),
+    });
+  }
+
   if (liveSong.value) {
     const updatedLiveSong = songs.value.find(
       (song) => song.id === liveSong.value?.id,
