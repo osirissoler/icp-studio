@@ -311,6 +311,27 @@ function applySongs(nextSongs: Song[]): void {
       songs.value.find((song) => song.id === selectedSong.value?.id) ??
       null;
   }
+
+  serviceSongs.value = serviceSongs.value.map(
+    (serviceSong) =>
+      songs.value.find((song) => song.id === serviceSong.id) ??
+      serviceSong,
+  );
+
+  if (liveSong.value) {
+    const updatedLiveSong = songs.value.find(
+      (song) => song.id === liveSong.value?.id,
+    );
+
+    if (updatedLiveSong) {
+      const currentPartId = livePart.value?.id;
+      liveSong.value = updatedLiveSong;
+      livePart.value =
+        updatedLiveSong.parts.find((part) => part.id === currentPartId) ??
+        updatedLiveSong.parts[0] ??
+        null;
+    }
+  }
 }
 
 function loadSongs(): void {
