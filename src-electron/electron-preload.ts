@@ -18,11 +18,32 @@ import {
   type DefaultSongCollection,
 } from '../src/shared/song';
 import { WINDOW_CHANNELS } from '../src/shared/window';
+import { DISPLAY_CHANNELS, type DisplayInfo } from '../src/shared/display';
 import {
   MEDIA_CHANNELS,
   type MediaKind,
   type MediaLibraryItem,
 } from '../src/shared/media';
+
+const displayApi = {
+  list: (): Promise<DisplayInfo[]> => {
+    return ipcRenderer.invoke(DISPLAY_CHANNELS.list) as Promise<DisplayInfo[]>;
+  },
+  onChanged: (
+    listener: (displays: DisplayInfo[]) => void,
+  ): (() => void) => {
+    const subscription = (
+      _event: Electron.IpcRendererEvent,
+      displays: DisplayInfo[],
+    ) => listener(displays);
+
+    ipcRenderer.on(DISPLAY_CHANNELS.changed, subscription);
+    return () => ipcRenderer.removeListener(
+      DISPLAY_CHANNELS.changed,
+      subscription,
+    );
+  },
+};
 
 const windowApi = {
   openSongEditor: (songId?: string): void => {
@@ -112,6 +133,7 @@ const bibleApi = {
 contextBridge.exposeInMainWorld('quasarRuntime', quasarRuntime);
 contextBridge.exposeInMainWorld('icpStudio', {
   bible: bibleApi,
+  displays: displayApi,
   songs: songApi,
   media: mediaApi,
   projection: projectionApi,
