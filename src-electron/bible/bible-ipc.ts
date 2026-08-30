@@ -1,6 +1,15 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
-import { BIBLE_CHANNELS, type BiblePassageSearch } from '../../src/shared/bible';
-import { getBibleBooks, getBibleVersions, searchBiblePassage } from './bible-database';
+import {
+  BIBLE_CHANNELS,
+  type BibleBookChaptersRequest,
+  type BiblePassageSearch,
+} from '../../src/shared/bible';
+import {
+  getBibleBookChapters,
+  getBibleBooks,
+  getBibleVersions,
+  searchBiblePassage,
+} from './bible-database';
 
 type MainWindowProvider = () => BrowserWindow | null;
 
@@ -34,9 +43,26 @@ function parsePassageSearch(value: unknown): BiblePassageSearch {
   return search;
 }
 
+function parseBookChaptersRequest(value: unknown): BibleBookChaptersRequest {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('Los datos del libro no son válidos.');
+  }
+
+  const request = value as Record<string, unknown>;
+
+  if (typeof request.bookCode !== 'string' || request.bookCode.trim().length === 0) {
+    throw new Error('Debes seleccionar un libro bíblico.');
+  }
+
+  return {
+    bookCode: request.bookCode.trim().toUpperCase().slice(0, 10),
+  };
+}
+
 export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getVersions);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
+  ipcMain.removeHandler(BIBLE_CHANNELS.getBookChapters);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
 
   ipcMain.handle(BIBLE_CHANNELS.getVersions, (event) => {
@@ -47,6 +73,13 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   ipcMain.handle(BIBLE_CHANNELS.getBooks, (event) => {
     validateSender(event, getMainWindow);
     return getBibleBooks();
+  });
+
+  ipcMain.handle(BIBLE_CHANNELS.getBookChapters, (event, value: unknown) => {
+    validateSender(event, getMainWindow);
+
+    const request = parseBookChaptersRequest(value);
+    return getBibleBookChapters(request.bookCode);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.searchPassage, (event, value: unknown) => {
@@ -61,5 +94,6 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
 export function unregisterBibleIpc(): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getVersions);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
+  ipcMain.removeHandler(BIBLE_CHANNELS.getBookChapters);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
 }
