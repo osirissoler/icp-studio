@@ -576,6 +576,21 @@ function parseSongText(text: string): SongPart[] {
   return parsedParts;
 }
 
+function buildPastedText(songParts: SongPart[]): string {
+  return songParts
+    .map((part) => part.content.trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+watch(
+  parts,
+  (currentParts) => {
+    pastedText.value = buildPastedText(currentParts);
+  },
+  { deep: true },
+);
+
 function processPastedSong(): void {
   const parsedParts = parseSongText(pastedText.value);
 
