@@ -1,14 +1,33 @@
 <template>
   <main class="projector-page">
     <Transition name="projection" mode="out-in">
-      <section v-if="projectionState.mode === 'content'" key="content" class="projector-content">
-        <p v-if="projectionState.body">
-          {{ projectionState.body }}
-        </p>
-
+      <section
+        v-if="projectionState.mode === 'content'"
+        key="content"
+        class="projector-content"
+      >
+        <p v-if="projectionState.body">{{ projectionState.body }}</p>
         <footer v-if="projectionState.footer" class="projection-footer">
           {{ projectionState.footer }}
         </footer>
+      </section>
+
+      <section
+        v-else-if="projectionState.mode === 'media'"
+        :key="projectionState.url"
+        class="projector-media"
+      >
+        <img
+          v-if="projectionState.mediaType === 'image'"
+          :src="projectionState.url"
+          :alt="projectionState.name"
+        />
+        <video
+          v-else
+          ref="projectedVideo"
+          :src="projectionState.url"
+          preload="auto"
+        />
       </section>
 
       <section v-else key="blank" class="projector-blank">
@@ -19,20 +38,50 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import type { ProjectionState } from '@/shared/projection';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import type {
+  MediaPlaybackCommand,
+  ProjectionState,
+} from '@/shared/projection';
 
 const projectionState = ref<ProjectionState>({ mode: 'blank' });
-let unsubscribe: (() => void) | undefined;
+const projectedVideo = ref<HTMLVideoElement | null>(null);
+let unsubscribeState: (() => void) | undefined;
+let unsubscribeMediaControl: (() => void) | undefined;
+
+function applyMediaCommand(command: MediaPlaybackCommand): void {
+  const video = projectedVideo.value;
+  if (!video) return;
+
+  if (typeof command.time === 'number' && Number.isFinite(command.time)) {
+    video.currentTime = Math.max(0, command.time);
+  }
+
+  if (command.action === 'play') {
+    void video.play();
+  } else if (command.action === 'pause') {
+    video.pause();
+  }
+}
 
 onMounted(() => {
-  unsubscribe = window.icpStudio?.projection.onState((state) => {
+  unsubscribeState = window.icpStudio?.projection.onState((state) => {
     projectionState.value = state;
+    void nextTick(() => {
+      if (state.mode === 'media' && state.mediaType === 'video') {
+        projectedVideo.value?.pause();
+      }
+    });
   });
+
+  unsubscribeMediaControl = window.icpStudio?.projection.onMediaControl(
+    applyMediaCommand,
+  );
 });
 
 onBeforeUnmount(() => {
-  unsubscribe?.();
+  unsubscribeState?.();
+  unsubscribeMediaControl?.();
 });
 </script>
 
@@ -47,10 +96,10 @@ onBeforeUnmount(() => {
 }
 
 .projector-content,
+.projector-media,
 .projector-blank {
   width: 100vw;
   min-height: 100vh;
-  padding: clamp(42px, 6vw, 110px);
   text-align: center;
 }
 
@@ -59,6 +108,27 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: clamp(42px, 6vw, 110px);
+}
+
+.projector-media {
+  display: grid;
+  overflow: hidden;
+  background: #000;
+  place-items: center;
+}
+
+.projector-media img,
+.projector-media video {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
+}
+
+.projector-blank {
+  display: grid;
+  padding: clamp(42px, 6vw, 110px);
+  place-items: center;
 }
 
 .projector-mark {
