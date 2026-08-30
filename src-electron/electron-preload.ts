@@ -16,8 +16,8 @@ import {
 import { WINDOW_CHANNELS } from '../src/shared/window';
 
 const windowApi = {
-  openSongEditor: (): void => {
-    ipcRenderer.send(WINDOW_CHANNELS.openSongEditor);
+  openSongEditor: (songId?: string): void => {
+    ipcRenderer.send(WINDOW_CHANNELS.openSongEditor, songId);
   },
 };
 
