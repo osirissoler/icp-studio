@@ -647,14 +647,14 @@ function clearActionMessage(): void {
     actionMessageTimer = null;
   }
 
-  clearActionMessage();
+  actionMessage.value = '';
 }
 
 function showActionMessage(message: string): void {
   clearActionMessage();
   actionMessage.value = message;
   actionMessageTimer = window.setTimeout(() => {
-    clearActionMessage();
+    actionMessage.value = '';
     actionMessageTimer = null;
   }, 3500);
 }
