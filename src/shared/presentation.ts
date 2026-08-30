@@ -11,6 +11,9 @@ export interface PresentationFrame {
   id: string;
   label: string;
   text: string;
+  mediaType?: 'image' | 'video';
+  mediaUrl?: string;
+  mimeType?: string;
 }
 
 export interface ServicePresentationItem {
