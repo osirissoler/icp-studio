@@ -51,6 +51,21 @@
             >
               <q-tooltip>Agregar al servicio</q-tooltip>
             </q-btn>
+
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
+              color="primary"
+              icon="present_to_all"
+              class="media-action-button"
+              :disable="!selectedItem"
+              aria-label="Proyectar ahora"
+              @click="presentSelected"
+            >
+              <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
+            </q-btn>
           </div>
 
           <q-banner v-if="actionMessage" dense rounded class="action-banner">
@@ -395,8 +410,17 @@ function addSelectedToService(): void {
 function presentSelected(): void {
   const item = selectedItem.value;
   if (!item) return;
-  addItemToService(item);
-  presentationStore.activateServiceItem(serviceId(item));
+
+  const presentationId = serviceId(item);
+  const alreadyInService = presentationStore.serviceItems.some(
+    (serviceItem) => serviceItem.id === presentationId,
+  );
+
+  if (!alreadyInService) {
+    addItemToService(item);
+  }
+
+  presentationStore.activateServiceItem(presentationId);
 }
 
 onMounted(() => {
