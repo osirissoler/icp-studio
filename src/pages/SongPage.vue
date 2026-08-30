@@ -464,10 +464,8 @@ function moveLivePart(direction: -1 | 1): void {
   const index = livePart.value ? parts.findIndex((part) => part.id === livePart.value?.id) : -1;
   const nextIndex =
     index < 0
-      ? direction === 1
-        ? 0
-        : parts.length - 1
-      : (index + direction + parts.length) % parts.length;
+      ? 0
+      : Math.min(parts.length - 1, Math.max(0, index + direction));
   const part = parts[nextIndex];
   if (part) setLivePart(part);
 }
