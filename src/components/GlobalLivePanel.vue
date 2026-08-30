@@ -47,12 +47,32 @@
 
         <div v-if="section === 'screen'" class="technical-screen">
           <template v-if="liveFrame">
+            <img
+              v-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
+              :src="liveFrame.mediaUrl"
+              :alt="liveItem?.title"
+              class="live-media"
+            />
+            <video
+              v-else-if="liveFrame.mediaType === 'video' && liveFrame.mediaUrl"
+              :key="liveFrame.id"
+              :src="liveFrame.mediaUrl"
+              class="live-media"
+              controls
+              preload="metadata"
+              @play="controlVideo('play', $event)"
+              @pause="controlVideo('pause', $event)"
+              @seeked="controlVideo('seek', $event)"
+            />
             <FittedTechnicalText
+              v-else
               :text="liveFrame.text"
               :min-size="10"
               :max-size="26"
             />
-            <span class="screen-footer">{{ liveItem?.footer }}</span>
+            <span v-if="!liveFrame.mediaType" class="screen-footer">
+              {{ liveItem?.footer }}
+            </span>
           </template>
           <template v-else>
             <q-icon name="live_tv" size="44px" />
@@ -73,7 +93,7 @@
             <span class="position">{{ frameIndex + 1 }}</span>
             <span>
               <strong>{{ frame.label }}</strong>
-              <small>{{ frame.text }}</small>
+              <small>{{ frame.text || (frame.mediaType === 'image' ? 'Imagen' : 'Video') }}</small>
             </span>
           </button>
         </div>
@@ -115,6 +135,17 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 });
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
+
+function controlVideo(
+  action: 'play' | 'pause' | 'seek',
+  event: Event,
+): void {
+  const video = event.currentTarget as HTMLVideoElement;
+  window.icpStudio?.projection.controlMedia({
+    action,
+    time: video.currentTime,
+  });
+}
 
 function sectionTitle(section: LiveSection): string {
   return section === 'screen' ? 'Pantalla en vivo' : 'Contenido activo';
@@ -239,6 +270,12 @@ onBeforeUnmount(() => {
   color: #65748a;
   background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
   text-align: center;
+}
+
+.live-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .screen-footer {
