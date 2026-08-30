@@ -82,6 +82,13 @@ const mediaApi = {
   remove: (itemId: string): Promise<boolean> => {
     return ipcRenderer.invoke(MEDIA_CHANNELS.remove, itemId) as Promise<boolean>;
   },
+  rename: (itemId: string, name: string): Promise<MediaLibraryItem | null> => {
+    return ipcRenderer.invoke(
+      MEDIA_CHANNELS.rename,
+      itemId,
+      name,
+    ) as Promise<MediaLibraryItem | null>;
+  },
 };
 
 const bibleApi = {
