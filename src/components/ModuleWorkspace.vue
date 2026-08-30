@@ -69,6 +69,7 @@
         <div class="panel-content">
           <GlobalServicePanel v-if="panel.id === 'service'" />
           <GlobalLivePanel v-else-if="panel.id === 'live'" />
+          <MonitorsPanel v-else-if="panel.id === 'monitors'" />
           <slot v-else-if="$slots[panel.id]" :name="panel.id" />
 
           <template v-else-if="panel.id === 'search'">
@@ -143,25 +144,21 @@
       </article>
 
       <div
-        v-if="visiblePanels.length >= 2"
-        class="resize-handle resize-handle--left"
+        v-for="separatorIndex in Math.max(0, layoutColumnCount - 1)"
+        :key="`column-separator-${separatorIndex}`"
+        class="resize-handle resize-handle--column"
+        :style="{
+          gridColumn: String(separatorIndex * 2),
+          gridRow: visiblePanels.length >= 4 ? '1 / 4' : '1',
+        }"
         title="Arrastra para cambiar el ancho"
-        @pointerdown="startColumnResize($event, 0)"
+        @pointerdown="startColumnResize($event, separatorIndex - 1)"
       >
         <span></span>
       </div>
 
       <div
-        v-if="visiblePanels.length >= 3"
-        class="resize-handle resize-handle--right"
-        title="Arrastra para cambiar el ancho"
-        @pointerdown="startColumnResize($event, 1)"
-      >
-        <span></span>
-      </div>
-
-      <div
-        v-if="visiblePanels.length === 4"
+        v-if="visiblePanels.length >= 4"
         class="resize-handle resize-handle--center"
         title="Arrastra para cambiar la altura"
         @pointerdown="startRowResize"
@@ -176,6 +173,7 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import GlobalLivePanel from './GlobalLivePanel.vue';
 import GlobalServicePanel from './GlobalServicePanel.vue';
+import MonitorsPanel from './MonitorsPanel.vue';
 import type { WorkspacePanelId } from '../shared/workspace';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
@@ -197,13 +195,14 @@ const workspaceSettings = useWorkspaceSettingsStore();
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
-const columnSizes = reactive<[number, number, number]>([0.9, 1.15, 1.15]);
+const columnSizes = reactive<number[]>([0.9, 1.15, 1.15, 0.9]);
 const topRowPercent = ref(50);
 const panels = ref<WorkspacePanel[]>([
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
   { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
+  { id: 'monitors', title: 'Monitores', icon: 'display_settings' },
 ]);
 
 const props = defineProps<Props>();
@@ -214,9 +213,13 @@ const visiblePanels = computed(() =>
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
+const layoutColumnCount = computed(() => {
+  const panelCount = visiblePanels.value.length;
+  return panelCount >= 4 ? panelCount - 1 : panelCount;
+});
 const workspaceGridStyle = computed(() => {
   const panelCount = visiblePanels.value.length;
-  const columnCount = panelCount === 4 ? 3 : panelCount;
+  const columnCount = layoutColumnCount.value;
   const columns = Array.from(
     { length: columnCount },
     (_, index) => `minmax(220px, ${columnSizes[index] ?? 1}fr)`,
@@ -225,22 +228,30 @@ const workspaceGridStyle = computed(() => {
   return {
     gridTemplateColumns: columns || '1fr',
     gridTemplateRows:
-      panelCount === 4
+      panelCount >= 4
         ? `minmax(0, ${topRowPercent.value}fr) 12px minmax(0, ${100 - topRowPercent.value}fr)`
         : 'minmax(0, 1fr)',
   };
 });
 
 function panelGridPosition(index: number): Record<string, string> {
-  if (visiblePanels.value.length === 4) {
-    const positions = [
-      { gridColumn: '1', gridRow: '1 / 4' },
-      { gridColumn: '3', gridRow: '1' },
-      { gridColumn: '3', gridRow: '3' },
-      { gridColumn: '5', gridRow: '1 / 4' },
-    ];
+  if (visiblePanels.value.length >= 4) {
+    if (index === 0) {
+      return { gridColumn: '1', gridRow: '1 / 4' };
+    }
 
-    return positions[index] ?? {};
+    if (index === 1) {
+      return { gridColumn: '3', gridRow: '1' };
+    }
+
+    if (index === 2) {
+      return { gridColumn: '3', gridRow: '3' };
+    }
+
+    return {
+      gridColumn: String((index - 1) * 2 + 1),
+      gridRow: '1 / 4',
+    };
   }
 
   return {
@@ -314,19 +325,21 @@ function beginResize(
   event.preventDefault();
 }
 
-function startColumnResize(event: PointerEvent, leftIndex: 0 | 1): void {
+function startColumnResize(event: PointerEvent, leftIndex: number): void {
   const containerWidth = workspaceElement.value?.clientWidth;
 
   if (!containerWidth) {
     return;
   }
 
-  const rightIndex = (leftIndex + 1) as 1 | 2;
+  const rightIndex = leftIndex + 1;
   const startX = event.clientX;
-  const initialLeft = columnSizes[leftIndex];
-  const initialRight = columnSizes[rightIndex];
+  const initialLeft = columnSizes[leftIndex] ?? 1;
+  const initialRight = columnSizes[rightIndex] ?? 1;
   const combinedSize = initialLeft + initialRight;
-  const totalSize = columnSizes[0] + columnSizes[1] + columnSizes[2];
+  const totalSize = columnSizes
+    .slice(0, layoutColumnCount.value)
+    .reduce((sum, size) => sum + size, 0);
   const minimumSize = Math.max(0.45, (220 / containerWidth) * totalSize);
 
   beginResize(
@@ -437,15 +450,7 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
-.resize-handle--left {
-  grid-column: 2;
-  grid-row: 1 / 4;
-  cursor: col-resize;
-}
-
-.resize-handle--right {
-  grid-column: 4;
-  grid-row: 1 / 4;
+.resize-handle--column {
   cursor: col-resize;
 }
 
@@ -455,8 +460,7 @@ onBeforeUnmount(() => {
   cursor: row-resize;
 }
 
-.resize-handle--left span,
-.resize-handle--right span {
+.resize-handle--column span {
   width: 3px;
   height: 46px;
   background: #314155;
