@@ -19,19 +19,19 @@ function parsePassageSearch(value: unknown): BiblePassageSearch {
 
   const request = value as Record<string, unknown>;
 
-  if (typeof request.versionCode !== 'string' || request.versionCode.trim().length === 0) {
-    throw new Error('Debes seleccionar una versión bíblica.');
-  }
-
   if (typeof request.reference !== 'string' || request.reference.trim().length === 0) {
     throw new Error('Debes escribir una referencia bíblica.');
   }
 
-  return {
-    versionCode: request.versionCode.trim().slice(0, 30),
-
+  const search: BiblePassageSearch = {
     reference: request.reference.trim().slice(0, 150),
   };
+
+  if (typeof request.versionCode === 'string' && request.versionCode.trim().length > 0) {
+    search.versionCode = request.versionCode.trim().slice(0, 30);
+  }
+
+  return search;
 }
 
 export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
