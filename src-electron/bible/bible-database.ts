@@ -30,6 +30,10 @@ interface BibleVerseRow {
   text: string;
 }
 
+interface DefaultBibleVersionRow {
+  code: string;
+}
+
 interface ParsedBibleReference {
   normalizedBookName: string;
   chapter: number;
@@ -146,9 +150,28 @@ export function getBibleVersions(): BibleVersion[] {
   }));
 }
 
-export function searchBiblePassage(versionCode: string, reference: string): BiblePassage {
-  const database = getBibleDatabase();
+function getDefaultBibleVersionCode(database: DatabaseSync): string {
+  const row = database
+    .prepare(
+      `
+      SELECT code
+      FROM bible_versions
+      WHERE is_default = 1
+      LIMIT 1
+    `,
+    )
+    .get() as unknown as DefaultBibleVersionRow | undefined;
 
+  if (!row) {
+    throw new Error('No existe una versión bíblica predeterminada.');
+  }
+
+  return row.code;
+}
+
+export function searchBiblePassage(versionCode: string | undefined, reference: string): BiblePassage {
+  const database = getBibleDatabase();
+  const effectiveVersionCode = versionCode?.trim() || getDefaultBibleVersionCode(database);
   const parsedReference = parseBibleReference(reference);
 
   const book = database
@@ -165,10 +188,10 @@ export function searchBiblePassage(versionCode: string, reference: string): Bibl
       LIMIT 1
     `,
     )
-    .get(parsedReference.normalizedBookName, versionCode) as unknown as BibleBookRow | undefined;
+    .get(parsedReference.normalizedBookName, effectiveVersionCode) as unknown as BibleBookRow | undefined;
 
   if (!book) {
-    throw new Error(`No se encontró ese libro en la versión ${versionCode}.`);
+    throw new Error(`No se encontró ese libro en la versión ${effectiveVersionCode}.`);
   }
 
   let rows: BibleVerseRow[];
@@ -189,7 +212,7 @@ export function searchBiblePassage(versionCode: string, reference: string): Bibl
         ORDER BY verse_start, verse_end
       `,
       )
-      .all(versionCode, book.bookCode, parsedReference.chapter) as unknown as BibleVerseRow[];
+      .all(effectiveVersionCode, book.bookCode, parsedReference.chapter) as unknown as BibleVerseRow[];
   } else {
     rows = database
       .prepare(
@@ -209,7 +232,7 @@ export function searchBiblePassage(versionCode: string, reference: string): Bibl
       `,
       )
       .all(
-        versionCode,
+        effectiveVersionCode,
         book.bookCode,
         parsedReference.chapter,
         parsedReference.verseEnd,
@@ -222,7 +245,7 @@ export function searchBiblePassage(versionCode: string, reference: string): Bibl
   }
 
   const verses: BibleVerse[] = rows.map((row) => ({
-    versionCode,
+    effectiveVersionCode,
     bookCode: book.bookCode,
     bookName: book.displayName,
     chapter: parsedReference.chapter,
@@ -234,7 +257,7 @@ export function searchBiblePassage(versionCode: string, reference: string): Bibl
   }));
 
   return {
-    versionCode,
+    effectiveVersionCode,
     bookCode: book.bookCode,
     bookName: book.displayName,
     chapter: parsedReference.chapter,
