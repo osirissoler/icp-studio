@@ -4,10 +4,7 @@ import { Notify } from 'quasar';
 import type { ServicePresentationItem } from '../shared/presentation';
 import type { MediaPlaybackCommand } from '../shared/projection';
 
-function showServiceNotification(
-  message: string,
-  icon: string,
-): void {
+function showServiceNotification(message: string, icon: string): void {
   Notify.create({
     message,
     icon,
@@ -29,38 +26,26 @@ export const usePresentationStore = defineStore('presentation', () => {
   const mediaCommand = ref<MediaPlaybackCommand>({ action: 'pause', time: 0 });
   const mediaCommandSequence = ref(0);
 
-  const liveFrame = computed(
-    () => liveItem.value?.frames[liveFrameIndex.value] ?? null,
-  );
+  const liveFrame = computed(() => liveItem.value?.frames[liveFrameIndex.value] ?? null);
 
   function addToService(item: ServicePresentationItem): boolean {
     const alreadyExists = serviceItems.value.some(
-      (serviceItem) =>
-        serviceItem.type === item.type &&
-        serviceItem.sourceId === item.sourceId,
+      (serviceItem) => serviceItem.type === item.type && serviceItem.sourceId === item.sourceId,
     );
 
     if (alreadyExists) {
-      showServiceNotification(
-        `${item.title} ya está agregado al servicio.`,
-        'info',
-      );
+      showServiceNotification(`${item.title} ya está agregado al servicio.`, 'info');
       return false;
     }
 
     serviceItems.value = [...serviceItems.value, item];
     selectedServiceItemId.value = item.id;
-    showServiceNotification(
-      `${item.title} fue agregado al servicio.`,
-      'playlist_add_check',
-    );
+    showServiceNotification(`${item.title} fue agregado al servicio.`, 'playlist_add_check');
     return true;
   }
 
   function updateServiceItem(item: ServicePresentationItem): void {
-    const itemIndex = serviceItems.value.findIndex(
-      (serviceItem) => serviceItem.id === item.id,
-    );
+    const itemIndex = serviceItems.value.findIndex((serviceItem) => serviceItem.id === item.id);
 
     if (itemIndex < 0) {
       return;
@@ -73,9 +58,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     if (liveItem.value?.id === item.id) {
       const currentFrameId = liveFrame.value?.id;
       liveItem.value = item;
-      const nextFrameIndex = item.frames.findIndex(
-        (frame) => frame.id === currentFrameId,
-      );
+      const nextFrameIndex = item.frames.findIndex((frame) => frame.id === currentFrameId);
       liveFrameIndex.value = nextFrameIndex >= 0 ? nextFrameIndex : 0;
       projectCurrentFrame();
     }
@@ -86,9 +69,7 @@ export const usePresentationStore = defineStore('presentation', () => {
   }
 
   function removeFromService(itemId: string): void {
-    serviceItems.value = serviceItems.value.filter(
-      (item) => item.id !== itemId,
-    );
+    serviceItems.value = serviceItems.value.filter((item) => item.id !== itemId);
 
     if (selectedServiceItemId.value === itemId) {
       selectedServiceItemId.value = null;
@@ -104,6 +85,19 @@ export const usePresentationStore = defineStore('presentation', () => {
     }
 
     if (frame.mediaType && frame.mediaUrl) {
+      if (frame.mediaType === 'document') {
+        if (frame.documentFormat) {
+          window.icpStudio?.projection.setState({
+            mode: 'document',
+            url: frame.mediaUrl,
+            name: item.title,
+            format: frame.documentFormat,
+            pageIndex: frame.pageIndex ?? 0,
+          });
+        }
+        return;
+      }
+
       window.icpStudio?.projection.setState({
         mode: 'media',
         mediaType: frame.mediaType,
@@ -158,9 +152,7 @@ export const usePresentationStore = defineStore('presentation', () => {
   }
 
   function activateServiceItem(itemId: string): void {
-    const item = serviceItems.value.find(
-      (serviceItem) => serviceItem.id === itemId,
-    );
+    const item = serviceItems.value.find((serviceItem) => serviceItem.id === itemId);
 
     if (!item || item.frames.length === 0) {
       return;
@@ -192,10 +184,7 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
-    const nextIndex = Math.min(
-      frames.length - 1,
-      Math.max(0, liveFrameIndex.value + direction),
-    );
+    const nextIndex = Math.min(frames.length - 1, Math.max(0, liveFrameIndex.value + direction));
 
     if (nextIndex === liveFrameIndex.value) {
       return;

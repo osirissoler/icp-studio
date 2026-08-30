@@ -6,6 +6,7 @@ import {
   MEDIA_CHANNELS,
   type MediaKind,
   type MediaLibraryItem,
+  type DocumentFormat,
 } from '../../src/shared/media';
 
 type StoredMediaItem = Omit<MediaLibraryItem, 'url'>;
@@ -21,7 +22,8 @@ function catalogPath(): string {
 function mediaFolderName(kind: MediaKind): string {
   if (kind === 'image') return 'images';
   if (kind === 'video') return 'videos';
-  return 'audio';
+  if (kind === 'audio') return 'audio';
+  return 'documents';
 }
 
 function mediaFolder(kind: MediaKind): string {
@@ -70,11 +72,24 @@ function mimeTypeFor(extension: string, kind: MediaKind): string {
     '.aac': 'audio/aac',
     '.ogg': 'audio/ogg',
     '.flac': 'audio/flac',
+    '.pdf': 'application/pdf',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xls': 'application/vnd.ms-excel',
+    '.csv': 'text/csv',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   };
 
   if (kind === 'image') return types[extension] ?? 'image/*';
   if (kind === 'video') return types[extension] ?? 'video/*';
-  return types[extension] ?? 'audio/*';
+  if (kind === 'audio') return types[extension] ?? 'audio/*';
+  return types[extension] ?? 'application/octet-stream';
+}
+
+function documentFormatFor(extension: string): DocumentFormat | undefined {
+  if (extension === '.pdf') return 'pdf';
+  if (['.xlsx', '.xls', '.csv'].includes(extension)) return 'spreadsheet';
+  if (extension === '.pptx') return 'presentation';
+  return undefined;
 }
 
 async function selectMedia(
@@ -89,14 +104,18 @@ async function selectMedia(
         ? 'Seleccionar imágenes'
         : kind === 'video'
           ? 'Seleccionar videos'
-          : 'Seleccionar canciones',
+          : kind === 'audio'
+            ? 'Seleccionar canciones'
+            : 'Seleccionar documentos',
     properties: ['openFile', 'multiSelections'],
     filters: [
       kind === 'image'
         ? { name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }
         : kind === 'video'
           ? { name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'm4v'] }
-          : { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'] },
+          : kind === 'audio'
+            ? { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'] }
+            : { name: 'Documentos', extensions: ['pdf', 'xlsx', 'xls', 'csv', 'pptx'] },
     ],
   });
 
@@ -108,6 +127,7 @@ async function selectMedia(
 
   for (const sourcePath of result.filePaths) {
     const extension = path.extname(sourcePath).toLowerCase();
+    const documentFormat = documentFormatFor(extension);
     const storedName = `${randomUUID()}${extension}`;
     const destination = path.join(mediaFolder(kind), storedName);
     await copyFile(sourcePath, destination);
@@ -120,6 +140,7 @@ async function selectMedia(
       mimeType: mimeTypeFor(extension, kind),
       size: 0,
       createdAt: new Date().toISOString(),
+      ...(documentFormat ? { documentFormat } : {}),
     };
 
     catalog.push(item);
@@ -130,9 +151,7 @@ async function selectMedia(
   return imported;
 }
 
-export function registerMediaIpc(
-  getMainWindow: () => BrowserWindow | null,
-): void {
+export function registerMediaIpc(getMainWindow: () => BrowserWindow | null): void {
   ipcMain.handle(MEDIA_CHANNELS.list, async (_event, kind: MediaKind) => {
     const catalog = await readCatalog();
     return catalog.filter((item) => item.kind === kind).map(withUrl);
@@ -142,21 +161,18 @@ export function registerMediaIpc(
     return selectMedia(getMainWindow(), kind);
   });
 
-  ipcMain.handle(
-    MEDIA_CHANNELS.rename,
-    async (_event, itemId: string, nextName: string) => {
-      const cleanName = nextName.trim().slice(0, 200);
-      if (!cleanName) return null;
+  ipcMain.handle(MEDIA_CHANNELS.rename, async (_event, itemId: string, nextName: string) => {
+    const cleanName = nextName.trim().slice(0, 200);
+    if (!cleanName) return null;
 
-      const catalog = await readCatalog();
-      const item = catalog.find((entry) => entry.id === itemId);
-      if (!item) return null;
+    const catalog = await readCatalog();
+    const item = catalog.find((entry) => entry.id === itemId);
+    if (!item) return null;
 
-      item.name = cleanName;
-      await saveCatalog(catalog);
-      return withUrl(item);
-    },
-  );
+    item.name = cleanName;
+    await saveCatalog(catalog);
+    return withUrl(item);
+  });
 
   ipcMain.handle(MEDIA_CHANNELS.remove, async (_event, itemId: string) => {
     const catalog = await readCatalog();

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, ipcMain, type BrowserWindow } from 'electron';
 import {
   SONG_CHANNELS,
   type DefaultSong,

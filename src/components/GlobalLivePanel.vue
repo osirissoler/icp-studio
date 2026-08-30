@@ -118,12 +118,15 @@
                 </small>
               </div>
             </div>
-            <FittedTechnicalText
-              v-else
-              :text="liveFrame.text"
-              :min-size="10"
-              :max-size="26"
+            <DocumentViewer
+              v-else-if="
+                liveFrame.mediaType === 'document' && liveFrame.mediaUrl && liveFrame.documentFormat
+              "
+              :url="liveFrame.mediaUrl"
+              :format="liveFrame.documentFormat"
+              :page-index="liveFrame.pageIndex ?? 0"
             />
+            <FittedTechnicalText v-else :text="liveFrame.text" :min-size="10" :max-size="26" />
             <span v-if="!liveFrame.mediaType" class="screen-footer">
               {{ liveItem?.footer }}
             </span>
@@ -147,21 +150,15 @@
             <span class="position">{{ frameIndex + 1 }}</span>
             <span>
               <strong>{{ frame.label }}</strong>
-              <small>{{ frame.text || (frame.mediaType === 'image' ? 'Imagen' : frame.mediaType === 'video' ? 'Video' : 'Audio') }}</small>
+              <small>{{ frame.text || mediaFrameLabel(frame.mediaType) }}</small>
             </span>
           </button>
         </div>
 
-        <div v-else class="empty-content">
-          El contenido activo aparecerá aquí.
-        </div>
+        <div v-else class="empty-content">El contenido activo aparecerá aquí.</div>
       </section>
 
-      <div
-        v-if="index === 0"
-        class="section-resizer"
-        @pointerdown="startResize"
-      >
+      <div v-if="index === 0" class="section-resizer" @pointerdown="startResize">
         <span></span>
       </div>
     </template>
@@ -172,19 +169,15 @@
 import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import FittedTechnicalText from './FittedTechnicalText.vue';
+import DocumentViewer from './DocumentViewer.vue';
+import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 
 type LiveSection = 'screen' | 'content';
 
 const presentationStore = usePresentationStore();
-const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } =
-  storeToRefs(presentationStore);
-const {
-  clearLive,
-  controlLiveMedia,
-  moveLiveFrame,
-  setLiveFrame,
-} = presentationStore;
+const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
+const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame } = presentationStore;
 
 const panelElement = ref<HTMLElement | null>(null);
 const seekPosition = ref(0);
@@ -223,6 +216,14 @@ function formatTime(value: number): string {
   return `${minutes}:${seconds}`;
 }
 
+function mediaFrameLabel(mediaType: PresentationFrame['mediaType']): string {
+  if (mediaType === 'image') return 'Imagen';
+  if (mediaType === 'video') return 'Video';
+  if (mediaType === 'audio') return 'Audio';
+  if (mediaType === 'document') return 'Página del documento';
+  return '';
+}
+
 function sectionTitle(section: LiveSection): string {
   return section === 'screen' ? 'Pantalla en vivo' : 'Contenido activo';
 }
@@ -254,8 +255,7 @@ function startResize(event: PointerEvent): void {
   const combined = initialTop + initialBottom;
 
   const handleMove = (moveEvent: PointerEvent) => {
-    const difference =
-      ((moveEvent.clientY - startY) / containerHeight) * combined;
+    const difference = ((moveEvent.clientY - startY) / containerHeight) * combined;
     const nextTop = initialTop + difference;
     const nextBottom = initialBottom - difference;
 

@@ -5,7 +5,8 @@ export const MEDIA_CHANNELS = {
   rename: 'media:rename',
 } as const;
 
-export type MediaKind = 'image' | 'video' | 'audio';
+export type MediaKind = 'image' | 'video' | 'audio' | 'document';
+export type DocumentFormat = 'pdf' | 'spreadsheet' | 'presentation';
 
 export interface MediaLibraryItem {
   id: string;
@@ -16,4 +17,5 @@ export interface MediaLibraryItem {
   size: number;
   createdAt: string;
   url: string;
+  documentFormat?: DocumentFormat;
 }

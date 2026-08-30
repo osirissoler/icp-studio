@@ -50,6 +50,11 @@ function mediaMimeType(mediaPath: string): string {
     '.aac': 'audio/aac',
     '.ogg': 'audio/ogg',
     '.flac': 'audio/flac',
+    '.pdf': 'application/pdf',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xls': 'application/vnd.ms-excel',
+    '.csv': 'text/csv',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   };
 
   return types[extension] ?? 'application/octet-stream';
@@ -125,13 +130,8 @@ function registerMediaProtocol(): void {
 
       const suffixLength = !match[1] && match[2] ? Number(match[2]) : null;
       const requestedStart =
-        suffixLength === null
-          ? Number(match[1])
-          : Math.max(0, fileSize - suffixLength);
-      const requestedEnd =
-        suffixLength === null && match[2]
-          ? Number(match[2])
-          : fileSize - 1;
+        suffixLength === null ? Number(match[1]) : Math.max(0, fileSize - suffixLength);
+      const requestedEnd = suffixLength === null && match[2] ? Number(match[2]) : fileSize - 1;
       const start = Math.max(0, requestedStart);
       const end = Math.min(fileSize - 1, requestedEnd);
 
@@ -142,14 +142,7 @@ function registerMediaProtocol(): void {
         });
       }
 
-      return streamResponse(
-        mediaPath,
-        start,
-        end,
-        fileSize,
-        206,
-        request.method,
-      );
+      return streamResponse(mediaPath, start, end, fileSize, 206, request.method);
     } catch {
       return new Response('Recurso no encontrado', { status: 404 });
     }
@@ -182,10 +175,7 @@ const windows: {
 const projectionWindows = new Map<number, BrowserWindow>();
 
 function notifyRendererDisplays(): void {
-  windows.main?.webContents.send(
-    DISPLAY_CHANNELS.changed,
-    getConnectedDisplays(),
-  );
+  windows.main?.webContents.send(DISPLAY_CHANNELS.changed, getConnectedDisplays());
 }
 
 async function synchronizeProjectionWindows(): Promise<void> {
@@ -194,12 +184,8 @@ async function synchronizeProjectionWindows(): Promise<void> {
     .getAllDisplays()
     .filter((display) => display.id !== primaryDisplay.id);
   const usesOperatorDisplay = externalDisplays.length === 0;
-  const outputDisplays = usesOperatorDisplay
-    ? [primaryDisplay]
-    : externalDisplays;
-  const outputDisplayIds = new Set(
-    outputDisplays.map((display) => display.id),
-  );
+  const outputDisplays = usesOperatorDisplay ? [primaryDisplay] : externalDisplays;
+  const outputDisplayIds = new Set(outputDisplays.map((display) => display.id));
 
   for (const [displayId, projectionWindow] of projectionWindows) {
     if (!outputDisplayIds.has(displayId)) {
@@ -255,9 +241,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
 
   if (
     state.mode === 'media' &&
-    (state.mediaType === 'image' ||
-      state.mediaType === 'video' ||
-      state.mediaType === 'audio') &&
+    (state.mediaType === 'image' || state.mediaType === 'video' || state.mediaType === 'audio') &&
     typeof state.url === 'string' &&
     state.url.startsWith('icp-media://library/') &&
     typeof state.name === 'string'
@@ -267,6 +251,24 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       mediaType: state.mediaType,
       url: state.url,
       name: state.name.slice(0, 300),
+    };
+  }
+
+  if (
+    state.mode === 'document' &&
+    typeof state.url === 'string' &&
+    state.url.startsWith('icp-media://library/documents/') &&
+    typeof state.name === 'string' &&
+    (state.format === 'pdf' || state.format === 'spreadsheet' || state.format === 'presentation') &&
+    typeof state.pageIndex === 'number' &&
+    Number.isInteger(state.pageIndex)
+  ) {
+    return {
+      mode: 'document',
+      url: state.url,
+      name: state.name.slice(0, 300),
+      format: state.format,
+      pageIndex: Math.max(0, state.pageIndex),
     };
   }
 
@@ -301,22 +303,16 @@ function broadcastProjectionState(state: ProjectionState): void {
 }
 
 function registerProjectionIpc(): void {
-  ipcMain.on(
-    PROJECTION_CHANNELS.controlMedia,
-    (event, command: MediaPlaybackCommand) => {
-      if (event.sender !== windows.main?.webContents) return;
-      if (!['play', 'pause', 'seek'].includes(command.action)) return;
+  ipcMain.on(PROJECTION_CHANNELS.controlMedia, (event, command: MediaPlaybackCommand) => {
+    if (event.sender !== windows.main?.webContents) return;
+    if (!['play', 'pause', 'seek'].includes(command.action)) return;
 
-      for (const projectionWindow of projectionWindows.values()) {
-        if (!projectionWindow.isDestroyed()) {
-          projectionWindow.webContents.send(
-            PROJECTION_CHANNELS.mediaControl,
-            command,
-          );
-        }
+    for (const projectionWindow of projectionWindows.values()) {
+      if (!projectionWindow.isDestroyed()) {
+        projectionWindow.webContents.send(PROJECTION_CHANNELS.mediaControl, command);
       }
-    },
-  );
+    }
+  });
 
   ipcMain.on(PROJECTION_CHANNELS.setState, (event, value: unknown) => {
     if (event.sender !== windows.main?.webContents) {
@@ -367,9 +363,7 @@ async function createSongEditorWindow(songId?: string): Promise<void> {
   }
 
   songEditorWindow = new BrowserWindow({
-    title: songId
-      ? 'ICP Studio - Editar alabanza'
-      : 'ICP Studio - Nueva alabanza',
+    title: songId ? 'ICP Studio - Editar alabanza' : 'ICP Studio - Nueva alabanza',
     icon: resolveElectronAssetsPath('icons/icon.png'),
     width: 1100,
     height: 760,
@@ -398,9 +392,7 @@ async function createSongEditorWindow(songId?: string): Promise<void> {
     songEditorWindow = null;
   });
 
-  const editorRoute = songId
-    ? `/song-editor/${encodeURIComponent(songId)}`
-    : '/song-editor/new';
+  const editorRoute = songId ? `/song-editor/${encodeURIComponent(songId)}` : '/song-editor/new';
 
   await loadAppWindow(songEditorWindow, editorRoute);
 }
@@ -411,8 +403,7 @@ function registerWindowIpc(): void {
       return;
     }
 
-    const songId =
-      typeof value === 'string' && value.length <= 200 ? value : undefined;
+    const songId = typeof value === 'string' && value.length <= 200 ? value : undefined;
 
     void createSongEditorWindow(songId);
   });

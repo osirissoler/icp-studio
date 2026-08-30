@@ -1,15 +1,23 @@
 <template>
   <main class="projector-page">
     <Transition name="projection" mode="out-in">
-      <section
-        v-if="projectionState.mode === 'content'"
-        key="content"
-        class="projector-content"
-      >
+      <section v-if="projectionState.mode === 'content'" key="content" class="projector-content">
         <p v-if="projectionState.body">{{ projectionState.body }}</p>
         <footer v-if="projectionState.footer" class="projection-footer">
           {{ projectionState.footer }}
         </footer>
+      </section>
+
+      <section
+        v-else-if="projectionState.mode === 'document'"
+        :key="`${projectionState.url}-${projectionState.pageIndex}`"
+        class="projector-document"
+      >
+        <DocumentViewer
+          :url="projectionState.url"
+          :format="projectionState.format"
+          :page-index="projectionState.pageIndex"
+        />
       </section>
 
       <section
@@ -28,11 +36,7 @@
           :src="projectionState.url"
           preload="auto"
         />
-        <div
-          v-else
-          class="projector-audio"
-          :class="{ 'projector-audio--playing': audioIsPlaying }"
-        >
+        <div v-else class="projector-audio" :class="{ 'projector-audio--playing': audioIsPlaying }">
           <q-icon name="album" />
           <div class="audio-wave" aria-hidden="true">
             <span
@@ -58,10 +62,8 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import type {
-  MediaPlaybackCommand,
-  ProjectionState,
-} from '@/shared/projection';
+import DocumentViewer from '../components/DocumentViewer.vue';
+import type { MediaPlaybackCommand, ProjectionState } from '@/shared/projection';
 
 const projectionState = ref<ProjectionState>({ mode: 'blank' });
 const projectedVideo = ref<HTMLVideoElement | null>(null);
@@ -70,10 +72,7 @@ let unsubscribeState: (() => void) | undefined;
 let unsubscribeMediaControl: (() => void) | undefined;
 
 function applyMediaCommand(command: MediaPlaybackCommand): void {
-  if (
-    projectionState.value.mode === 'media' &&
-    projectionState.value.mediaType === 'audio'
-  ) {
+  if (projectionState.value.mode === 'media' && projectionState.value.mediaType === 'audio') {
     if (command.action === 'play') audioIsPlaying.value = true;
     if (command.action === 'pause') audioIsPlaying.value = false;
   }
@@ -105,9 +104,7 @@ onMounted(() => {
     });
   });
 
-  unsubscribeMediaControl = window.icpStudio?.projection.onMediaControl(
-    applyMediaCommand,
-  );
+  unsubscribeMediaControl = window.icpStudio?.projection.onMediaControl(applyMediaCommand);
 });
 
 onBeforeUnmount(() => {
@@ -128,10 +125,17 @@ onBeforeUnmount(() => {
 
 .projector-content,
 .projector-media,
+.projector-document,
 .projector-blank {
   width: 100vw;
   min-height: 100vh;
   text-align: center;
+}
+
+.projector-document {
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
 }
 
 .projector-content {

@@ -56,7 +56,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'documentos',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/DocumentPage.vue'),
         meta: {
           title: 'Documentos',
           description: 'Previsualiza y presenta documentos y archivos PDF.',

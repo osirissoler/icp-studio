@@ -23,12 +23,18 @@ export interface ProjectionBlankState {
   mode: 'blank';
 }
 
+export interface ProjectionDocumentState {
+  mode: 'document';
+  url: string;
+  name: string;
+  format: 'pdf' | 'spreadsheet' | 'presentation';
+  pageIndex: number;
+}
+
 export interface MediaPlaybackCommand {
   action: 'play' | 'pause' | 'seek';
   time?: number;
 }
 
 export type ProjectionState =
-  | ProjectionContentState
-  | ProjectionMediaState
-  | ProjectionBlankState;
+  ProjectionContentState | ProjectionMediaState | ProjectionDocumentState | ProjectionBlankState;
