@@ -37,6 +37,6 @@ export interface BiblePassage {
 }
 
 export interface BiblePassageSearch {
-  versionCode: string;
+  versionCode?: string;
   reference: string;
 }
