@@ -2,6 +2,7 @@ export const MEDIA_CHANNELS = {
   list: 'media:list',
   select: 'media:select',
   remove: 'media:remove',
+  rename: 'media:rename',
 } as const;
 
 export type MediaKind = 'image' | 'video';
