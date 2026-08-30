@@ -509,6 +509,7 @@ const liveSectionSizes = reactive<Record<LiveSectionId, number>>({
 });
 const draggingLiveSection = ref<LiveSectionId | null>(null);
 let stopLiveResize: (() => void) | null = null;
+let actionMessageTimer: number | null = null;
 const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
@@ -640,6 +641,24 @@ const previewPosition = computed(() => {
   return index >= 0 ? index + 1 : 0;
 });
 
+function clearActionMessage(): void {
+  if (actionMessageTimer !== null) {
+    window.clearTimeout(actionMessageTimer);
+    actionMessageTimer = null;
+  }
+
+  clearActionMessage();
+}
+
+function showActionMessage(message: string): void {
+  clearActionMessage();
+  actionMessage.value = message;
+  actionMessageTimer = window.setTimeout(() => {
+    clearActionMessage();
+    actionMessageTimer = null;
+  }, 3500);
+}
+
 function normalizeText(value: string): string {
   return value
     .normalize('NFD')
@@ -701,7 +720,7 @@ function updateReferenceText(value: string | number | null): void {
 function clearReferenceSearch(): void {
   referenceText.value = '';
   errorMessage.value = '';
-  actionMessage.value = '';
+  clearActionMessage();
   showBookSuggestions.value = true;
 
   void nextTick(() => {
@@ -734,7 +753,7 @@ async function executeSearch(reference: string): Promise<void> {
   showBookSuggestions.value = false;
   searching.value = true;
   errorMessage.value = '';
-  actionMessage.value = '';
+  clearActionMessage();
   searchResult.value = null;
   selectedVerse.value = null;
   selectedVerses.value = [];
@@ -1040,7 +1059,7 @@ function addSelectedToService(): void {
   );
 
   if (alreadyExists) {
-    actionMessage.value = 'Este pasaje ya estaba agregado al servicio.';
+    showActionMessage('Este pasaje ya estaba agregado al servicio.');
     return;
   }
 
@@ -1058,7 +1077,7 @@ function addSelectedToService(): void {
 
   serviceItems.value = [...serviceItems.value, item];
   selectedServiceItemId.value = item.id;
-  actionMessage.value = `${title} fue agregado al servicio.`;
+  showActionMessage(`${title} fue agregado al servicio.`);
 }
 
 function selectServiceItem(item: BibleServiceItem): void {
@@ -1216,6 +1235,7 @@ function startLiveSectionResize(event: PointerEvent): void {
 
 onBeforeUnmount(() => {
   stopLiveResize?.();
+  clearActionMessage();
 });
 
 onMounted(() => {
