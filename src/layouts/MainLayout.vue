@@ -145,7 +145,6 @@ const leftDrawerOpen = ref(true);
 const miniState = ref(true);
 
 const mainNavigation: NavigationItem[] = [
-  { label: 'Servicios', icon: 'event_note', to: '/' },
   { label: 'Alabanzas', icon: 'music_note', to: '/alabanzas' },
   { label: 'Biblia', icon: 'menu_book', to: '/biblia' },
   { label: 'Imágenes', icon: 'image', to: '/imagenes' },
