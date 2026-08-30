@@ -5,11 +5,16 @@ import type {
   BiblePassageSearch,
   BibleVersion,
 } from './src/shared/bible';
+import type { DisplayInfo } from './src/shared/display';
 import type { MediaKind, MediaLibraryItem } from './src/shared/media';
 import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
 import type { DefaultSongCollection } from './src/shared/song';
 
 interface IcpStudioApi {
+  displays: {
+    list: () => Promise<DisplayInfo[]>;
+    onChanged: (listener: (displays: DisplayInfo[]) => void) => () => void;
+  };
   bible: {
     getVersions: () => Promise<BibleVersion[]>;
     getBooks: () => Promise<BibleBook[]>;
