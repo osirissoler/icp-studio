@@ -11,7 +11,7 @@ import {
   type ProjectionState,
 } from '../src/shared/projection';
 import { WINDOW_CHANNELS } from '../src/shared/window';
-import type { DisplayInfo } from '../src/shared/display';
+import { DISPLAY_CHANNELS, type DisplayInfo } from '../src/shared/display';
 import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 import { closeBibleDatabase } from './bible/bible-database';
 import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
@@ -180,6 +180,57 @@ const windows: {
 };
 
 const projectionWindows = new Map<number, BrowserWindow>();
+
+function notifyRendererDisplays(): void {
+  windows.main?.webContents.send(
+    DISPLAY_CHANNELS.changed,
+    getConnectedDisplays(),
+  );
+}
+
+async function synchronizeProjectionWindows(): Promise<void> {
+  const primaryDisplayId = screen.getPrimaryDisplay().id;
+  const externalDisplays = screen
+    .getAllDisplays()
+    .filter((display) => display.id !== primaryDisplayId);
+  const externalDisplayIds = new Set(
+    externalDisplays.map((display) => display.id),
+  );
+
+  for (const [displayId, projectionWindow] of projectionWindows) {
+    if (!externalDisplayIds.has(displayId)) {
+      projectionWindows.delete(displayId);
+      if (!projectionWindow.isDestroyed()) {
+        projectionWindow.close();
+      }
+    }
+  }
+
+  for (const [index, display] of externalDisplays.entries()) {
+    if (!projectionWindows.has(display.id)) {
+      await createProjectionWindow(display, index);
+    }
+  }
+}
+
+function handleDisplayConfigurationChanged(): void {
+  void synchronizeProjectionWindows();
+  notifyRendererDisplays();
+}
+
+function registerDisplayMonitoring(): void {
+  ipcMain.handle(DISPLAY_CHANNELS.list, () => getConnectedDisplays());
+  screen.on('display-added', handleDisplayConfigurationChanged);
+  screen.on('display-removed', handleDisplayConfigurationChanged);
+  screen.on('display-metrics-changed', handleDisplayConfigurationChanged);
+}
+
+function unregisterDisplayMonitoring(): void {
+  ipcMain.removeHandler(DISPLAY_CHANNELS.list);
+  screen.off('display-added', handleDisplayConfigurationChanged);
+  screen.off('display-removed', handleDisplayConfigurationChanged);
+  screen.off('display-metrics-changed', handleDisplayConfigurationChanged);
+}
 
 let songEditorWindow: BrowserWindow | null = null;
 
@@ -460,19 +511,7 @@ async function createWindow(): Promise<void> {
 
   await loadAppWindow(mainWindow);
 
-  const primaryDisplayId = screen.getPrimaryDisplay().id;
-
-  const externalDisplays = screen
-    .getAllDisplays()
-    .filter((display) => display.id !== primaryDisplayId);
-
-  if (externalDisplays.length === 0) {
-    await createProjectionWindow(null, 0);
-  } else {
-    await Promise.all(
-      externalDisplays.map((display, index) => createProjectionWindow(display, index)),
-    );
-  }
+  await synchronizeProjectionWindows();
 
   if (import.meta.env.QUASAR_DEBUG) {
     mainWindow.webContents.openDevTools();
@@ -493,6 +532,7 @@ void app.whenReady().then(() => {
 
   registerProjectionIpc();
   registerWindowIpc();
+  registerDisplayMonitoring();
 
   registerBibleIpc(() => windows.main);
   registerSongIpc(() => windows.main);
@@ -511,6 +551,7 @@ app.on('before-quit', () => {
   unregisterBibleIpc();
   unregisterSongIpc();
   unregisterMediaIpc();
+  unregisterDisplayMonitoring();
   closeBibleDatabase();
 });
 
