@@ -23,11 +23,15 @@
           :alt="projectionState.name"
         />
         <video
-          v-else
+          v-else-if="projectionState.mediaType === 'video'"
           ref="projectedVideo"
           :src="projectionState.url"
           preload="auto"
         />
+        <div v-else class="projector-audio">
+          <q-icon name="album" />
+          <strong>{{ projectionState.name }}</strong>
+        </div>
       </section>
 
       <section v-else key="blank" class="projector-blank">
@@ -123,6 +127,24 @@ onBeforeUnmount(() => {
   width: 100vw;
   height: 100vh;
   object-fit: contain;
+}
+
+.projector-audio {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 24px;
+  color: rgb(216 226 242 / 72%);
+}
+
+.projector-audio :deep(.q-icon) {
+  font-size: clamp(70px, 11vw, 170px);
+  opacity: 0.5;
+}
+
+.projector-audio strong {
+  max-width: 80vw;
+  font-size: clamp(22px, 3vw, 48px);
 }
 
 .projector-blank {
