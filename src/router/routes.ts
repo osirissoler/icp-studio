@@ -15,7 +15,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'alabanzas',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/SongPage.vue'),
         meta: {
           title: 'Alabanzas',
           description: 'Organiza canciones, letras, estrofas y coros.',
