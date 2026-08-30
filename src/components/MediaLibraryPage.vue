@@ -278,12 +278,7 @@ function selectItem(item: MediaLibraryItem): void {
 
 function addMediaFromList(item: MediaLibraryItem): void {
   selectItem(item);
-  const added = addItemToService(item);
-  showMessage(
-    added
-      ? `${item.name} fue agregado al servicio.`
-      : 'Este elemento ya está agregado al servicio.',
-  );
+  addItemToService(item);
 }
 
 function openRenameDialog(item: MediaLibraryItem): void {
@@ -358,12 +353,7 @@ function addItemToService(item: MediaLibraryItem): boolean {
 function addSelectedToService(): void {
   const item = selectedItem.value;
   if (!item) return;
-  const added = addItemToService(item);
-  showMessage(
-    added
-      ? `${item.name} fue agregado al servicio.`
-      : 'Este elemento ya está agregado al servicio.',
-  );
+  addItemToService(item);
 }
 
 function presentSelected(): void {
