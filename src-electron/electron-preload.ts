@@ -14,6 +14,11 @@ import {
   type DefaultSongCollection,
 } from '../src/shared/song';
 import { WINDOW_CHANNELS } from '../src/shared/window';
+import {
+  MEDIA_CHANNELS,
+  type MediaKind,
+  type MediaLibraryItem,
+} from '../src/shared/media';
 
 const windowApi = {
   openSongEditor: (songId?: string): void => {
@@ -46,6 +51,18 @@ const songApi = {
   },
 };
 
+const mediaApi = {
+  list: (kind: MediaKind): Promise<MediaLibraryItem[]> => {
+    return ipcRenderer.invoke(MEDIA_CHANNELS.list, kind) as Promise<MediaLibraryItem[]>;
+  },
+  select: (kind: MediaKind): Promise<MediaLibraryItem[]> => {
+    return ipcRenderer.invoke(MEDIA_CHANNELS.select, kind) as Promise<MediaLibraryItem[]>;
+  },
+  remove: (itemId: string): Promise<boolean> => {
+    return ipcRenderer.invoke(MEDIA_CHANNELS.remove, itemId) as Promise<boolean>;
+  },
+};
+
 const bibleApi = {
   getVersions: (): Promise<BibleVersion[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
@@ -68,6 +85,7 @@ contextBridge.exposeInMainWorld('quasarRuntime', quasarRuntime);
 contextBridge.exposeInMainWorld('icpStudio', {
   bible: bibleApi,
   songs: songApi,
+  media: mediaApi,
   projection: projectionApi,
   windows: windowApi,
 });
