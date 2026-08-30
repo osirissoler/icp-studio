@@ -1112,11 +1112,6 @@ function presentSelectedVerse(): void {
   }
 }
 
-function stopProjection(): void {
-  liveVerse.value = null;
-  window.icpStudio?.projection.setState({ mode: 'blank' });
-}
-
 function clearLiveArea(): void {
   liveServiceItem.value = null;
   liveVerse.value = null;
