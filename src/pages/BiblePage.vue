@@ -830,9 +830,10 @@ function movePreview(direction: -1 | 1): void {
     return;
   }
 
-  const currentIndex = selectedVerse.value
+  const currentVerse = selectedVerse.value;
+  const currentIndex = currentVerse
     ? verses.findIndex(
-        (verse) => verseKey(verse) === verseKey(selectedVerse.value as BibleVerse),
+        (verse) => verseKey(verse) === verseKey(currentVerse),
       )
     : -1;
 
