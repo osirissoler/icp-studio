@@ -7,7 +7,20 @@
     >
       <template #search>
         <div class="bible-search-panel">
-          <div class="bible-search-toolbar">
+          <q-tabs
+            v-model="searchMode"
+            dense
+            no-caps
+            align="left"
+            active-color="primary"
+            indicator-color="primary"
+            class="search-tabs"
+          >
+            <q-tab name="reference" icon="search" label="Referencia" />
+            <q-tab name="manual" icon="touch_app" label="Manual" />
+          </q-tabs>
+
+          <div v-if="searchMode === 'reference'" class="bible-search-toolbar">
             <div class="reference-field">
               <q-input
                 ref="referenceInput"
@@ -15,11 +28,11 @@
                 outlined
                 dense
                 clearable
-                placeholder="Ejemplo: Génesis 4:1-10"
-                class="reference-input"
+                placeholder="Ejemplo: Mateo 4:1-10"
+                class="dark-field"
                 @focus="showBookSuggestions = true"
                 @blur="hideBookSuggestions"
-                @keyup.enter="searchPassage"
+                @keyup.enter="searchReference"
               >
                 <template #prepend>
                   <q-icon name="search" />
@@ -35,8 +48,8 @@
                   @mousedown.prevent="selectBookSuggestion(book)"
                 >
                   <q-icon name="menu_book" />
-                  <span>{{ book.displayName }}</span>
-                  <small>{{ book.abbreviation }}</small>
+                  <span>{{ shortBookName(book.displayName) }}</span>
+                  <small>{{ book.displayName }}</small>
                 </button>
               </div>
             </div>
@@ -46,13 +59,113 @@
               color="primary"
               icon="search"
               aria-label="Buscar pasaje"
-              class="search-button"
+              class="toolbar-button"
               :loading="searching"
-              :disable="!canSearch"
-              @click="searchPassage"
+              :disable="!canSearchReference"
+              @click="searchReference"
             >
               <q-tooltip>Buscar pasaje</q-tooltip>
             </q-btn>
+
+            <q-btn
+              outline
+              color="primary"
+              icon="playlist_add"
+              aria-label="Agregar selección al servicio"
+              class="toolbar-button"
+              :disable="selectedVerses.length === 0"
+              @click="addSelectedToService"
+            >
+              <q-badge v-if="selectedVerses.length" floating color="primary">
+                {{ selectedVerses.length }}
+              </q-badge>
+              <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+            </q-btn>
+          </div>
+
+          <div v-else class="manual-search">
+            <div class="manual-fields">
+              <q-select
+                v-model="manualBookCode"
+                :options="bookOptions"
+                outlined
+                dense
+                emit-value
+                map-options
+                options-dense
+                label="Libro"
+                class="dark-field"
+                @update:model-value="onManualBookChange"
+              />
+
+              <q-select
+                v-model="manualChapter"
+                :options="manualChapters"
+                outlined
+                dense
+                options-dense
+                label="Capítulo"
+                class="dark-field"
+                :disable="!manualBookCode || loadingManualData"
+                @update:model-value="onManualChapterChange"
+              />
+
+              <q-select
+                v-model="manualVerseStart"
+                :options="manualVerseOptions"
+                outlined
+                dense
+                emit-value
+                map-options
+                options-dense
+                label="Desde"
+                class="dark-field"
+                :disable="manualVerseOptions.length === 0"
+              />
+
+              <q-select
+                v-model="manualVerseEnd"
+                :options="manualVerseOptions"
+                outlined
+                dense
+                emit-value
+                map-options
+                options-dense
+                label="Hasta"
+                class="dark-field"
+                :disable="manualVerseOptions.length === 0"
+              />
+            </div>
+
+            <div class="manual-actions">
+              <q-btn
+                unelevated
+                color="primary"
+                icon="search"
+                aria-label="Buscar selección manual"
+                class="toolbar-button"
+                :loading="searching || loadingManualData"
+                :disable="!canSearchManual"
+                @click="searchManualPassage"
+              >
+                <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
+              </q-btn>
+
+              <q-btn
+                outline
+                color="primary"
+                icon="playlist_add"
+                aria-label="Agregar selección al servicio"
+                class="toolbar-button"
+                :disable="selectedVerses.length === 0"
+                @click="addSelectedToService"
+              >
+                <q-badge v-if="selectedVerses.length" floating color="primary">
+                  {{ selectedVerses.length }}
+                </q-badge>
+                <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+              </q-btn>
+            </div>
           </div>
 
           <q-banner v-if="errorMessage" dense rounded class="error-banner">
@@ -60,6 +173,13 @@
               <q-icon name="error_outline" color="negative" />
             </template>
             {{ errorMessage }}
+          </q-banner>
+
+          <q-banner v-if="serviceMessage" dense rounded class="service-banner">
+            <template #avatar>
+              <q-icon name="playlist_add_check" color="positive" />
+            </template>
+            {{ serviceMessage }}
           </q-banner>
 
           <div v-if="searching" class="panel-state">
@@ -97,10 +217,10 @@
 
             <button
               v-for="verse in searchResult.verses"
-              :key="verse.reference"
+              :key="verseKey(verse)"
               type="button"
               class="verse-card"
-              :class="{ 'verse-card--selected': selectedVerse?.reference === verse.reference }"
+              :class="{ 'verse-card--selected': selectedVerse && verseKey(selectedVerse) === verseKey(verse) }"
               @click="selectVerse(verse)"
             >
               <q-checkbox
@@ -124,7 +244,7 @@
             <q-icon name="menu_book" size="44px" />
             <strong>Busca un pasaje bíblico</strong>
             <span>
-              Escribe una referencia como Génesis 4:1-10, Juan 3:16 o Salmos 23.
+              Usa una referencia escrita o selecciona el libro, capítulo y versículos manualmente.
             </span>
           </div>
         </div>
@@ -167,10 +287,9 @@
               color="primary"
               icon="playlist_add"
               label="Agregar al servicio"
-              disable
-            >
-              <q-tooltip>Disponible cuando construyamos el servicio</q-tooltip>
-            </q-btn>
+              :disable="selectedVerses.length === 0"
+              @click="addSelectedToService"
+            />
 
             <q-btn
               unelevated
@@ -235,23 +354,65 @@ import type {
   BibleVerse,
 } from '../shared/bible';
 
+type SearchMode = 'reference' | 'manual';
+
 interface FocusableInput {
   focus: () => void;
+}
+
+interface SelectOption<T> {
+  label: string;
+  value: T;
 }
 
 const books = ref<BibleBook[]>([]);
 const referenceInput = ref<FocusableInput | null>(null);
 const referenceText = ref('');
+const searchMode = ref<SearchMode>('reference');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
 const selectedVerses = ref<BibleVerse[]>([]);
+const serviceVerses = ref<BibleVerse[]>([]);
 const liveVerse = ref<BibleVerse | null>(null);
 const showBookSuggestions = ref(false);
 const searching = ref(false);
+const loadingManualData = ref(false);
 const errorMessage = ref('');
+const serviceMessage = ref('');
 
-const canSearch = computed(
+const manualBookCode = ref<string | null>(null);
+const manualChapter = ref<number | null>(null);
+const manualChapters = ref<number[]>([]);
+const manualChapterPassage = ref<BiblePassage | null>(null);
+const manualVerseStart = ref<string | null>(null);
+const manualVerseEnd = ref<string | null>(null);
+
+const canSearchReference = computed(
   () => referenceText.value.trim().length > 0 && !searching.value,
+);
+
+const canSearchManual = computed(
+  () =>
+    manualBookCode.value !== null &&
+    manualChapter.value !== null &&
+    manualVerseStart.value !== null &&
+    manualVerseEnd.value !== null &&
+    !searching.value &&
+    !loadingManualData.value,
+);
+
+const bookOptions = computed<SelectOption<string>[]>(() =>
+  books.value.map((book) => ({
+    label: shortBookName(book.displayName),
+    value: book.code,
+  })),
+);
+
+const manualVerseOptions = computed<SelectOption<string>[]>(() =>
+  (manualChapterPassage.value?.verses ?? []).map((verse) => ({
+    label: verse.verseLabel,
+    value: verse.verseLabel,
+  })),
 );
 
 const normalizedBookTerm = computed(() => {
@@ -273,36 +434,44 @@ const suggestedBooks = computed(() => {
 
   return books.value
     .filter((book) => {
-      const name = normalizeText(book.displayName);
+      const completeName = normalizeText(book.displayName);
+      const shortName = normalizeText(shortBookName(book.displayName));
       const abbreviation = normalizeText(book.abbreviation);
 
-      return name.startsWith(term) || abbreviation.startsWith(term);
+      return (
+        completeName.includes(term) ||
+        shortName.includes(term) ||
+        abbreviation.includes(term)
+      );
     })
-    .slice(0, 8);
+    .sort((first, second) => {
+      const firstStarts = normalizeText(shortBookName(first.displayName)).startsWith(term);
+      const secondStarts = normalizeText(shortBookName(second.displayName)).startsWith(term);
+
+      return Number(secondStarts) - Number(firstStarts);
+    })
+    .slice(0, 10);
 });
 
 const shouldShowBookSuggestions = computed(
-  () =>
-    showBookSuggestions.value &&
-    suggestedBooks.value.length > 0,
+  () => showBookSuggestions.value && suggestedBooks.value.length > 0,
 );
 
 const allResultsSelected = computed(() => {
   const verses = searchResult.value?.verses ?? [];
 
-  return (
-    verses.length > 0 &&
-    verses.every((verse) => isVerseSelected(verse))
-  );
+  return verses.length > 0 && verses.every((verse) => isVerseSelected(verse));
 });
 
 const previewPosition = computed(() => {
-  if (!selectedVerse.value) {
+  const currentVerse = selectedVerse.value;
+
+  if (!currentVerse) {
     return 0;
   }
 
   const index = selectedVerses.value.findIndex(
-    (verse) => verseKey(verse) === verseKey(selectedVerse.value as BibleVerse),
+    (verse) => verseKey(verse) === verseKey(currentVerse),
   );
 
   return index >= 0 ? index + 1 : 0;
@@ -314,6 +483,10 @@ function normalizeText(value: string): string {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .trim();
+}
+
+function shortBookName(value: string): string {
+  return value.replace(/^San\s+/i, '');
 }
 
 function verseKey(verse: BibleVerse): string {
@@ -354,7 +527,7 @@ function hideBookSuggestions(): void {
 }
 
 function selectBookSuggestion(book: BibleBook): void {
-  referenceText.value = `${book.displayName} `;
+  referenceText.value = `${shortBookName(book.displayName)} `;
   showBookSuggestions.value = false;
 
   void nextTick(() => {
@@ -362,29 +535,135 @@ function selectBookSuggestion(book: BibleBook): void {
   });
 }
 
-async function searchPassage(): Promise<void> {
+async function executeSearch(reference: string): Promise<void> {
   const bibleApi = window.icpStudio?.bible;
 
-  if (!bibleApi || !canSearch.value) {
+  if (!bibleApi) {
     return;
   }
 
   showBookSuggestions.value = false;
   searching.value = true;
   errorMessage.value = '';
+  serviceMessage.value = '';
   searchResult.value = null;
   selectedVerse.value = null;
   selectedVerses.value = [];
 
   try {
-    searchResult.value = await bibleApi.searchPassage({
-      reference: referenceText.value,
-    });
+    const result = await bibleApi.searchPassage({ reference });
+
+    searchResult.value = result;
+    selectedVerses.value = [...result.verses];
+    selectedVerse.value = result.verses[0] ?? null;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
     searching.value = false;
   }
+}
+
+function searchReference(): void {
+  if (!canSearchReference.value) {
+    return;
+  }
+
+  void executeSearch(referenceText.value);
+}
+
+async function onManualBookChange(bookCode: string | null): Promise<void> {
+  manualChapter.value = null;
+  manualChapters.value = [];
+  manualChapterPassage.value = null;
+  manualVerseStart.value = null;
+  manualVerseEnd.value = null;
+
+  if (!bookCode) {
+    return;
+  }
+
+  const bibleApi = window.icpStudio?.bible;
+
+  if (!bibleApi) {
+    return;
+  }
+
+  loadingManualData.value = true;
+  errorMessage.value = '';
+
+  try {
+    manualChapters.value = await bibleApi.getBookChapters({ bookCode });
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    loadingManualData.value = false;
+  }
+}
+
+async function onManualChapterChange(chapter: number | null): Promise<void> {
+  manualChapterPassage.value = null;
+  manualVerseStart.value = null;
+  manualVerseEnd.value = null;
+
+  if (!chapter || !manualBookCode.value) {
+    return;
+  }
+
+  const book = books.value.find(
+    (bookItem) => bookItem.code === manualBookCode.value,
+  );
+
+  const bibleApi = window.icpStudio?.bible;
+
+  if (!book || !bibleApi) {
+    return;
+  }
+
+  loadingManualData.value = true;
+  errorMessage.value = '';
+
+  try {
+    const passage = await bibleApi.searchPassage({
+      reference: `${book.displayName} ${chapter}`,
+    });
+
+    manualChapterPassage.value = passage;
+    manualVerseStart.value = passage.verses[0]?.verseLabel ?? null;
+    manualVerseEnd.value = passage.verses.at(-1)?.verseLabel ?? null;
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    loadingManualData.value = false;
+  }
+}
+
+function searchManualPassage(): void {
+  if (
+    !canSearchManual.value ||
+    !manualBookCode.value ||
+    !manualChapter.value ||
+    !manualVerseStart.value ||
+    !manualVerseEnd.value
+  ) {
+    return;
+  }
+
+  const book = books.value.find(
+    (bookItem) => bookItem.code === manualBookCode.value,
+  );
+
+  if (!book) {
+    return;
+  }
+
+  const verseRange =
+    manualVerseStart.value === manualVerseEnd.value
+      ? manualVerseStart.value
+      : `${manualVerseStart.value}-${manualVerseEnd.value}`;
+
+  void executeSearch(
+    `${book.displayName} ${manualChapter.value}:${verseRange}`,
+  );
 }
 
 function selectVerse(verse: BibleVerse): void {
@@ -399,18 +678,12 @@ function isVerseSelected(verse: BibleVerse): boolean {
   );
 }
 
-function toggleVerseSelection(
-  verse: BibleVerse,
-  selected: boolean,
-): void {
+function toggleVerseSelection(verse: BibleVerse, selected: boolean): void {
   const key = verseKey(verse);
 
   if (selected) {
     if (!isVerseSelected(verse)) {
-      selectedVerses.value = [
-        ...selectedVerses.value,
-        verse,
-      ];
+      selectedVerses.value = [...selectedVerses.value, verse];
     }
 
     selectedVerse.value = verse;
@@ -418,16 +691,11 @@ function toggleVerseSelection(
   }
 
   selectedVerses.value = selectedVerses.value.filter(
-    (selectedVerseItem) =>
-      verseKey(selectedVerseItem) !== key,
+    (selectedItem) => verseKey(selectedItem) !== key,
   );
 
-  if (
-    selectedVerse.value &&
-    verseKey(selectedVerse.value) === key
-  ) {
-    selectedVerse.value =
-      selectedVerses.value[0] ?? null;
+  if (selectedVerse.value && verseKey(selectedVerse.value) === key) {
+    selectedVerse.value = selectedVerses.value[0] ?? null;
   }
 }
 
@@ -435,31 +703,38 @@ function toggleAllResults(selected: boolean): void {
   const verses = searchResult.value?.verses ?? [];
 
   selectedVerses.value = selected ? [...verses] : [];
-  selectedVerse.value = selected
-    ? verses[0] ?? null
-    : null;
+  selectedVerse.value = selected ? verses[0] ?? null : null;
 }
 
 function movePreview(direction: -1 | 1): void {
-  if (
-    selectedVerses.value.length === 0 ||
-    !selectedVerse.value
-  ) {
+  const currentVerse = selectedVerse.value;
+
+  if (selectedVerses.value.length === 0 || !currentVerse) {
     return;
   }
 
   const currentIndex = selectedVerses.value.findIndex(
-    (verse) =>
-      verseKey(verse) ===
-      verseKey(selectedVerse.value as BibleVerse),
+    (verse) => verseKey(verse) === verseKey(currentVerse),
   );
 
   const nextIndex =
     (currentIndex + direction + selectedVerses.value.length) %
     selectedVerses.value.length;
 
-  selectedVerse.value =
-    selectedVerses.value[nextIndex] ?? null;
+  selectedVerse.value = selectedVerses.value[nextIndex] ?? null;
+}
+
+function addSelectedToService(): void {
+  const existingKeys = new Set(serviceVerses.value.map(verseKey));
+  const newVerses = selectedVerses.value.filter(
+    (verse) => !existingKeys.has(verseKey(verse)),
+  );
+
+  serviceVerses.value = [...serviceVerses.value, ...newVerses];
+  serviceMessage.value =
+    newVerses.length > 0
+      ? `${newVerses.length} versículos agregados al servicio.`
+      : 'Los versículos seleccionados ya estaban agregados.';
 }
 
 function presentSelectedVerse(): void {
@@ -478,10 +753,7 @@ function presentSelectedVerse(): void {
 
 function stopProjection(): void {
   liveVerse.value = null;
-
-  window.icpStudio?.projection.setState({
-    mode: 'blank',
-  });
+  window.icpStudio?.projection.setState({ mode: 'blank' });
 }
 
 onMounted(() => {
@@ -499,9 +771,16 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.search-tabs {
+  min-height: 36px;
+  margin: -8px 0 10px;
+  color: #8290a3;
+  border-bottom: 1px solid #263448;
+}
+
 .bible-search-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 40px 40px;
   gap: 8px;
 }
 
@@ -510,13 +789,55 @@ onMounted(() => {
   min-width: 0;
 }
 
+.manual-search {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.manual-fields {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  grid-template-columns: minmax(130px, 1.4fr) repeat(3, minmax(72px, 0.7fr));
+  gap: 7px;
+}
+
+.manual-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.dark-field {
+  min-width: 0;
+}
+
+.dark-field :deep(.q-field__control) {
+  color: #e7edf5;
+  background: #0d1621;
+}
+
+.dark-field :deep(.q-field__native),
+.dark-field :deep(.q-field__input),
+.dark-field :deep(.q-field__label),
+.dark-field :deep(.q-field__prepend),
+.dark-field :deep(.q-field__append) {
+  color: #b8c3d1;
+}
+
+.toolbar-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
 .book-suggestions {
   position: absolute;
   z-index: 20;
   top: calc(100% + 5px);
   right: 0;
   left: 0;
-  max-height: 280px;
+  max-height: 300px;
   padding: 5px;
   overflow-y: auto;
   background: #111b28;
@@ -528,7 +849,7 @@ onMounted(() => {
 .book-suggestion {
   display: grid;
   width: 100%;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 22px minmax(80px, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 9px;
@@ -545,36 +866,30 @@ onMounted(() => {
 }
 
 .book-suggestion small {
+  max-width: 130px;
+  overflow: hidden;
   color: #718198;
   font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.reference-input {
-  min-width: 0;
-}
-
-.reference-input :deep(.q-field__control) {
-  color: #e7edf5;
-  background: #0d1621;
-}
-
-.reference-input :deep(.q-field__native),
-.reference-input :deep(.q-field__prepend) {
-  color: #b8c3d1;
-}
-
-.search-button {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+.error-banner,
+.service-banner {
+  margin-top: 10px;
+  font-size: 12px;
 }
 
 .error-banner {
-  margin-top: 10px;
   color: #fecaca;
   background: rgb(127 29 29 / 24%);
   border: 1px solid rgb(248 113 113 / 25%);
-  font-size: 12px;
+}
+
+.service-banner {
+  color: #bbf7d0;
+  background: rgb(20 83 45 / 25%);
+  border: 1px solid rgb(74 222 128 / 22%);
 }
 
 .panel-state {
@@ -608,19 +923,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
-}
-
-.results-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #a8b4c3;
-  font-size: 11px;
-}
-
-.verse-checkbox {
-  flex: 0 0 auto;
 }
 
 .results-title {
@@ -635,11 +939,19 @@ onMounted(() => {
   font-size: 10px;
 }
 
+.results-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a8b4c3;
+  font-size: 11px;
+}
+
 .verse-card {
   display: flex;
   width: 100%;
   align-items: flex-start;
-  gap: 10px;
+  gap: 9px;
   margin-bottom: 7px;
   padding: 10px;
   color: #bdc8d6;
@@ -657,6 +969,10 @@ onMounted(() => {
 .verse-card--selected {
   background: #12243a;
   border-color: #3b82f6;
+}
+
+.verse-checkbox {
+  flex: 0 0 auto;
 }
 
 .verse-number {
@@ -776,4 +1092,22 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
+@media (max-width: 1180px) {
+  .manual-search {
+    flex-direction: column;
+  }
+
+  .manual-fields,
+  .manual-actions {
+    width: 100%;
+  }
+
+  .manual-fields {
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
+  }
+
+  .manual-actions {
+    justify-content: flex-end;
+  }
+}
 </style>
