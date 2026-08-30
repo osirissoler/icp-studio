@@ -98,6 +98,33 @@ export async function initializeSongLibrary(): Promise<Song[]> {
   return getSongs();
 }
 
+export function updateSong(songId: string, draft: SongDraft): Song {
+  const songs = getSongs();
+  const currentSong = songs.find((song) => song.id === songId);
+
+  if (!currentSong) {
+    throw new Error('No se encontró la alabanza que deseas editar.');
+  }
+
+  const updatedSong: Song = {
+    ...currentSong,
+    title: draft.title.trim(),
+    author: draft.author.trim(),
+    musicalKey: draft.musicalKey.trim(),
+    parts: draft.parts.map((part) => ({ ...part })),
+    updatedAt: new Date().toISOString(),
+  };
+
+  window.localStorage.setItem(
+    SONG_LIBRARY_STORAGE_KEY,
+    JSON.stringify(
+      songs.map((song) => (song.id === songId ? updatedSong : song)),
+    ),
+  );
+
+  return updatedSong;
+}
+
 export function saveSong(draft: SongDraft): Song {
   const songs = getSongs();
   const now = new Date().toISOString();
