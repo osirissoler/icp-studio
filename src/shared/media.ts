@@ -5,7 +5,7 @@ export const MEDIA_CHANNELS = {
   rename: 'media:rename',
 } as const;
 
-export type MediaKind = 'image' | 'video';
+export type MediaKind = 'image' | 'video' | 'audio';
 
 export interface MediaLibraryItem {
   id: string;
