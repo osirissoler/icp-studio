@@ -187,7 +187,14 @@
             <span>Buscando el pasaje...</span>
           </div>
 
-          <div v-else-if="searchResult" class="search-results">
+          <div
+            v-else-if="searchResult"
+            ref="resultsElement"
+            class="search-results"
+            tabindex="0"
+            @keydown.up.prevent="moveResultSelection(-1)"
+            @keydown.down.prevent="moveResultSelection(1)"
+          >
             <div class="results-heading">
               <div>
                 <div class="results-title">
@@ -216,8 +223,9 @@
             </div>
 
             <button
-              v-for="verse in searchResult.verses"
+              v-for="(verse, verseIndex) in searchResult.verses"
               :key="verseKey(verse)"
+              :data-result-index="verseIndex"
               type="button"
               class="verse-card"
               :class="{ 'verse-card--selected': selectedVerse && verseKey(selectedVerse) === verseKey(verse) }"
@@ -367,6 +375,7 @@ interface SelectOption<T> {
 
 const books = ref<BibleBook[]>([]);
 const referenceInput = ref<FocusableInput | null>(null);
+const resultsElement = ref<HTMLElement | null>(null);
 const referenceText = ref('');
 const searchMode = ref<SearchMode>('reference');
 const searchResult = ref<BiblePassage | null>(null);
@@ -556,6 +565,9 @@ async function executeSearch(reference: string): Promise<void> {
     searchResult.value = result;
     selectedVerses.value = [...result.verses];
     selectedVerse.value = result.verses[0] ?? null;
+
+    await nextTick();
+    resultsElement.value?.focus();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -706,6 +718,41 @@ function toggleAllResults(selected: boolean): void {
   selectedVerse.value = selected ? verses[0] ?? null : null;
 }
 
+function moveResultSelection(direction: -1 | 1): void {
+  const verses = searchResult.value?.verses ?? [];
+
+  if (verses.length === 0) {
+    return;
+  }
+
+  const currentVerse = selectedVerse.value;
+  const currentIndex = currentVerse
+    ? verses.findIndex(
+        (verse) => verseKey(verse) === verseKey(currentVerse),
+      )
+    : -1;
+
+  const nextIndex =
+    currentIndex < 0
+      ? direction === 1
+        ? 0
+        : verses.length - 1
+      : (currentIndex + direction + verses.length) %
+        verses.length;
+
+  selectedVerse.value = verses[nextIndex] ?? null;
+
+  const selectedCard =
+    resultsElement.value?.querySelector<HTMLElement>(
+      `[data-result-index="${nextIndex}"]`,
+    );
+
+  selectedCard?.scrollIntoView({
+    block: 'nearest',
+    behavior: 'smooth',
+  });
+}
+
 function movePreview(direction: -1 | 1): void {
   const currentVerse = selectedVerse.value;
 
@@ -765,6 +812,7 @@ onMounted(() => {
 .bible-search-panel,
 .bible-preview-panel,
 .bible-live-panel {
+  container-type: inline-size;
   display: flex;
   min-height: 100%;
   flex: 1;
@@ -779,9 +827,14 @@ onMounted(() => {
 }
 
 .bible-search-toolbar {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) 40px 40px;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.bible-search-toolbar .reference-field {
+  min-width: 180px;
+  flex: 1 1 220px;
 }
 
 .reference-field {
@@ -793,18 +846,20 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .manual-fields {
   display: grid;
   min-width: 0;
   flex: 1;
-  grid-template-columns: minmax(130px, 1.4fr) repeat(3, minmax(72px, 0.7fr));
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
   gap: 7px;
 }
 
 .manual-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 7px;
 }
 
@@ -917,12 +972,14 @@ onMounted(() => {
 
 .search-results {
   margin-top: 14px;
+  outline: none;
 }
 
 .results-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -942,6 +999,7 @@ onMounted(() => {
 .results-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   color: #a8b4c3;
   font-size: 11px;
@@ -1084,6 +1142,7 @@ onMounted(() => {
 .live-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
@@ -1092,11 +1151,7 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
-@media (max-width: 1180px) {
-  .manual-search {
-    flex-direction: column;
-  }
-
+@container (max-width: 430px) {
   .manual-fields,
   .manual-actions {
     width: 100%;
@@ -1108,6 +1163,21 @@ onMounted(() => {
 
   .manual-actions {
     justify-content: flex-end;
+  }
+
+  .results-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@container (max-width: 285px) {
+  .manual-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-actions :deep(.q-btn) {
+    width: 100%;
   }
 }
 </style>
