@@ -1,5 +1,6 @@
-import { BrowserWindow, app, ipcMain, screen, type Display } from 'electron';
+import { BrowserWindow, app, ipcMain, net, protocol, screen, type Display } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import os from 'node:os';
 import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electron/main';
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
@@ -8,8 +9,41 @@ import type { DisplayInfo } from '../src/shared/display';
 import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 import { closeBibleDatabase } from './bible/bible-database';
 import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
+import { registerMediaIpc, unregisterMediaIpc } from './media/media-ipc';
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'icp-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+]);
 
 const platform = process.platform || os.platform();
+
+function registerMediaProtocol(): void {
+  protocol.handle('icp-media', (request) => {
+    const mediaUrl = new URL(request.url);
+
+    if (mediaUrl.hostname !== 'library') {
+      return new Response('Recurso no encontrado', { status: 404 });
+    }
+
+    const mediaRoot = path.resolve(app.getPath('userData'), 'media');
+    const relativePath = decodeURIComponent(mediaUrl.pathname).replace(/^\/+/, '');
+    const mediaPath = path.resolve(mediaRoot, relativePath);
+
+    if (!mediaPath.startsWith(`${mediaRoot}${path.sep}`)) {
+      return new Response('Ruta inválida', { status: 403 });
+    }
+
+    return net.fetch(pathToFileURL(mediaPath).toString());
+  });
+}
 
 function getConnectedDisplays(): DisplayInfo[] {
   const primaryDisplayId = screen.getPrimaryDisplay().id;
@@ -306,6 +340,7 @@ async function createWindow(): Promise<void> {
 
 void app.whenReady().then(() => {
   registerQuasarRuntime();
+  registerMediaProtocol();
 
   const connectedDisplays = getConnectedDisplays();
 
@@ -316,6 +351,7 @@ void app.whenReady().then(() => {
 
   registerBibleIpc(() => windows.main);
   registerSongIpc(() => windows.main);
+  registerMediaIpc(() => windows.main);
 
   void createWindow();
 
@@ -329,6 +365,7 @@ void app.whenReady().then(() => {
 app.on('before-quit', () => {
   unregisterBibleIpc();
   unregisterSongIpc();
+  unregisterMediaIpc();
   closeBibleDatabase();
 });
 
