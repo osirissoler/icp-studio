@@ -101,7 +101,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'configuracion',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/SettingsPage.vue'),
         meta: {
           title: 'Configuración',
           description: 'Configura pantallas, apariencia y control remoto.',
