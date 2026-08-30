@@ -1,5 +1,6 @@
 export const BIBLE_CHANNELS = {
   getVersions: 'bible:get-versions',
+  getBooks: 'bible:get-books',
   searchPassage: 'bible:search-passage',
 } as const;
 
@@ -12,6 +13,13 @@ export interface BibleVersion {
   language: string;
   status: BibleVersionStatus;
   isDefault: boolean;
+}
+
+export interface BibleBook {
+  code: string;
+  displayName: string;
+  abbreviation: string;
+  position: number;
 }
 
 export interface BibleVerse {
