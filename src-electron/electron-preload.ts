@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { quasarRuntime } from '#q-app/electron/preload';
 import {
   BIBLE_CHANNELS,
+  type BibleBook,
   type BiblePassage,
   type BiblePassageSearch,
   type BibleVersion,
@@ -35,6 +36,9 @@ const projectionApi = {
 const bibleApi = {
   getVersions: (): Promise<BibleVersion[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
+  },
+  getBooks: (): Promise<BibleBook[]> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.getBooks) as Promise<BibleBook[]>;
   },
   searchPassage: (request: BiblePassageSearch): Promise<BiblePassage> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.searchPassage, request) as Promise<BiblePassage>;
