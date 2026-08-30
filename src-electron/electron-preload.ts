@@ -4,6 +4,7 @@ import {
   BIBLE_CHANNELS,
   type BibleBook,
   type BibleBookChaptersRequest,
+  type BibleBooksRequest,
   type BiblePassage,
   type BiblePassageSearch,
   type BibleVersion,
@@ -105,8 +106,8 @@ const bibleApi = {
   getVersions: (): Promise<BibleVersion[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
   },
-  getBooks: (): Promise<BibleBook[]> => {
-    return ipcRenderer.invoke(BIBLE_CHANNELS.getBooks) as Promise<BibleBook[]>;
+  getBooks: (request: BibleBooksRequest = {}): Promise<BibleBook[]> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.getBooks, request) as Promise<BibleBook[]>;
   },
   getBookChapters: (request: BibleBookChaptersRequest): Promise<number[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getBookChapters, request) as Promise<number[]>;

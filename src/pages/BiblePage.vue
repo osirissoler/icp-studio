@@ -126,7 +126,6 @@
                 >
                   <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
                 </q-btn>
-
               </div>
             </div>
           </div>
@@ -461,6 +460,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { usePresentationStore } from '../stores/presentation-store';
 import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
+import { getPreferredBibleVersion } from '../services/bible-settings';
 
 const presentationStore = usePresentationStore();
 
@@ -486,6 +486,7 @@ interface BibleServiceItem {
 }
 
 const books = ref<BibleBook[]>([]);
+const preferredVersionCode = ref<string | null>(null);
 const referenceInput = ref<FocusableInput | null>(null);
 const resultsElement = ref<HTMLElement | null>(null);
 const referenceText = ref('');
@@ -661,7 +662,11 @@ async function loadBooks(): Promise<void> {
   }
 
   try {
-    books.value = await bibleApi.getBooks();
+    const versions = await bibleApi.getVersions();
+    preferredVersionCode.value = getPreferredBibleVersion(versions);
+    books.value = await bibleApi.getBooks({
+      ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
+    });
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   }
@@ -713,7 +718,10 @@ async function executeSearch(reference: string): Promise<void> {
   selectedVerses.value = [];
 
   try {
-    const result = await bibleApi.searchPassage({ reference });
+    const result = await bibleApi.searchPassage({
+      reference,
+      ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
+    });
 
     searchResult.value = result;
     selectedVerses.value = [...result.verses];
@@ -759,7 +767,10 @@ async function onManualBookChange(bookCode: string | null): Promise<void> {
   errorMessage.value = '';
 
   try {
-    manualChapters.value = await bibleApi.getBookChapters({ bookCode });
+    manualChapters.value = await bibleApi.getBookChapters({
+      bookCode,
+      ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
+    });
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -790,6 +801,7 @@ async function onManualChapterChange(chapter: number | null): Promise<void> {
   try {
     const passage = await bibleApi.searchPassage({
       reference: `${book.displayName} ${chapter}`,
+      ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
     });
 
     manualChapterPassage.value = passage;
@@ -886,9 +898,7 @@ function moveResultSelection(direction: -1 | 1): void {
     : -1;
 
   const nextIndex =
-    currentIndex < 0
-      ? 0
-      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
+    currentIndex < 0 ? 0 : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   selectedVerse.value = verses[nextIndex] ?? null;
 
@@ -915,9 +925,7 @@ function movePreview(direction: -1 | 1): void {
     : -1;
 
   const nextIndex =
-    currentIndex < 0
-      ? 0
-      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
+    currentIndex < 0 ? 0 : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   selectedVerse.value = verses[nextIndex] ?? null;
 }
@@ -988,11 +996,13 @@ function addSingleVerseToService(verse: BibleVerse): void {
     type: 'bible',
     title: verse.reference,
     footer: verse.reference,
-    frames: [{
-      id: verseKey(verse),
-      label: verse.reference,
-      text: verse.text,
-    }],
+    frames: [
+      {
+        id: verseKey(verse),
+        label: verse.reference,
+        text: verse.text,
+      },
+    ],
   });
 
   if (!wasAdded) return;
@@ -1036,9 +1046,8 @@ function addSelectedToService(): string | null {
 
   if (!wasAdded) {
     return (
-      presentationStore.serviceItems.find(
-        (serviceItem) => serviceItem.sourceId === sourceId,
-      )?.id ?? null
+      presentationStore.serviceItems.find((serviceItem) => serviceItem.sourceId === sourceId)?.id ??
+      null
     );
   }
 
@@ -1054,9 +1063,7 @@ function projectSelectedNow(): void {
   const title = buildServiceTitle(passage);
   const selectedKeys = selectedVerses.value.map(verseKey).join('|');
   const sourceId = `${passage.versionCode}:${title}:${selectedKeys}`;
-  const existingId = presentationStore.serviceItems.find(
-    (item) => item.sourceId === sourceId,
-  )?.id;
+  const existingId = presentationStore.serviceItems.find((item) => item.sourceId === sourceId)?.id;
   const presentationId = existingId ?? addSelectedToService();
 
   if (presentationId) {
@@ -1115,9 +1122,7 @@ function moveLiveVerse(direction: -1 | 1): void {
     ? verses.findIndex((verse) => verseKey(verse) === verseKey(currentVerse))
     : -1;
   const nextIndex =
-    currentIndex < 0
-      ? 0
-      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
+    currentIndex < 0 ? 0 : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   const nextVerse = verses[nextIndex];
 
@@ -1366,7 +1371,6 @@ onMounted(() => {
   background: rgb(127 29 29 / 24%);
   border: 1px solid rgb(248 113 113 / 25%);
 }
-
 
 .panel-state {
   display: flex;

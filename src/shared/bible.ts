@@ -47,6 +47,11 @@ export interface BiblePassage {
 
 export interface BibleBookChaptersRequest {
   bookCode: string;
+  versionCode?: string;
+}
+
+export interface BibleBooksRequest {
+  versionCode?: string;
 }
 
 export interface BiblePassageSearch {

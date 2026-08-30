@@ -1,116 +1,220 @@
 <template>
   <q-page class="settings-page">
     <header class="settings-header">
-      <div>
-        <div class="text-overline text-primary">ICP Studio</div>
-        <h1>Configuración</h1>
-        <p>Personaliza las pantallas y el espacio de trabajo del operador.</p>
-      </div>
+      <div class="text-overline text-primary">ICP Studio</div>
+      <h1>Configuración</h1>
+      <p>Organiza cada área del sistema desde un solo lugar.</p>
     </header>
 
-    <div class="settings-grid">
-      <q-card flat class="settings-card">
-        <q-card-section>
-          <div class="section-title">
-            <q-icon name="display_settings" />
-            <div>
-              <strong>Pantallas detectadas</strong>
-              <small>Se actualizan automáticamente al conectar o desconectar monitores.</small>
-            </div>
-            <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
-              {{ displays.length }}
-            </q-chip>
+    <nav class="settings-navigation" aria-label="Categorías de configuración">
+      <button
+        v-for="item in navigationItems"
+        :key="item.id"
+        type="button"
+        class="settings-navigation-item"
+        :class="{ 'settings-navigation-item--active': activeSection === item.id }"
+        @click="activeSection = item.id"
+      >
+        <q-icon :name="item.icon" />
+        <span>{{ item.label }}</span>
+      </button>
+    </nav>
+
+    <main class="settings-content">
+      <section v-if="activeSection === 'general'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="tune" />
+          <div>
+            <h2>General</h2>
+            <p>Define qué áreas aparecen en el espacio de trabajo.</p>
           </div>
-        </q-card-section>
+        </div>
 
-        <q-separator dark />
+        <q-card flat class="settings-card">
+          <q-list>
+            <q-item v-for="panel in panelOptions" :key="panel.id">
+              <q-item-section avatar
+                ><q-icon :name="panel.icon" color="blue-grey-4"
+              /></q-item-section>
+              <q-item-section>
+                <q-item-label>{{ panel.label }}</q-item-label>
+                <q-item-label caption>{{ panel.description }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-toggle
+                  :model-value="workspaceSettings.visiblePanels[panel.id]"
+                  color="primary"
+                  @update:model-value="workspaceSettings.setPanelVisible(panel.id, Boolean($event))"
+                />
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <q-separator dark />
+          <q-card-actions align="right">
+            <q-btn
+              flat
+              no-caps
+              color="primary"
+              icon="restart_alt"
+              label="Restaurar distribución"
+              @click="workspaceSettings.resetWorkspace"
+            />
+          </q-card-actions>
+        </q-card>
+      </section>
 
-        <q-list separator dark>
-          <q-item v-for="display in displays" :key="display.id">
-            <q-item-section avatar>
-              <q-icon
-                :name="display.isPrimary ? 'laptop_mac' : 'connected_tv'"
-                color="primary"
-              />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ display.label }}</q-item-label>
-              <q-item-label caption>
-                {{ display.bounds.width }} × {{ display.bounds.height }}
-                · Escala {{ display.scaleFactor }}
-              </q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <q-badge
-                :color="display.isPrimary ? 'blue-grey-7' : 'positive'"
-                :label="display.isPrimary ? 'Operador' : 'Proyección'"
-              />
-            </q-item-section>
-          </q-item>
-
-          <q-item v-if="displays.length === 0">
-            <q-item-section>
-              <q-item-label>No fue posible leer las pantallas.</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-card>
-
-      <q-card flat class="settings-card">
-        <q-card-section>
-          <div class="section-title">
-            <q-icon name="dashboard_customize" />
-            <div>
-              <strong>Espacio de trabajo</strong>
-              <small>Selecciona las áreas visibles en todos los módulos.</small>
-            </div>
+      <section v-else-if="activeSection === 'screens'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="display_settings" />
+          <div>
+            <h2>Pantallas</h2>
+            <p>Consulta los monitores que ICP Studio detecta automáticamente.</p>
           </div>
-        </q-card-section>
+        </div>
 
-        <q-separator dark />
+        <q-card flat class="settings-card">
+          <q-card-section class="card-header">
+            <strong>Pantallas detectadas</strong>
+            <q-chip dense color="blue-grey-9" text-color="blue-grey-2">{{
+              displays.length
+            }}</q-chip>
+          </q-card-section>
+          <q-separator dark />
+          <q-list separator dark>
+            <q-item v-for="display in displays" :key="display.id">
+              <q-item-section avatar>
+                <q-icon
+                  :name="display.isPrimary ? 'laptop_mac' : 'connected_tv'"
+                  :color="display.isPrimary ? 'blue-grey-4' : 'positive'"
+                />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ display.label }}</q-item-label>
+                <q-item-label caption
+                  >{{ display.bounds.width }} × {{ display.bounds.height }} · Escala
+                  {{ display.scaleFactor }}</q-item-label
+                >
+              </q-item-section>
+              <q-item-section side>
+                <q-badge
+                  :color="display.isPrimary ? 'blue-grey-7' : 'positive'"
+                  :label="display.isPrimary ? 'Operador' : 'Proyección'"
+                />
+              </q-item-section>
+            </q-item>
+            <q-item v-if="displays.length === 0"
+              ><q-item-section>No fue posible leer las pantallas.</q-item-section></q-item
+            >
+          </q-list>
+        </q-card>
+      </section>
 
-        <q-list>
-          <q-item v-for="panel in panelOptions" :key="panel.id">
-            <q-item-section avatar>
-              <q-icon :name="panel.icon" color="blue-grey-4" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ panel.label }}</q-item-label>
-              <q-item-label caption>{{ panel.description }}</q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <q-toggle
-                :model-value="workspaceSettings.visiblePanels[panel.id]"
-                color="primary"
-                @update:model-value="
-                  workspaceSettings.setPanelVisible(panel.id, Boolean($event))
-                "
-              />
-            </q-item-section>
-          </q-item>
-        </q-list>
+      <section v-else-if="activeSection === 'bible'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="menu_book" />
+          <div>
+            <h2>Biblia</h2>
+            <p>Selecciona la versión principal y administra las versiones instaladas.</p>
+          </div>
+        </div>
 
-        <q-card-actions align="right">
-          <q-btn
-            flat
-            no-caps
-            color="primary"
-            icon="restart_alt"
-            label="Restaurar distribución"
-            @click="workspaceSettings.resetWorkspace"
-          />
-        </q-card-actions>
-      </q-card>
-    </div>
+        <div class="settings-columns">
+          <q-card flat class="settings-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Versiones instaladas</strong
+                ><small>La predeterminada se utilizará en todas las búsquedas.</small>
+              </div>
+              <q-chip dense color="blue-grey-9" text-color="blue-grey-2">{{
+                bibleVersions.length
+              }}</q-chip>
+            </q-card-section>
+            <q-separator dark />
+            <div v-if="loadingBibleVersions" class="loading-state">
+              <q-spinner color="primary" size="30px" /><span>Cargando versiones...</span>
+            </div>
+            <q-list v-else separator dark>
+              <q-item
+                v-for="version in bibleVersions"
+                :key="version.code"
+                clickable
+                @click="selectBibleVersion(version.code)"
+              >
+                <q-item-section avatar>
+                  <q-radio
+                    :model-value="preferredBibleVersionCode"
+                    :val="version.code"
+                    color="primary"
+                    @update:model-value="selectBibleVersion(String($event))"
+                  />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ version.name }}</q-item-label>
+                  <q-item-label caption
+                    >{{ version.shortName }} · {{ version.language.toUpperCase() }}</q-item-label
+                  >
+                </q-item-section>
+                <q-item-section side>
+                  <q-badge
+                    :color="version.status === 'stable' ? 'positive' : 'warning'"
+                    :label="version.status === 'stable' ? 'Estable' : 'Borrador'"
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <div v-if="bibleError" class="settings-error">
+              <q-icon name="error_outline" />{{ bibleError }}
+            </div>
+          </q-card>
+
+          <q-card flat class="settings-card import-card">
+            <q-icon name="upload_file" />
+            <strong>Importar una versión</strong>
+            <p>ICP Studio aceptará paquetes <code>.icpbible</code> y archivos JSON validados.</p>
+            <q-btn outline no-caps color="primary" icon="add" label="Importar versión" disable />
+            <small>El importador de archivos será el próximo paso de este módulo.</small>
+          </q-card>
+        </div>
+      </section>
+
+      <section v-else class="settings-section">
+        <div class="section-heading">
+          <q-icon :name="activeNavigationItem.icon" />
+          <div>
+            <h2>{{ activeNavigationItem.label }}</h2>
+            <p>{{ activeNavigationItem.description }}</p>
+          </div>
+        </div>
+        <q-card flat class="settings-card planned-settings">
+          <q-icon :name="activeNavigationItem.icon" />
+          <strong>Configuración preparada</strong>
+          <p>
+            Aquí agregaremos las opciones de {{ activeNavigationItem.label.toLowerCase() }} cuando
+            desarrollemos ese módulo.
+          </p>
+        </q-card>
+      </section>
+    </main>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { showAppNotification } from '../services/app-notification';
+import { getPreferredBibleVersion, setPreferredBibleVersion } from '../services/bible-settings';
+import type { BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
 import type { WorkspacePanelId } from '../shared/workspace';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
+type SettingsSectionId =
+  'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'remote';
+interface NavigationItem {
+  id: SettingsSectionId;
+  label: string;
+  icon: string;
+  description: string;
+}
 interface PanelOption {
   id: WorkspacePanelId;
   label: string;
@@ -118,53 +222,126 @@ interface PanelOption {
   icon: string;
 }
 
-const workspaceSettings = useWorkspaceSettingsStore();
-const displays = ref<DisplayInfo[]>([]);
-let unsubscribeDisplays: (() => void) | undefined;
+const navigationItems: NavigationItem[] = [
+  { id: 'general', label: 'General', icon: 'tune', description: 'Opciones generales del sistema.' },
+  {
+    id: 'screens',
+    label: 'Pantallas',
+    icon: 'display_settings',
+    description: 'Monitores y salidas de proyección.',
+  },
+  {
+    id: 'bible',
+    label: 'Biblia',
+    icon: 'menu_book',
+    description: 'Versiones y presentación bíblica.',
+  },
+  {
+    id: 'songs',
+    label: 'Alabanzas',
+    icon: 'music_note',
+    description: 'Texto, orden y formato de las alabanzas.',
+  },
+  {
+    id: 'music',
+    label: 'Música',
+    icon: 'audio_file',
+    description: 'Reproducción y archivos de audio.',
+  },
+  {
+    id: 'projection',
+    label: 'Proyección',
+    icon: 'present_to_all',
+    description: 'Temas, tipografía y salida final.',
+  },
+  {
+    id: 'remote',
+    label: 'Control remoto',
+    icon: 'smartphone',
+    description: 'Acceso móvil y código QR.',
+  },
+];
 
 const panelOptions: PanelOption[] = [
   {
     id: 'search',
     label: 'Búsqueda y contenido',
-    description: 'Biblioteca y herramientas del módulo seleccionado.',
+    description: 'Biblioteca y herramientas del módulo.',
     icon: 'search',
   },
   {
     id: 'preview',
     label: 'Previsualización',
-    description: 'Vista privada del contenido antes de presentarlo.',
+    description: 'Vista privada antes de presentar.',
     icon: 'preview',
   },
   {
     id: 'service',
     label: 'Servicio',
-    description: 'Lista organizada del contenido preparado.',
+    description: 'Contenido preparado y organizado.',
     icon: 'playlist_play',
   },
   {
     id: 'live',
     label: 'En vivo',
-    description: 'Contenido y controles de la proyección activa.',
+    description: 'Contenido y controles de proyección.',
     icon: 'sensors',
   },
   {
     id: 'monitors',
     label: 'Monitores',
-    description: 'Pantallas detectadas y salidas de proyección activas.',
+    description: 'Salidas de proyección activas.',
     icon: 'display_settings',
   },
 ];
 
+const workspaceSettings = useWorkspaceSettingsStore();
+const activeSection = ref<SettingsSectionId>('general');
+const displays = ref<DisplayInfo[]>([]);
+const bibleVersions = ref<BibleVersion[]>([]);
+const preferredBibleVersionCode = ref<string | null>(null);
+const loadingBibleVersions = ref(true);
+const bibleError = ref('');
+let unsubscribeDisplays: (() => void) | undefined;
+
+const activeNavigationItem = computed(
+  () => navigationItems.find((item) => item.id === activeSection.value) ?? navigationItems[0]!,
+);
+
+function selectBibleVersion(versionCode: string): void {
+  preferredBibleVersionCode.value = versionCode;
+  setPreferredBibleVersion(versionCode);
+  const version = bibleVersions.value.find((item) => item.code === versionCode);
+  showAppNotification(
+    `${version?.name ?? versionCode} es ahora la versión bíblica predeterminada.`,
+    'positive',
+    'menu_book',
+  );
+}
+
+async function loadBibleVersions(): Promise<void> {
+  loadingBibleVersions.value = true;
+  bibleError.value = '';
+  try {
+    bibleVersions.value = (await window.icpStudio?.bible.getVersions()) ?? [];
+    preferredBibleVersionCode.value = getPreferredBibleVersion(bibleVersions.value);
+  } catch (error) {
+    bibleError.value =
+      error instanceof Error ? error.message : 'No fue posible leer las versiones.';
+  } finally {
+    loadingBibleVersions.value = false;
+  }
+}
+
 onMounted(async () => {
-  displays.value = await window.icpStudio?.displays.list() ?? [];
+  displays.value = (await window.icpStudio?.displays.list()) ?? [];
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
     displays.value = nextDisplays;
   });
+  await loadBibleVersions();
 });
 
-onBeforeUnmount(() => {
-  unsubscribeDisplays?.();
-});
+onBeforeUnmount(() => unsubscribeDisplays?.());
 </script>
 
 <style scoped>
@@ -174,56 +351,125 @@ onBeforeUnmount(() => {
   color: #e8eef6;
   background: #0c131d;
 }
-
-.settings-header h1 {
+.settings-header h1,
+.section-heading h2 {
   margin: 0;
+}
+.settings-header h1 {
   font-size: 28px;
 }
-
-.settings-header p {
+.settings-header p,
+.section-heading p,
+.import-card p,
+.planned-settings p {
   margin: 5px 0 0;
   color: #8492a6;
 }
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(300px, 1fr));
-  gap: 16px;
-  margin-top: 22px;
+.settings-navigation {
+  display: flex;
+  gap: 5px;
+  margin: 20px 0;
+  padding: 5px;
+  overflow-x: auto;
+  background: #101a27;
+  border: 1px solid #263448;
+  border-radius: 10px;
 }
-
+.settings-navigation-item {
+  display: flex;
+  min-width: max-content;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  color: #8492a6;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.settings-navigation-item:hover {
+  color: #dbeafe;
+  background: #162438;
+}
+.settings-navigation-item--active {
+  color: #bfdbfe;
+  background: #173252;
+}
+.settings-content {
+  max-width: 1150px;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-heading > .q-icon {
+  color: #60a5fa;
+  font-size: 29px;
+}
+.section-heading h2 {
+  font-size: 21px;
+}
+.settings-columns {
+  display: grid;
+  grid-template-columns: minmax(380px, 1.4fr) minmax(270px, 0.8fr);
+  gap: 16px;
+}
 .settings-card {
   color: #dbe5f1;
   background: #111b28;
   border: 1px solid #263448;
   border-radius: 10px;
 }
-
-.section-title {
+.card-header {
   display: flex;
   align-items: center;
-  gap: 11px;
+  justify-content: space-between;
+  gap: 12px;
 }
-
-.section-title > .q-icon {
-  color: #60a5fa;
-  font-size: 25px;
-}
-
-.section-title > div {
+.card-header > div {
   display: flex;
-  min-width: 0;
-  flex: 1;
   flex-direction: column;
 }
-
-.section-title small,
+.card-header small,
+.import-card small,
 :deep(.q-item__label--caption) {
   color: #8492a6;
 }
-
+.loading-state,
+.settings-error,
+.import-card,
+.planned-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+}
+.import-card,
+.planned-settings {
+  min-height: 240px;
+  flex-direction: column;
+  text-align: center;
+}
+.import-card > .q-icon,
+.planned-settings > .q-icon {
+  color: #60a5fa;
+  font-size: 46px;
+}
+.settings-error {
+  color: #fca5a5;
+}
+code {
+  color: #93c5fd;
+}
 @media (max-width: 850px) {
-  .settings-grid {
+  .settings-columns {
     grid-template-columns: 1fr;
   }
 }

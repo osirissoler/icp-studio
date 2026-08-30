@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import {
   BIBLE_CHANNELS,
+  type BibleBooksRequest,
   type BibleBookChaptersRequest,
   type BiblePassageSearch,
 } from '../../src/shared/bible';
@@ -54,9 +55,23 @@ function parseBookChaptersRequest(value: unknown): BibleBookChaptersRequest {
     throw new Error('Debes seleccionar un libro bíblico.');
   }
 
-  return {
+  const parsed: BibleBookChaptersRequest = {
     bookCode: request.bookCode.trim().toUpperCase().slice(0, 10),
   };
+
+  if (typeof request.versionCode === 'string' && request.versionCode.trim()) {
+    parsed.versionCode = request.versionCode.trim().slice(0, 30);
+  }
+
+  return parsed;
+}
+
+function parseBooksRequest(value: unknown): BibleBooksRequest {
+  if (typeof value !== 'object' || value === null) return {};
+  const request = value as Record<string, unknown>;
+  return typeof request.versionCode === 'string' && request.versionCode.trim()
+    ? { versionCode: request.versionCode.trim().slice(0, 30) }
+    : {};
 }
 
 export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
@@ -70,16 +85,17 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
     return getBibleVersions();
   });
 
-  ipcMain.handle(BIBLE_CHANNELS.getBooks, (event) => {
+  ipcMain.handle(BIBLE_CHANNELS.getBooks, (event, value: unknown) => {
     validateSender(event, getMainWindow);
-    return getBibleBooks();
+    const request = parseBooksRequest(value);
+    return getBibleBooks(request.versionCode);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.getBookChapters, (event, value: unknown) => {
     validateSender(event, getMainWindow);
 
     const request = parseBookChaptersRequest(value);
-    return getBibleBookChapters(request.bookCode);
+    return getBibleBookChapters(request.bookCode, request.versionCode);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.searchPassage, (event, value: unknown) => {
