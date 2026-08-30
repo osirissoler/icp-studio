@@ -18,12 +18,18 @@ function catalogPath(): string {
   return path.join(mediaRoot(), 'catalog.json');
 }
 
+function mediaFolderName(kind: MediaKind): string {
+  if (kind === 'image') return 'images';
+  if (kind === 'video') return 'videos';
+  return 'audio';
+}
+
 function mediaFolder(kind: MediaKind): string {
-  return path.join(mediaRoot(), kind === 'image' ? 'images' : 'videos');
+  return path.join(mediaRoot(), mediaFolderName(kind));
 }
 
 function itemUrl(item: StoredMediaItem): string {
-  const folder = item.kind === 'image' ? 'images' : 'videos';
+  const folder = mediaFolderName(item.kind);
   return `icp-media://library/${folder}/${encodeURIComponent(item.storedName)}`;
 }
 
@@ -58,9 +64,17 @@ function mimeTypeFor(extension: string, kind: MediaKind): string {
     '.webm': 'video/webm',
     '.mov': 'video/quicktime',
     '.m4v': 'video/x-m4v',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.ogg': 'audio/ogg',
+    '.flac': 'audio/flac',
   };
 
-  return types[extension] ?? (kind === 'image' ? 'image/*' : 'video/*');
+  if (kind === 'image') return types[extension] ?? 'image/*';
+  if (kind === 'video') return types[extension] ?? 'video/*';
+  return types[extension] ?? 'audio/*';
 }
 
 async function selectMedia(
@@ -70,12 +84,19 @@ async function selectMedia(
   if (!mainWindow) return [];
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: kind === 'image' ? 'Seleccionar imágenes' : 'Seleccionar videos',
+    title:
+      kind === 'image'
+        ? 'Seleccionar imágenes'
+        : kind === 'video'
+          ? 'Seleccionar videos'
+          : 'Seleccionar canciones',
     properties: ['openFile', 'multiSelections'],
     filters: [
       kind === 'image'
         ? { name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }
-        : { name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'm4v'] },
+        : kind === 'video'
+          ? { name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'm4v'] }
+          : { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'] },
     ],
   });
 
