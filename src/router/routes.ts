@@ -19,6 +19,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'audio',
+        component: () => import('../pages/AudioPage.vue'),
+        meta: {
+          title: 'Canciones MP3',
+          description: 'Importa, organiza y reproduce archivos de audio.',
+          icon: 'audio_file',
+        },
+      },
+      {
         path: 'biblia',
         component: () => import('../pages/BiblePage.vue'),
         meta: {
