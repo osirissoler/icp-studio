@@ -149,10 +149,16 @@
             @click="setLiveFrame(frameIndex)"
           >
             <span class="position">{{ frameIndex + 1 }}</span>
-            <span>
+            <span class="frame-details">
               <strong>{{ frame.label }}</strong>
               <small>{{ frame.text || mediaFrameLabel(frame.mediaType) }}</small>
             </span>
+            <DocumentThumbnail
+              v-if="frame.mediaType === 'document' && frame.mediaUrl && frame.documentFormat"
+              :url="frame.mediaUrl"
+              :format="frame.documentFormat"
+              :page-index="frame.pageIndex ?? 0"
+            />
           </button>
         </div>
 
@@ -171,6 +177,7 @@ import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import DocumentViewer from './DocumentViewer.vue';
+import DocumentThumbnail from './DocumentThumbnail.vue';
 import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 
@@ -466,7 +473,7 @@ onBeforeUnmount(() => {
   border-color: #3b82f6;
 }
 
-.frame-item > span:last-child {
+.frame-details {
   display: flex;
   min-width: 0;
   flex: 1;
