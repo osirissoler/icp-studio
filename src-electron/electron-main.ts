@@ -45,7 +45,10 @@ function registerMediaProtocol(): void {
       return new Response('Ruta inválida', { status: 403 });
     }
 
-    return net.fetch(pathToFileURL(mediaPath).toString());
+    return net.fetch(pathToFileURL(mediaPath).toString(), {
+      headers: request.headers,
+      bypassCustomProtocolHandlers: true,
+    });
   });
 }
 
