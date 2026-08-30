@@ -93,19 +93,6 @@
             </div>
           </template>
 
-          <template v-else-if="panel.id === 'service'">
-            <div class="screen-label">
-              <span>Orden del servicio</span>
-              <q-icon name="playlist_play" />
-            </div>
-
-            <div class="empty-state">
-              <q-icon name="playlist_add" size="44px" />
-              <div class="empty-title">Servicio vacío</div>
-              <div class="empty-text">Los elementos agregados para el culto aparecerán aquí.</div>
-            </div>
-          </template>
-
           <template v-else-if="panel.id === 'preview'">
             <div class="screen-label">
               <span>Vista del operador</span>
@@ -129,34 +116,6 @@
             </div>
           </template>
 
-          <template v-else>
-            <div class="screen-label">
-              <div class="live-indicator">
-                <span class="live-dot"></span>
-                <span>Salida de proyección</span>
-              </div>
-              <q-icon name="connected_tv" />
-            </div>
-
-            <div class="projection-screen live-screen">
-              <q-icon name="live_tv" size="46px" />
-              <div>Todavía no hay contenido en vivo</div>
-            </div>
-
-            <div class="panel-actions live-actions">
-              <q-btn flat round icon="stop_circle" color="negative">
-                <q-tooltip>Detener proyección</q-tooltip>
-              </q-btn>
-              <q-btn
-                unelevated
-                no-caps
-                color="primary"
-                icon="present_to_all"
-                label="Presentar"
-                disable
-              />
-            </div>
-          </template>
         </div>
       </article>
 
