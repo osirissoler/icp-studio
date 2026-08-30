@@ -894,9 +894,7 @@ function closeEditor(): void {
   padding: 6px;
   overflow: hidden;
   color: #dbe6f3;
-  background:
-    radial-gradient(circle at center, rgb(41 78 132 / 48%), transparent 55%),
-    #05070d;
+  background: radial-gradient(circle at center, rgb(41 78 132 / 48%), transparent 55%), #05070d;
   border: 1px solid #32445d;
   border-radius: 5px;
   font-size: 6px;
@@ -945,9 +943,7 @@ function closeEditor(): void {
   padding: clamp(28px, 6vw, 72px);
   overflow: hidden;
   color: white;
-  background:
-    radial-gradient(circle at 50% 40%, rgb(41 78 132 / 55%), transparent 45%),
-    #05070d;
+  background: radial-gradient(circle at 50% 40%, rgb(41 78 132 / 55%), transparent 45%), #05070d;
   border: 1px solid #314158;
   border-radius: 10px;
   box-shadow: 0 18px 45px rgb(0 0 0 / 28%);
