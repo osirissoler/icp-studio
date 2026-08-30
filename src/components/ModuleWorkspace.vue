@@ -41,7 +41,9 @@
           </header>
 
           <div class="panel-content">
-            <template v-if="panel.id === 'search'">
+            <slot v-if="$slots[panel.id]" :name="panel.id" />
+
+            <template v-else-if="panel.id === 'search'">
               <div class="search-toolbar">
                 <q-input
                   v-model="searchText"
