@@ -14,7 +14,7 @@ export interface ProjectionContentState {
 
 export interface ProjectionMediaState {
   mode: 'media';
-  mediaType: 'image' | 'video';
+  mediaType: 'image' | 'video' | 'audio';
   url: string;
   name: string;
 }
