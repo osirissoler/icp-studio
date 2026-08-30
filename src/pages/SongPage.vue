@@ -242,6 +242,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
+import { usePresentationStore } from '../stores/presentation-store';
 import {
   getSongs,
   initializeSongLibrary,
@@ -253,6 +254,8 @@ import {
   type SongPart,
   type SongPartType,
 } from '../shared/song';
+
+const presentationStore = usePresentationStore();
 
 const songs = ref<Song[]>([]);
 const searchText = ref('');
@@ -378,7 +381,20 @@ function addSelectedSongToService(): void {
   const song = selectedSong.value;
   if (!song) return;
 
-  if (serviceSongs.value.some((item) => item.id === song.id)) {
+  const wasAdded = presentationStore.addToService({
+    id: `service-song-${song.id}`,
+    sourceId: song.id,
+    type: 'song',
+    title: song.title,
+    footer: song.title,
+    frames: song.parts.map((part, index) => ({
+      id: part.id,
+      label: `${index + 1} · ${partLabel(part.type)}`,
+      text: part.content,
+    })),
+  });
+
+  if (!wasAdded) {
     showMessage('Esta alabanza ya está agregada al servicio.');
     return;
   }
