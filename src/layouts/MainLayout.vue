@@ -146,6 +146,7 @@ const miniState = ref(true);
 
 const mainNavigation: NavigationItem[] = [
   { label: 'Alabanzas', icon: 'music_note', to: '/alabanzas' },
+  { label: 'Canciones MP3', icon: 'audio_file', to: '/audio' },
   { label: 'Biblia', icon: 'menu_book', to: '/biblia' },
   { label: 'Imágenes', icon: 'image', to: '/imagenes' },
   { label: 'Videos', icon: 'movie', to: '/videos' },
