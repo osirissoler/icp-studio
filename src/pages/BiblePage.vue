@@ -127,20 +127,6 @@
                   <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
                 </q-btn>
 
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="xs"
-                  color="primary"
-                  icon="present_to_all"
-                  aria-label="Proyectar seleccionados ahora"
-                  class="result-action-button"
-                  :disable="selectedVerses.length === 0"
-                  @click="projectSelectedNow"
-                >
-                  <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
-                </q-btn>
               </div>
             </div>
           </div>
@@ -203,6 +189,21 @@
                   @click="addSelectedToService"
                 >
                   <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+                </q-btn>
+
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  color="primary"
+                  icon="present_to_all"
+                  aria-label="Proyectar seleccionados ahora"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="projectSelectedNow"
+                >
+                  <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
                 </q-btn>
               </div>
             </div>
