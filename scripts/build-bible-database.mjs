@@ -215,6 +215,16 @@ try {
             normalizedAlias,
             book.bookCode,
           );
+
+          const aliasWithoutHonorific =
+            normalizedAlias.replace(/^san\s+/, '');
+
+          if (aliasWithoutHonorific !== normalizedAlias) {
+            insertBookAlias.run(
+              aliasWithoutHonorific,
+              book.bookCode,
+            );
+          }
         }
       }
 
