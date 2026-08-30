@@ -1,6 +1,7 @@
 export const BIBLE_CHANNELS = {
   getVersions: 'bible:get-versions',
   getBooks: 'bible:get-books',
+  getBookChapters: 'bible:get-book-chapters',
   searchPassage: 'bible:search-passage',
 } as const;
 
@@ -42,6 +43,10 @@ export interface BiblePassage {
   verseStart: number | null;
   verseEnd: number | null;
   verses: BibleVerse[];
+}
+
+export interface BibleBookChaptersRequest {
+  bookCode: string;
 }
 
 export interface BiblePassageSearch {
