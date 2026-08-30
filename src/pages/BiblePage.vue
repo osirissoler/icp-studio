@@ -8,19 +8,38 @@
       <template #search>
         <div class="bible-search-panel">
           <div class="bible-search-toolbar">
-            <q-input
-              v-model="referenceText"
-              outlined
-              dense
-              clearable
-              placeholder="Ejemplo: Génesis 4:1-10"
-              class="reference-input"
-              @keyup.enter="searchPassage"
-            >
-              <template #prepend>
-                <q-icon name="search" />
-              </template>
-            </q-input>
+            <div class="reference-field">
+              <q-input
+                ref="referenceInput"
+                v-model="referenceText"
+                outlined
+                dense
+                clearable
+                placeholder="Ejemplo: Génesis 4:1-10"
+                class="reference-input"
+                @focus="showBookSuggestions = true"
+                @blur="hideBookSuggestions"
+                @keyup.enter="searchPassage"
+              >
+                <template #prepend>
+                  <q-icon name="search" />
+                </template>
+              </q-input>
+
+              <div v-if="shouldShowBookSuggestions" class="book-suggestions">
+                <button
+                  v-for="book in suggestedBooks"
+                  :key="book.code"
+                  type="button"
+                  class="book-suggestion"
+                  @mousedown.prevent="selectBookSuggestion(book)"
+                >
+                  <q-icon name="menu_book" />
+                  <span>{{ book.displayName }}</span>
+                  <small>{{ book.abbreviation }}</small>
+                </button>
+              </div>
+            </div>
 
             <q-btn
               unelevated
@@ -57,12 +76,23 @@
                 <div class="results-count">
                   {{ searchResult.verses.length }}
                   {{ searchResult.verses.length === 1 ? 'división' : 'divisiones' }}
+                  · {{ selectedVerses.length }} seleccionados
                 </div>
               </div>
 
-              <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
-                {{ searchResult.versionCode }}
-              </q-chip>
+              <div class="results-actions">
+                <q-checkbox
+                  :model-value="allResultsSelected"
+                  dense
+                  label="Todos"
+                  color="primary"
+                  @update:model-value="toggleAllResults(Boolean($event))"
+                />
+
+                <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
+                  {{ searchResult.versionCode }}
+                </q-chip>
+              </div>
             </div>
 
             <button
@@ -73,6 +103,14 @@
               :class="{ 'verse-card--selected': selectedVerse?.reference === verse.reference }"
               @click="selectVerse(verse)"
             >
+              <q-checkbox
+                :model-value="isVerseSelected(verse)"
+                dense
+                color="primary"
+                class="verse-checkbox"
+                @click.stop
+                @update:model-value="toggleVerseSelection(verse, Boolean($event))"
+              />
               <span class="verse-number">{{ verse.verseLabel }}</span>
               <span class="verse-content">
                 <strong>{{ verse.reference }}</strong>
@@ -110,6 +148,16 @@
               <q-icon name="preview" size="46px" />
               <span>Selecciona un versículo para previsualizarlo</span>
             </template>
+          </div>
+
+          <div v-if="selectedVerses.length > 1" class="preview-navigation">
+            <q-btn flat round dense icon="chevron_left" @click="movePreview(-1)">
+              <q-tooltip>Versículo anterior seleccionado</q-tooltip>
+            </q-btn>
+            <span>{{ previewPosition }} de {{ selectedVerses.length }} seleccionados</span>
+            <q-btn flat round dense icon="chevron_right" @click="movePreview(1)">
+              <q-tooltip>Versículo siguiente seleccionado</q-tooltip>
+            </q-btn>
           </div>
 
           <div class="preview-actions">
@@ -179,13 +227,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
-import type { BiblePassage, BibleVerse } from '../shared/bible';
+import type {
+  BibleBook,
+  BiblePassage,
+  BibleVerse,
+} from '../shared/bible';
+
+interface FocusableInput {
+  focus: () => void;
+}
+
+const books = ref<BibleBook[]>([]);
+const referenceInput = ref<FocusableInput | null>(null);
 const referenceText = ref('');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
+const selectedVerses = ref<BibleVerse[]>([]);
 const liveVerse = ref<BibleVerse | null>(null);
+const showBookSuggestions = ref(false);
 const searching = ref(false);
 const errorMessage = ref('');
 
@@ -193,10 +254,112 @@ const canSearch = computed(
   () => referenceText.value.trim().length > 0 && !searching.value,
 );
 
+const normalizedBookTerm = computed(() => {
+  const value = referenceText.value.trim();
+
+  if (!value || /\s\d/.test(value)) {
+    return '';
+  }
+
+  return normalizeText(value);
+});
+
+const suggestedBooks = computed(() => {
+  const term = normalizedBookTerm.value;
+
+  if (!term) {
+    return [];
+  }
+
+  return books.value
+    .filter((book) => {
+      const name = normalizeText(book.displayName);
+      const abbreviation = normalizeText(book.abbreviation);
+
+      return name.startsWith(term) || abbreviation.startsWith(term);
+    })
+    .slice(0, 8);
+});
+
+const shouldShowBookSuggestions = computed(
+  () =>
+    showBookSuggestions.value &&
+    suggestedBooks.value.length > 0,
+);
+
+const allResultsSelected = computed(() => {
+  const verses = searchResult.value?.verses ?? [];
+
+  return (
+    verses.length > 0 &&
+    verses.every((verse) => isVerseSelected(verse))
+  );
+});
+
+const previewPosition = computed(() => {
+  if (!selectedVerse.value) {
+    return 0;
+  }
+
+  const index = selectedVerses.value.findIndex(
+    (verse) => verseKey(verse) === verseKey(selectedVerse.value as BibleVerse),
+  );
+
+  return index >= 0 ? index + 1 : 0;
+});
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+function verseKey(verse: BibleVerse): string {
+  return [
+    verse.versionCode,
+    verse.bookCode,
+    verse.chapter,
+    verse.verseLabel,
+  ].join(':');
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
     : 'No fue posible completar la operación.';
+}
+
+async function loadBooks(): Promise<void> {
+  const bibleApi = window.icpStudio?.bible;
+
+  if (!bibleApi) {
+    errorMessage.value =
+      'El módulo Biblia solamente está disponible en la aplicación de escritorio.';
+    return;
+  }
+
+  try {
+    books.value = await bibleApi.getBooks();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  }
+}
+
+function hideBookSuggestions(): void {
+  window.setTimeout(() => {
+    showBookSuggestions.value = false;
+  }, 120);
+}
+
+function selectBookSuggestion(book: BibleBook): void {
+  referenceText.value = `${book.displayName} `;
+  showBookSuggestions.value = false;
+
+  void nextTick(() => {
+    referenceInput.value?.focus();
+  });
 }
 
 async function searchPassage(): Promise<void> {
@@ -206,10 +369,12 @@ async function searchPassage(): Promise<void> {
     return;
   }
 
+  showBookSuggestions.value = false;
   searching.value = true;
   errorMessage.value = '';
   searchResult.value = null;
   selectedVerse.value = null;
+  selectedVerses.value = [];
 
   try {
     searchResult.value = await bibleApi.searchPassage({
@@ -224,6 +389,77 @@ async function searchPassage(): Promise<void> {
 
 function selectVerse(verse: BibleVerse): void {
   selectedVerse.value = verse;
+}
+
+function isVerseSelected(verse: BibleVerse): boolean {
+  const key = verseKey(verse);
+
+  return selectedVerses.value.some(
+    (selected) => verseKey(selected) === key,
+  );
+}
+
+function toggleVerseSelection(
+  verse: BibleVerse,
+  selected: boolean,
+): void {
+  const key = verseKey(verse);
+
+  if (selected) {
+    if (!isVerseSelected(verse)) {
+      selectedVerses.value = [
+        ...selectedVerses.value,
+        verse,
+      ];
+    }
+
+    selectedVerse.value = verse;
+    return;
+  }
+
+  selectedVerses.value = selectedVerses.value.filter(
+    (selectedVerseItem) =>
+      verseKey(selectedVerseItem) !== key,
+  );
+
+  if (
+    selectedVerse.value &&
+    verseKey(selectedVerse.value) === key
+  ) {
+    selectedVerse.value =
+      selectedVerses.value[0] ?? null;
+  }
+}
+
+function toggleAllResults(selected: boolean): void {
+  const verses = searchResult.value?.verses ?? [];
+
+  selectedVerses.value = selected ? [...verses] : [];
+  selectedVerse.value = selected
+    ? verses[0] ?? null
+    : null;
+}
+
+function movePreview(direction: -1 | 1): void {
+  if (
+    selectedVerses.value.length === 0 ||
+    !selectedVerse.value
+  ) {
+    return;
+  }
+
+  const currentIndex = selectedVerses.value.findIndex(
+    (verse) =>
+      verseKey(verse) ===
+      verseKey(selectedVerse.value as BibleVerse),
+  );
+
+  const nextIndex =
+    (currentIndex + direction + selectedVerses.value.length) %
+    selectedVerses.value.length;
+
+  selectedVerse.value =
+    selectedVerses.value[nextIndex] ?? null;
 }
 
 function presentSelectedVerse(): void {
@@ -248,6 +484,9 @@ function stopProjection(): void {
   });
 }
 
+onMounted(() => {
+  void loadBooks();
+});
 </script>
 
 <style scoped>
@@ -264,6 +503,50 @@ function stopProjection(): void {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) 40px;
   gap: 8px;
+}
+
+.reference-field {
+  position: relative;
+  min-width: 0;
+}
+
+.book-suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 280px;
+  padding: 5px;
+  overflow-y: auto;
+  background: #111b28;
+  border: 1px solid #314158;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgb(0 0 0 / 35%);
+}
+
+.book-suggestion {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  color: #d6e0ec;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.book-suggestion:hover {
+  background: #1a2b40;
+}
+
+.book-suggestion small {
+  color: #718198;
+  font-size: 10px;
 }
 
 .reference-input {
@@ -326,6 +609,18 @@ function stopProjection(): void {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+}
+
+.results-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a8b4c3;
+  font-size: 11px;
+}
+
+.verse-checkbox {
+  flex: 0 0 auto;
 }
 
 .results-title {
@@ -457,6 +752,16 @@ function stopProjection(): void {
 .screen-version {
   color: #77869a;
   font-size: 10px;
+}
+
+.preview-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #8c9aab;
+  font-size: 11px;
 }
 
 .preview-actions,
