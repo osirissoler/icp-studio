@@ -3,6 +3,7 @@ import { quasarRuntime } from '#q-app/electron/preload';
 import {
   BIBLE_CHANNELS,
   type BibleBook,
+  type BibleBookChaptersRequest,
   type BiblePassage,
   type BiblePassageSearch,
   type BibleVersion,
@@ -39,6 +40,9 @@ const bibleApi = {
   },
   getBooks: (): Promise<BibleBook[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getBooks) as Promise<BibleBook[]>;
+  },
+  getBookChapters: (request: BibleBookChaptersRequest): Promise<number[]> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.getBookChapters, request) as Promise<number[]>;
   },
   searchPassage: (request: BiblePassageSearch): Promise<BiblePassage> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.searchPassage, request) as Promise<BiblePassage>;
