@@ -26,6 +26,7 @@ const {
   mediaCommandSequence,
 } = storeToRefs(presentationStore);
 const {
+  controlLiveMedia,
   setLiveMediaPlaying,
   updateLiveMediaDuration,
   updateLiveMediaTime,
@@ -49,8 +50,9 @@ function handleTimeUpdate(event: Event): void {
   updateLiveMediaTime(media.currentTime);
 }
 
-function handleEnded(): void {
-  setLiveMediaPlaying(false);
+function handleEnded(event: Event): void {
+  const media = event.currentTarget as HTMLMediaElement;
+  controlLiveMedia({ action: 'pause', time: media.duration });
 }
 
 watch(
