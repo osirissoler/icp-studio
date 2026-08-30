@@ -193,21 +193,6 @@
                   dense
                   size="xs"
                   color="primary"
-                  icon="add_to_queue"
-                  aria-label="Agregar seleccionados a previsualización"
-                  class="result-action-button"
-                  :disable="selectedVerses.length === 0"
-                  @click="addSelectedToPreview"
-                >
-                  <q-tooltip>Agregar seleccionados a previsualización</q-tooltip>
-                </q-btn>
-
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="xs"
-                  color="primary"
                   icon="playlist_add"
                   aria-label="Agregar seleccionados al servicio"
                   class="result-action-button"
@@ -320,42 +305,11 @@
             </template>
           </div>
 
-          <div v-if="previewVerses.length" class="preview-queue">
-            <button
-              v-for="(verse, index) in previewVerses"
-              :key="verseKey(verse)"
-              type="button"
-              class="preview-queue-item"
-              :class="{
-                'preview-queue-item--active':
-                  selectedVerse && verseKey(selectedVerse) === verseKey(verse),
-              }"
-              @click="selectPreviewVerse(verse)"
-            >
-              <span class="preview-position">{{ index + 1 }}</span>
-              <span class="preview-item-content">
-                <strong>{{ verse.reference }}</strong>
-                <small>{{ verse.text }}</small>
-              </span>
-              <q-btn
-                flat
-                round
-                dense
-                size="sm"
-                icon="close"
-                aria-label="Quitar de previsualización"
-                @click.stop="removePreviewVerse(verse)"
-              >
-                <q-tooltip>Quitar de previsualización</q-tooltip>
-              </q-btn>
-            </button>
-          </div>
-
-          <div v-if="previewVerses.length > 1" class="preview-navigation">
+          <div v-if="(searchResult?.verses.length ?? 0) > 1" class="preview-navigation">
             <q-btn flat round dense icon="chevron_left" @click="movePreview(-1)">
               <q-tooltip>Versículo anterior en previsualización</q-tooltip>
             </q-btn>
-            <span>{{ previewPosition }} de {{ previewVerses.length }}</span>
+            <span>{{ previewPosition }} de {{ searchResult?.verses.length ?? 0 }}</span>
             <q-btn flat round dense icon="chevron_right" @click="movePreview(1)">
               <q-tooltip>Versículo siguiente en previsualización</q-tooltip>
             </q-btn>
@@ -444,7 +398,6 @@ const searchMode = ref<SearchMode>('reference');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
 const selectedVerses = ref<BibleVerse[]>([]);
-const previewVerses = ref<BibleVerse[]>([]);
 const serviceVerses = ref<BibleVerse[]>([]);
 const liveVerse = ref<BibleVerse | null>(null);
 const showBookSuggestions = ref(false);
@@ -556,7 +509,7 @@ const previewPosition = computed(() => {
     return 0;
   }
 
-  const index = previewVerses.value.findIndex(
+  const index = (searchResult.value?.verses ?? []).findIndex(
     (verse) => verseKey(verse) === verseKey(currentVerse),
   );
 
@@ -871,57 +824,22 @@ function moveResultSelection(direction: -1 | 1): void {
 }
 
 function movePreview(direction: -1 | 1): void {
-  const currentVerse = selectedVerse.value;
+  const verses = searchResult.value?.verses ?? [];
 
-  if (previewVerses.value.length === 0) {
+  if (verses.length === 0) {
     return;
   }
 
-  const currentIndex = currentVerse
-    ? previewVerses.value.findIndex(
-        (verse) => verseKey(verse) === verseKey(currentVerse),
+  const currentIndex = selectedVerse.value
+    ? verses.findIndex(
+        (verse) => verseKey(verse) === verseKey(selectedVerse.value as BibleVerse),
       )
     : -1;
 
   const nextIndex =
-    (currentIndex + direction + previewVerses.value.length) %
-    previewVerses.value.length;
+    (currentIndex + direction + verses.length) % verses.length;
 
-  selectedVerse.value = previewVerses.value[nextIndex] ?? null;
-}
-
-function addSelectedToPreview(): void {
-  const existingKeys = new Set(previewVerses.value.map(verseKey));
-  const newVerses = selectedVerses.value.filter(
-    (verse) => !existingKeys.has(verseKey(verse)),
-  );
-
-  previewVerses.value = [...previewVerses.value, ...newVerses];
-
-  if (newVerses[0]) {
-    selectedVerse.value = newVerses[0];
-  }
-
-  actionMessage.value =
-    newVerses.length > 0
-      ? `${newVerses.length} versículos agregados a previsualización.`
-      : 'Los versículos seleccionados ya estaban en previsualización.';
-}
-
-function selectPreviewVerse(verse: BibleVerse): void {
-  selectedVerse.value = verse;
-}
-
-function removePreviewVerse(verse: BibleVerse): void {
-  const key = verseKey(verse);
-
-  previewVerses.value = previewVerses.value.filter(
-    (previewVerse) => verseKey(previewVerse) !== key,
-  );
-
-  if (selectedVerse.value && verseKey(selectedVerse.value) === key) {
-    selectedVerse.value = previewVerses.value[0] ?? null;
-  }
+  selectedVerse.value = verses[nextIndex] ?? null;
 }
 
 function addSelectedToService(): void {
@@ -1334,72 +1252,6 @@ onMounted(() => {
 
 .service-empty {
   min-height: 180px;
-}
-
-.preview-queue {
-  display: flex;
-  max-height: 180px;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 9px;
-  overflow-y: auto;
-}
-
-.preview-queue-item {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
-  color: #bac6d4;
-  background: #0d1621;
-  border: 1px solid #26364b;
-  border-radius: 7px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.preview-queue-item:hover,
-.preview-queue-item--active {
-  background: #12243a;
-  border-color: #3b82f6;
-}
-
-.preview-position {
-  display: flex;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
-  align-items: center;
-  justify-content: center;
-  color: #93c5fd;
-  background: #172d49;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.preview-item-content {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.preview-item-content strong {
-  color: #dce6f2;
-  font-size: 10px;
-}
-
-.preview-item-content small {
-  overflow: hidden;
-  color: #8492a6;
-  font-size: 10px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .panel-label {
