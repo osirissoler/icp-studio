@@ -245,24 +245,31 @@
           <div class="panel-label">
             <span>Orden del servicio</span>
             <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
-              {{ serviceVerses.length }}
+              {{ serviceItems.length }}
             </q-chip>
           </div>
 
-          <div v-if="serviceVerses.length" class="service-list">
+          <div v-if="serviceItems.length" class="service-list">
             <button
-              v-for="(verse, index) in serviceVerses"
-              :key="verseKey(verse)"
+              v-for="(item, index) in serviceItems"
+              :key="item.id"
               type="button"
               class="service-item"
-              :class="{ 'service-item--active': selectedVerse && verseKey(selectedVerse) === verseKey(verse) }"
-              @click="selectServiceVerse(verse)"
+              :class="{
+                'service-item--active': selectedServiceItemId === item.id,
+              }"
+              @click="selectServiceItem(item)"
             >
               <span class="service-position">{{ index + 1 }}</span>
               <span class="service-item-content">
-                <strong>{{ verse.reference }}</strong>
-                <small>{{ verse.text }}</small>
+                <strong>{{ item.title }}</strong>
               </span>
+              <q-icon name="menu_book" size="16px" color="blue-grey-5">
+                <q-tooltip>
+                  {{ item.verses.length }}
+                  {{ item.verses.length === 1 ? 'versículo' : 'versículos' }}
+                </q-tooltip>
+              </q-icon>
               <q-btn
                 flat
                 round
@@ -270,7 +277,7 @@
                 size="sm"
                 icon="close"
                 aria-label="Quitar del servicio"
-                @click.stop="removeServiceVerse(verse)"
+                @click.stop="removeServiceItem(item.id)"
               >
                 <q-tooltip>Quitar del servicio</q-tooltip>
               </q-btn>
@@ -280,7 +287,7 @@
           <div v-else class="panel-state service-empty">
             <q-icon name="playlist_add" size="40px" />
             <strong>Servicio vacío</strong>
-            <span>Agrega versículos con el botón + del buscador.</span>
+            <span>Agrega pasajes con el botón del buscador.</span>
           </div>
         </div>
       </template>
@@ -390,6 +397,14 @@ interface SelectOption<T> {
   value: T;
 }
 
+interface BibleServiceItem {
+  id: string;
+  type: 'bible';
+  title: string;
+  versionCode: string;
+  verses: BibleVerse[];
+}
+
 const books = ref<BibleBook[]>([]);
 const referenceInput = ref<FocusableInput | null>(null);
 const resultsElement = ref<HTMLElement | null>(null);
@@ -398,7 +413,8 @@ const searchMode = ref<SearchMode>('reference');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
 const selectedVerses = ref<BibleVerse[]>([]);
-const serviceVerses = ref<BibleVerse[]>([]);
+const serviceItems = ref<BibleServiceItem[]>([]);
+const selectedServiceItemId = ref<string | null>(null);
 const liveVerse = ref<BibleVerse | null>(null);
 const showBookSuggestions = ref(false);
 const searching = ref(false);
@@ -843,32 +859,64 @@ function movePreview(direction: -1 | 1): void {
   selectedVerse.value = verses[nextIndex] ?? null;
 }
 
+function buildServiceTitle(passage: BiblePassage): string {
+  const firstVerse = passage.verses[0];
+  const lastVerse = passage.verses.at(-1);
+  const range =
+    firstVerse && lastVerse
+      ? firstVerse.verseLabel === lastVerse.verseLabel
+        ? firstVerse.verseLabel
+        : `${firstVerse.verseLabel}-${lastVerse.verseLabel}`
+      : '';
+
+  return range
+    ? `${passage.bookName} ${passage.chapter}:${range}`
+    : `${passage.bookName} ${passage.chapter}`;
+}
+
 function addSelectedToService(): void {
-  const existingKeys = new Set(serviceVerses.value.map(verseKey));
-  const newVerses = selectedVerses.value.filter(
-    (verse) => !existingKeys.has(verseKey(verse)),
+  const passage = searchResult.value;
+
+  if (!passage || selectedVerses.value.length === 0) {
+    return;
+  }
+
+  const title = buildServiceTitle(passage);
+  const selectedKeys = selectedVerses.value.map(verseKey).join('|');
+  const alreadyExists = serviceItems.value.some(
+    (item) =>
+      item.title === title &&
+      item.verses.map(verseKey).join('|') === selectedKeys,
   );
 
-  serviceVerses.value = [...serviceVerses.value, ...newVerses];
-  actionMessage.value =
-    newVerses.length > 0
-      ? `${newVerses.length} versículos agregados al servicio.`
-      : 'Los versículos seleccionados ya estaban agregados.';
+  if (alreadyExists) {
+    actionMessage.value = 'Este pasaje ya estaba agregado al servicio.';
+    return;
+  }
+
+  const item: BibleServiceItem = {
+    id: `bible-${Date.now()}-${serviceItems.value.length}`,
+    type: 'bible',
+    title,
+    versionCode: passage.versionCode,
+    verses: [...selectedVerses.value],
+  };
+
+  serviceItems.value = [...serviceItems.value, item];
+  selectedServiceItemId.value = item.id;
+  actionMessage.value = `${title} fue agregado al servicio.`;
 }
 
-function selectServiceVerse(verse: BibleVerse): void {
-  selectedVerse.value = verse;
+function selectServiceItem(item: BibleServiceItem): void {
+  selectedServiceItemId.value = item.id;
+  selectedVerse.value = item.verses[0] ?? null;
 }
 
-function removeServiceVerse(verse: BibleVerse): void {
-  const key = verseKey(verse);
+function removeServiceItem(itemId: string): void {
+  serviceItems.value = serviceItems.value.filter((item) => item.id !== itemId);
 
-  serviceVerses.value = serviceVerses.value.filter(
-    (serviceVerse) => verseKey(serviceVerse) !== key,
-  );
-
-  if (selectedVerse.value && verseKey(selectedVerse.value) === key) {
-    selectedVerse.value = serviceVerses.value[0] ?? null;
+  if (selectedServiceItemId.value === itemId) {
+    selectedServiceItemId.value = null;
   }
 }
 
