@@ -74,6 +74,16 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
+    if (frame.mediaType && frame.mediaUrl) {
+      window.icpStudio?.projection.setState({
+        mode: 'media',
+        mediaType: frame.mediaType,
+        url: frame.mediaUrl,
+        name: item.title,
+      });
+      return;
+    }
+
     window.icpStudio?.projection.setState({
       mode: 'content',
       title: '',
