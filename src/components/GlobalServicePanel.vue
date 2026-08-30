@@ -117,6 +117,7 @@ function itemIcon(type: PresentationItemType): string {
     song: 'music_note',
     image: 'image',
     video: 'movie',
+    audio: 'audio_file',
     document: 'description',
     presentation: 'co_present',
     game: 'sports_esports',
