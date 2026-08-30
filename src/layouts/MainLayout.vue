@@ -155,7 +155,8 @@ const mainNavigation: NavigationItem[] = [
   { label: 'Videos', icon: 'movie', to: '/videos' },
   { label: 'Documentos', icon: 'description', to: '/documentos' },
   { label: 'Presentaciones', icon: 'co_present', to: '/presentaciones' },
-  { label: 'Juegos', icon: 'sports_esports', to: '/juegos' },
+  { label: 'Actividades', icon: 'extension', to: '/actividades' },
+  { label: 'Herramientas', icon: 'construction', to: '/herramientas' },
   { label: 'Biblioteca', icon: 'local_library', to: '/biblioteca' },
 ];
 
