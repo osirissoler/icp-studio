@@ -39,6 +39,21 @@
               round
               dense
               size="sm"
+              icon="delete_outline"
+              color="red-4"
+              aria-label="Eliminar alabanza seleccionada"
+              class="song-toolbar-button song-toolbar-button--danger"
+              :disable="!selectedSong"
+              @click="deleteSelectedSong"
+            >
+              <q-tooltip>Eliminar alabanza seleccionada</q-tooltip>
+            </q-btn>
+
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
               icon="playlist_add"
               color="primary"
               aria-label="Agregar alabanza seleccionada al servicio"
@@ -258,6 +273,7 @@ import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { usePresentationStore } from '../stores/presentation-store';
 import {
+  deleteSong,
   getSongs,
   initializeSongLibrary,
   SONG_LIBRARY_STORAGE_KEY,
@@ -394,6 +410,35 @@ function editSong(song: Song): void {
 function selectSong(song: Song): void {
   selectedSong.value = song;
   selectedPartId.value = song.parts[0]?.id ?? null;
+}
+
+function deleteSelectedSong(): void {
+  const song = selectedSong.value;
+  if (!song) return;
+
+  const confirmed = window.confirm(`¿Quieres eliminar la alabanza “${song.title}”?`);
+  if (!confirmed) return;
+
+  if (!deleteSong(song.id)) {
+    showAppNotification('No fue posible eliminar la alabanza.', 'negative', 'error_outline');
+    return;
+  }
+
+  if (presentationStore.liveItem?.sourceId === song.id) {
+    presentationStore.clearLive();
+  }
+
+  presentationStore.serviceItems
+    .filter((serviceItem) => serviceItem.sourceId === song.id)
+    .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+
+  serviceSongs.value = serviceSongs.value.filter((entry) => entry.id !== song.id);
+  if (selectedServiceSongId.value === song.id) selectedServiceSongId.value = null;
+  if (liveSong.value?.id === song.id) clearLive();
+  selectedSong.value = null;
+  selectedPartId.value = null;
+  loadSongs();
+  showAppNotification(`${song.title} fue eliminada.`, 'positive', 'delete_outline');
 }
 
 function addSongFromList(song: Song): void {
@@ -541,6 +586,10 @@ onBeforeUnmount(() => {
 .song-toolbar-button:hover {
   background: #193253;
   border-color: #4b83c5;
+}
+
+.song-toolbar-button--danger:not(.disabled) {
+  color: #fca5a5;
 }
 
 .song-edit-button {

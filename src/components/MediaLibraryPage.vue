@@ -44,6 +44,21 @@
               round
               dense
               size="sm"
+              color="red-4"
+              icon="delete_outline"
+              class="media-action-button media-action-button--danger"
+              :disable="!selectedItem"
+              aria-label="Eliminar elemento seleccionado"
+              @click="void deleteSelectedItem()"
+            >
+              <q-tooltip>Eliminar seleccionado</q-tooltip>
+            </q-btn>
+
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
               color="primary"
               icon="playlist_add"
               class="media-action-button"
@@ -309,6 +324,40 @@ function selectItem(item: MediaLibraryItem): void {
   selectedItem.value = item;
 }
 
+async function deleteSelectedItem(): Promise<void> {
+  const item = selectedItem.value;
+  if (!item) return;
+
+  const confirmed = window.confirm(`¿Quieres eliminar “${item.name}” de ICP Studio?`);
+  if (!confirmed) return;
+
+  try {
+    const removed = await window.icpStudio?.media.remove(item.id);
+    if (!removed) {
+      showAppNotification('No fue posible eliminar el archivo.', 'negative', 'error_outline');
+      return;
+    }
+
+    if (presentationStore.liveItem?.sourceId === item.id) {
+      presentationStore.clearLive();
+    }
+
+    presentationStore.serviceItems
+      .filter((serviceItem) => serviceItem.sourceId === item.id)
+      .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+
+    items.value = items.value.filter((entry) => entry.id !== item.id);
+    selectedItem.value = null;
+    showAppNotification(`${item.name} fue eliminado.`, 'positive', 'delete_outline');
+  } catch (error) {
+    showAppNotification(
+      error instanceof Error ? error.message : 'No fue posible eliminar el archivo.',
+      'negative',
+      'error_outline',
+    );
+  }
+}
+
 function addMediaFromList(item: MediaLibraryItem): void {
   selectItem(item);
   addItemToService(item);
@@ -446,6 +495,10 @@ onMounted(() => {
   background: #13243a;
   border: 1px solid #2d4665;
   border-radius: 7px;
+}
+
+.media-action-button--danger:not(.disabled) {
+  color: #fca5a5;
 }
 
 .media-action-button:hover {

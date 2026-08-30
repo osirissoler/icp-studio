@@ -1,8 +1,7 @@
 import type { Song, SongDraft, SongPart } from '../shared/song';
 
 export const SONG_LIBRARY_STORAGE_KEY = 'icp-studio:songs:v1';
-const DEFAULT_SONG_COLLECTION_VERSION_KEY =
-  'icp-studio:songs:default-collection-version';
+const DEFAULT_SONG_COLLECTION_VERSION_KEY = 'icp-studio:songs:default-collection-version';
 
 function isSongPart(value: unknown): value is SongPart {
   if (typeof value !== 'object' || value === null) {
@@ -61,11 +60,8 @@ export async function initializeSongLibrary(): Promise<Song[]> {
   }
 
   const collection = await songApi.getDefaultCollection();
-  const collectionVersion =
-    `${collection.collectionId}:${collection.schemaVersion}`;
-  const importedVersion = window.localStorage.getItem(
-    DEFAULT_SONG_COLLECTION_VERSION_KEY,
-  );
+  const collectionVersion = `${collection.collectionId}:${collection.schemaVersion}`;
+  const importedVersion = window.localStorage.getItem(DEFAULT_SONG_COLLECTION_VERSION_KEY);
 
   if (importedVersion === collectionVersion) {
     return getSongs();
@@ -90,10 +86,7 @@ export async function initializeSongLibrary(): Promise<Song[]> {
     SONG_LIBRARY_STORAGE_KEY,
     JSON.stringify([...currentSongs, ...newDefaultSongs]),
   );
-  window.localStorage.setItem(
-    DEFAULT_SONG_COLLECTION_VERSION_KEY,
-    collectionVersion,
-  );
+  window.localStorage.setItem(DEFAULT_SONG_COLLECTION_VERSION_KEY, collectionVersion);
 
   return getSongs();
 }
@@ -117,12 +110,25 @@ export function updateSong(songId: string, draft: SongDraft): Song {
 
   window.localStorage.setItem(
     SONG_LIBRARY_STORAGE_KEY,
-    JSON.stringify(
-      songs.map((song) => (song.id === songId ? updatedSong : song)),
-    ),
+    JSON.stringify(songs.map((song) => (song.id === songId ? updatedSong : song))),
   );
 
   return updatedSong;
+}
+
+export function deleteSong(songId: string): boolean {
+  const songs = getSongs();
+
+  if (!songs.some((song) => song.id === songId)) {
+    return false;
+  }
+
+  window.localStorage.setItem(
+    SONG_LIBRARY_STORAGE_KEY,
+    JSON.stringify(songs.filter((song) => song.id !== songId)),
+  );
+
+  return true;
 }
 
 export function saveSong(draft: SongDraft): Song {

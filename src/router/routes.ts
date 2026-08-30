@@ -64,15 +64,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'presentaciones',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
-        meta: {
-          title: 'Presentaciones',
-          description: 'Importa y presenta diapositivas durante el servicio.',
-          icon: 'co_present',
-        },
-      },
-      {
         path: 'actividades',
         component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {

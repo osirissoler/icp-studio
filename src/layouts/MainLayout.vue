@@ -195,7 +195,6 @@ const mainNavigation: NavigationItem[] = [
   { label: 'Imágenes', icon: 'image', to: '/imagenes' },
   { label: 'Videos', icon: 'movie', to: '/videos' },
   { label: 'Documentos', icon: 'description', to: '/documentos' },
-  { label: 'Presentaciones', icon: 'co_present', to: '/presentaciones' },
   { label: 'Actividades', icon: 'extension', to: '/actividades' },
   { label: 'Herramientas', icon: 'construction', to: '/herramientas' },
   { label: 'Biblioteca', icon: 'local_library', to: '/biblioteca' },
@@ -212,7 +211,7 @@ const currentDate = computed(() => {
 });
 
 onMounted(async () => {
-  displays.value = await window.icpStudio?.displays.list() ?? [];
+  displays.value = (await window.icpStudio?.displays.list()) ?? [];
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
     displays.value = nextDisplays;
   });
