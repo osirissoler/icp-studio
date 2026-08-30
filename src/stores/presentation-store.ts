@@ -1,6 +1,23 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { Notify } from 'quasar';
 import type { ServicePresentationItem } from '../shared/presentation';
+
+function showServiceNotification(
+  message: string,
+  icon: string,
+): void {
+  Notify.create({
+    message,
+    icon,
+    position: 'bottom-right',
+    color: 'blue-grey-9',
+    textColor: 'white',
+    timeout: 2600,
+    progress: true,
+    actions: [{ icon: 'close', color: 'white', round: true }],
+  });
+}
 
 export const usePresentationStore = defineStore('presentation', () => {
   const serviceItems = ref<ServicePresentationItem[]>([]);
@@ -20,11 +37,19 @@ export const usePresentationStore = defineStore('presentation', () => {
     );
 
     if (alreadyExists) {
+      showServiceNotification(
+        `${item.title} ya está agregado al servicio.`,
+        'info',
+      );
       return false;
     }
 
     serviceItems.value = [...serviceItems.value, item];
     selectedServiceItemId.value = item.id;
+    showServiceNotification(
+      `${item.title} fue agregado al servicio.`,
+      'playlist_add_check',
+    );
     return true;
   }
 
