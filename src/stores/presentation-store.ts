@@ -28,6 +28,30 @@ export const usePresentationStore = defineStore('presentation', () => {
     return true;
   }
 
+  function updateServiceItem(item: ServicePresentationItem): void {
+    const itemIndex = serviceItems.value.findIndex(
+      (serviceItem) => serviceItem.id === item.id,
+    );
+
+    if (itemIndex < 0) {
+      return;
+    }
+
+    serviceItems.value = serviceItems.value.map((serviceItem) =>
+      serviceItem.id === item.id ? item : serviceItem,
+    );
+
+    if (liveItem.value?.id === item.id) {
+      const currentFrameId = liveFrame.value?.id;
+      liveItem.value = item;
+      const nextFrameIndex = item.frames.findIndex(
+        (frame) => frame.id === currentFrameId,
+      );
+      liveFrameIndex.value = nextFrameIndex >= 0 ? nextFrameIndex : 0;
+      projectCurrentFrame();
+    }
+  }
+
   function selectServiceItem(itemId: string): void {
     selectedServiceItemId.value = itemId;
   }
@@ -109,6 +133,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     liveFrameIndex,
     liveFrame,
     addToService,
+    updateServiceItem,
     selectServiceItem,
     removeFromService,
     activateServiceItem,
