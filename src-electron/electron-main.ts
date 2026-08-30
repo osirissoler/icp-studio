@@ -7,6 +7,7 @@ import { WINDOW_CHANNELS } from '../src/shared/window';
 import type { DisplayInfo } from '../src/shared/display';
 import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 import { closeBibleDatabase } from './bible/bible-database';
+import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
 
 const platform = process.platform || os.platform();
 
@@ -305,6 +306,7 @@ void app.whenReady().then(() => {
   registerWindowIpc();
 
   registerBibleIpc(() => windows.main);
+  registerSongIpc(() => windows.main);
 
   void createWindow();
 
@@ -317,6 +319,7 @@ void app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   unregisterBibleIpc();
+  unregisterSongIpc();
   closeBibleDatabase();
 });
 
