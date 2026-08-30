@@ -899,10 +899,8 @@ function moveResultSelection(direction: -1 | 1): void {
 
   const nextIndex =
     currentIndex < 0
-      ? direction === 1
-        ? 0
-        : verses.length - 1
-      : (currentIndex + direction + verses.length) % verses.length;
+      ? 0
+      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   selectedVerse.value = verses[nextIndex] ?? null;
 
@@ -928,7 +926,10 @@ function movePreview(direction: -1 | 1): void {
     ? verses.findIndex((verse) => verseKey(verse) === verseKey(currentVerse))
     : -1;
 
-  const nextIndex = (currentIndex + direction + verses.length) % verses.length;
+  const nextIndex =
+    currentIndex < 0
+      ? 0
+      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   selectedVerse.value = verses[nextIndex] ?? null;
 }
@@ -1080,10 +1081,8 @@ function moveLiveVerse(direction: -1 | 1): void {
     : -1;
   const nextIndex =
     currentIndex < 0
-      ? direction === 1
-        ? 0
-        : verses.length - 1
-      : (currentIndex + direction + verses.length) % verses.length;
+      ? 0
+      : Math.min(verses.length - 1, Math.max(0, currentIndex + direction));
 
   const nextVerse = verses[nextIndex];
 
