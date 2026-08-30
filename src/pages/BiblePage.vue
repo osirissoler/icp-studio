@@ -178,7 +178,12 @@
                   @update:model-value="toggleAllResults(Boolean($event))"
                 />
 
-                <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
+                <q-chip
+                  dense
+                  color="blue-grey-9"
+                  text-color="blue-grey-2"
+                  class="results-version"
+                >
                   {{ searchResult.versionCode }}
                 </q-chip>
 
@@ -186,6 +191,7 @@
                   flat
                   round
                   dense
+                  size="xs"
                   color="primary"
                   icon="add_to_queue"
                   aria-label="Agregar seleccionados a previsualización"
@@ -200,6 +206,7 @@
                   flat
                   round
                   dense
+                  size="xs"
                   color="primary"
                   icon="playlist_add"
                   aria-label="Agregar seleccionados al servicio"
@@ -1060,9 +1067,9 @@ onMounted(() => {
 }
 
 .result-action-button {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
 }
 
 .book-suggestions {
@@ -1179,9 +1186,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 3px;
   color: #a8b4c3;
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.results-actions :deep(.q-checkbox__inner) {
+  font-size: 32px;
+}
+
+.results-version {
+  min-height: 22px;
+  margin: 0 1px;
+  padding: 0 6px;
+  font-size: 9px;
 }
 
 .verse-card {
