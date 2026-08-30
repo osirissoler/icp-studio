@@ -4,7 +4,9 @@
       <div class="editor-brand">
         <q-icon name="music_note" size="26px" />
         <div>
-          <div class="editor-title">Nueva alabanza</div>
+          <div class="editor-title">
+            {{ isEditing ? 'Editar alabanza' : 'Nueva alabanza' }}
+          </div>
           <div class="editor-subtitle">Editor de alabanzas de ICP Studio</div>
         </div>
       </div>
@@ -331,14 +333,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
-import { saveSong } from '../services/song-library';
+import { useRoute } from 'vue-router';
+import {
+  getSongs,
+  saveSong,
+  updateSong,
+} from '../services/song-library';
 import { SONG_PART_TYPE_OPTIONS, type SongPart, type SongPartType } from '../shared/song';
 
 type EditorTab = 'parts' | 'paste' | 'preview';
 
 const $q = useQuasar();
+const route = useRoute();
 const activeTab = ref<EditorTab>('parts');
 const songTitle = ref('');
 const songAuthor = ref('');
@@ -349,6 +357,13 @@ const draggedPartId = ref<string | null>(null);
 const selectedPartId = ref<string | null>(null);
 const previewKeyboardArea = ref<HTMLElement | null>(null);
 let nextPartId = 1;
+
+const songId = computed(() => {
+  const value = route.params.songId;
+
+  return typeof value === 'string' && value !== 'new' ? value : null;
+});
+const isEditing = computed(() => songId.value !== null);
 
 const partTypeOptions = SONG_PART_TYPE_OPTIONS;
 const quickPartOptions = SONG_PART_TYPE_OPTIONS.filter((option) =>
@@ -602,7 +617,7 @@ function saveCurrentSong(): void {
     return;
   }
 
-  saveSong({
+  const draft = {
     title,
     author: songAuthor.value,
     musicalKey: musicalKey.value,
@@ -610,17 +625,49 @@ function saveCurrentSong(): void {
       ...part,
       content: part.content.trim(),
     })),
-  });
+  };
+
+  if (songId.value) {
+    updateSong(songId.value, draft);
+  } else {
+    saveSong(draft);
+  }
 
   $q.notify({
     type: 'positive',
-    message: 'La alabanza fue guardada correctamente.',
+    message: isEditing.value
+      ? 'Los cambios fueron guardados correctamente.'
+      : 'La alabanza fue guardada correctamente.',
   });
 
   window.setTimeout(() => {
     window.close();
   }, 500);
 }
+
+onMounted(() => {
+  const currentSongId = songId.value;
+
+  if (!currentSongId) {
+    return;
+  }
+
+  const song = getSongs().find((item) => item.id === currentSongId);
+
+  if (!song) {
+    $q.notify({
+      type: 'negative',
+      message: 'No se encontró la alabanza seleccionada.',
+    });
+    return;
+  }
+
+  songTitle.value = song.title;
+  songAuthor.value = song.author;
+  musicalKey.value = song.musicalKey;
+  parts.value = song.parts.map((part) => ({ ...part }));
+  selectedPartId.value = parts.value[0]?.id ?? null;
+});
 
 function closeEditor(): void {
   window.close();
