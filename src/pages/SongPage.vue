@@ -60,8 +60,7 @@
               <span class="song-result-copy">
                 <strong>{{ song.title }}</strong>
                 <small>
-                  {{ song.author || 'Autor no especificado' }} ·
-                  {{ song.parts.length }} partes
+                  {{ song.author || 'Autor no especificado' }} · {{ song.parts.length }} partes
                 </small>
               </span>
               <q-icon name="chevron_right" />
@@ -70,7 +69,9 @@
 
           <div v-else class="empty-state">
             <q-icon name="queue_music" size="44px" />
-            <strong>{{ songs.length ? 'No encontramos coincidencias' : 'No hay alabanzas guardadas' }}</strong>
+            <strong>{{
+              songs.length ? 'No encontramos coincidencias' : 'No hay alabanzas guardadas'
+            }}</strong>
             <span>Crea una alabanza para comenzar tu biblioteca local.</span>
           </div>
         </div>
@@ -80,7 +81,9 @@
         <div class="song-panel">
           <div class="panel-label">
             <span>Vista del operador</span>
-            <span v-if="selectedSong">{{ selectedPartPosition }} de {{ selectedSong.parts.length }}</span>
+            <span v-if="selectedSong"
+              >{{ selectedPartPosition }} de {{ selectedSong.parts.length }}</span
+            >
           </div>
 
           <div class="song-screen">
@@ -165,7 +168,9 @@
           <div class="live-header">
             <span><span class="live-dot"></span> En vivo</span>
             <div class="live-header-actions">
-              <span v-if="liveSong && livePart">{{ livePartPosition }} de {{ liveSong.parts.length }}</span>
+              <span v-if="liveSong && livePart"
+                >{{ livePartPosition }} de {{ liveSong.parts.length }}</span
+              >
               <q-btn
                 flat
                 round
@@ -217,10 +222,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
-import {
-  getSongs,
-  SONG_LIBRARY_STORAGE_KEY,
-} from '../services/song-library';
+import { getSongs, SONG_LIBRARY_STORAGE_KEY } from '../services/song-library';
 import {
   SONG_PART_TYPE_OPTIONS,
   type Song,
@@ -246,9 +248,7 @@ const filteredSongs = computed(() => {
 
   return term
     ? songs.value.filter(
-        (song) =>
-          normalize(song.title).includes(term) ||
-          normalize(song.author).includes(term),
+        (song) => normalize(song.title).includes(term) || normalize(song.author).includes(term),
       )
     : songs.value;
 });
@@ -268,7 +268,11 @@ const livePartPosition = computed(() => {
 });
 
 function normalize(value: string): string {
-  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
 }
 
 function partLabel(type: SongPartType): string {
@@ -279,8 +283,7 @@ function loadSongs(): void {
   songs.value = getSongs();
 
   if (selectedSong.value) {
-    selectedSong.value =
-      songs.value.find((song) => song.id === selectedSong.value?.id) ?? null;
+    selectedSong.value = songs.value.find((song) => song.id === selectedSong.value?.id) ?? null;
   }
 }
 
@@ -348,12 +351,12 @@ function moveLivePart(direction: -1 | 1): void {
   const parts = liveSong.value?.parts ?? [];
   if (!parts.length) return;
 
-  const index = livePart.value
-    ? parts.findIndex((part) => part.id === livePart.value?.id)
-    : -1;
+  const index = livePart.value ? parts.findIndex((part) => part.id === livePart.value?.id) : -1;
   const nextIndex =
     index < 0
-      ? direction === 1 ? 0 : parts.length - 1
+      ? direction === 1
+        ? 0
+        : parts.length - 1
       : (index + direction + parts.length) % parts.length;
   const part = parts[nextIndex];
   if (part) setLivePart(part);

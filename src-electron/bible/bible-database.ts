@@ -118,9 +118,7 @@ function parseBibleReference(reference: string): ParsedBibleReference {
 
   const requestedVerseEnd = match[4] ? Number(match[4]) : verseStart;
   const verseEnd =
-    verseStart !== null &&
-    requestedVerseEnd !== null &&
-    requestedVerseEnd < verseStart
+    verseStart !== null && requestedVerseEnd !== null && requestedVerseEnd < verseStart
       ? verseStart
       : requestedVerseEnd;
 
@@ -234,7 +232,10 @@ export function getBibleBookChapters(bookCode: string, versionCode?: string): nu
   return rows.map((row) => row.chapter);
 }
 
-export function searchBiblePassage(versionCode: string | undefined, reference: string): BiblePassage {
+export function searchBiblePassage(
+  versionCode: string | undefined,
+  reference: string,
+): BiblePassage {
   const database = getBibleDatabase();
   const effectiveVersionCode = versionCode?.trim() || getDefaultBibleVersionCode(database);
   const parsedReference = parseBibleReference(reference);
@@ -293,7 +294,11 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
         ORDER BY verse_start, verse_end
       `,
       )
-      .all(effectiveVersionCode, book.bookCode, parsedReference.chapter) as unknown as BibleVerseRow[];
+      .all(
+        effectiveVersionCode,
+        book.bookCode,
+        parsedReference.chapter,
+      ) as unknown as BibleVerseRow[];
   } else {
     rows = database
       .prepare(

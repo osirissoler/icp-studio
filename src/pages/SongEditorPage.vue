@@ -653,7 +653,6 @@ function closeEditor(): void {
   gap: 8px;
 }
 
-
 .editor-brand {
   display: flex;
   align-items: center;

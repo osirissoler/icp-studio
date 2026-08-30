@@ -9,125 +9,125 @@
         <div class="bible-search-panel">
           <div class="search-controls">
             <q-tabs
-            v-model="searchMode"
-            dense
-            no-caps
-            align="left"
-            active-color="primary"
-            indicator-color="primary"
-            class="search-tabs"
-          >
-            <q-tab name="reference" icon="search" label="Referencia" />
-            <q-tab name="manual" icon="touch_app" label="Manual" />
-          </q-tabs>
+              v-model="searchMode"
+              dense
+              no-caps
+              align="left"
+              active-color="primary"
+              indicator-color="primary"
+              class="search-tabs"
+            >
+              <q-tab name="reference" icon="search" label="Referencia" />
+              <q-tab name="manual" icon="touch_app" label="Manual" />
+            </q-tabs>
 
-          <div v-if="searchMode === 'reference'" class="bible-search-toolbar">
-            <div class="reference-field">
-              <q-input
-                ref="referenceInput"
-                :model-value="referenceText"
-                outlined
-                dense
-                clearable
-                placeholder="Ejemplo: Mateo 4:1-10"
-                class="dark-field"
-                @update:model-value="updateReferenceText"
-                @clear="clearReferenceSearch"
-                @focus="showBookSuggestions = true"
-                @blur="hideBookSuggestions"
-                @keyup.enter="searchReference"
-              >
-                <template #prepend>
-                  <q-icon name="search" />
-                </template>
-              </q-input>
-
-              <div v-if="shouldShowBookSuggestions" class="book-suggestions">
-                <button
-                  v-for="book in suggestedBooks"
-                  :key="book.code"
-                  type="button"
-                  class="book-suggestion"
-                  @mousedown.prevent="selectBookSuggestion(book)"
+            <div v-if="searchMode === 'reference'" class="bible-search-toolbar">
+              <div class="reference-field">
+                <q-input
+                  ref="referenceInput"
+                  :model-value="referenceText"
+                  outlined
+                  dense
+                  clearable
+                  placeholder="Ejemplo: Mateo 4:1-10"
+                  class="dark-field"
+                  @update:model-value="updateReferenceText"
+                  @clear="clearReferenceSearch"
+                  @focus="showBookSuggestions = true"
+                  @blur="hideBookSuggestions"
+                  @keyup.enter="searchReference"
                 >
-                  <q-icon name="menu_book" />
-                  <span>{{ shortBookName(book.displayName) }}</span>
-                  <small>{{ book.displayName }}</small>
-                </button>
+                  <template #prepend>
+                    <q-icon name="search" />
+                  </template>
+                </q-input>
+
+                <div v-if="shouldShowBookSuggestions" class="book-suggestions">
+                  <button
+                    v-for="book in suggestedBooks"
+                    :key="book.code"
+                    type="button"
+                    class="book-suggestion"
+                    @mousedown.prevent="selectBookSuggestion(book)"
+                  >
+                    <q-icon name="menu_book" />
+                    <span>{{ shortBookName(book.displayName) }}</span>
+                    <small>{{ book.displayName }}</small>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div v-else class="manual-search">
-            <div class="manual-fields">
-              <q-select
-                v-model="manualBookCode"
-                :options="bookOptions"
-                outlined
-                dense
-                emit-value
-                map-options
-                options-dense
-                label="Libro"
-                class="dark-field"
-                @update:model-value="onManualBookChange"
-              />
+            <div v-else class="manual-search">
+              <div class="manual-fields">
+                <q-select
+                  v-model="manualBookCode"
+                  :options="bookOptions"
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  options-dense
+                  label="Libro"
+                  class="dark-field"
+                  @update:model-value="onManualBookChange"
+                />
 
-              <q-select
-                v-model="manualChapter"
-                :options="manualChapters"
-                outlined
-                dense
-                options-dense
-                label="Capítulo"
-                class="dark-field"
-                :disable="!manualBookCode || loadingManualData"
-                @update:model-value="onManualChapterChange"
-              />
+                <q-select
+                  v-model="manualChapter"
+                  :options="manualChapters"
+                  outlined
+                  dense
+                  options-dense
+                  label="Capítulo"
+                  class="dark-field"
+                  :disable="!manualBookCode || loadingManualData"
+                  @update:model-value="onManualChapterChange"
+                />
 
-              <q-select
-                v-model="manualVerseStart"
-                :options="manualVerseStartOptions"
-                outlined
-                dense
-                emit-value
-                map-options
-                options-dense
-                label="Desde"
-                class="dark-field"
-                :disable="manualVerseStartOptions.length === 0"
-                @update:model-value="onManualVerseStartChange"
-              />
+                <q-select
+                  v-model="manualVerseStart"
+                  :options="manualVerseStartOptions"
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  options-dense
+                  label="Desde"
+                  class="dark-field"
+                  :disable="manualVerseStartOptions.length === 0"
+                  @update:model-value="onManualVerseStartChange"
+                />
 
-              <q-select
-                v-model="manualVerseEnd"
-                :options="manualVerseEndOptions"
-                outlined
-                dense
-                emit-value
-                map-options
-                options-dense
-                label="Hasta"
-                class="dark-field"
-                :disable="manualVerseEndOptions.length === 0"
-              />
+                <q-select
+                  v-model="manualVerseEnd"
+                  :options="manualVerseEndOptions"
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  options-dense
+                  label="Hasta"
+                  class="dark-field"
+                  :disable="manualVerseEndOptions.length === 0"
+                />
+              </div>
+
+              <div class="manual-actions">
+                <q-btn
+                  unelevated
+                  color="primary"
+                  icon="search"
+                  aria-label="Buscar selección manual"
+                  class="toolbar-button"
+                  :loading="searching || loadingManualData"
+                  :disable="!canSearchManual"
+                  @click="searchManualPassage"
+                >
+                  <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
+                </q-btn>
+              </div>
             </div>
-
-            <div class="manual-actions">
-              <q-btn
-                unelevated
-                color="primary"
-                icon="search"
-                aria-label="Buscar selección manual"
-                class="toolbar-button"
-                :loading="searching || loadingManualData"
-                :disable="!canSearchManual"
-                @click="searchManualPassage"
-              >
-                <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
-              </q-btn>
-            </div>
-          </div>
           </div>
 
           <q-banner v-if="errorMessage" dense rounded class="error-banner">
@@ -178,12 +178,7 @@
                   @update:model-value="toggleAllResults(Boolean($event))"
                 />
 
-                <q-chip
-                  dense
-                  color="blue-grey-9"
-                  text-color="blue-grey-2"
-                  class="results-version"
-                >
+                <q-chip dense color="blue-grey-9" text-color="blue-grey-2" class="results-version">
                   {{ searchResult.versionCode }}
                 </q-chip>
 
@@ -210,7 +205,10 @@
               :data-result-index="verseIndex"
               type="button"
               class="verse-card"
-              :class="{ 'verse-card--selected': selectedVerse && verseKey(selectedVerse) === verseKey(verse) }"
+              :class="{
+                'verse-card--selected':
+                  selectedVerse && verseKey(selectedVerse) === verseKey(verse),
+              }"
               @click="selectVerse(verse)"
             >
               <q-checkbox
@@ -346,10 +344,7 @@
           @keydown.up.prevent="moveLiveVerse(-1)"
           @keydown.down.prevent="moveLiveVerse(1)"
         >
-          <template
-            v-for="(section, sectionIndex) in liveSections"
-            :key="section"
-          >
+          <template v-for="(section, sectionIndex) in liveSections" :key="section">
             <section
               class="live-section"
               :class="{ 'live-section--dragging': draggingLiveSection === section }"
@@ -357,83 +352,83 @@
               @dragover.prevent
               @drop="dropLiveSection(section)"
             >
-            <header
-              class="live-section-header"
-              draggable="true"
-              @dragstart="startLiveSectionDrag($event, section)"
-              @dragend="stopLiveSectionDrag"
-            >
-              <div class="live-section-heading">
-                <q-icon name="drag_indicator" />
-                <span>
-                  {{ section === 'screen' ? 'Pantalla en vivo' : 'Contenido del pasaje' }}
-                </span>
-              </div>
+              <header
+                class="live-section-header"
+                draggable="true"
+                @dragstart="startLiveSectionDrag($event, section)"
+                @dragend="stopLiveSectionDrag"
+              >
+                <div class="live-section-heading">
+                  <q-icon name="drag_indicator" />
+                  <span>
+                    {{ section === 'screen' ? 'Pantalla en vivo' : 'Contenido del pasaje' }}
+                  </span>
+                </div>
 
-              <div v-if="section === 'screen'" class="live-output-label">
-                <span class="live-dot"></span>
-                <span>Salida de proyección</span>
-                <q-icon name="connected_tv" />
-              </div>
+                <div v-if="section === 'screen'" class="live-output-label">
+                  <span class="live-dot"></span>
+                  <span>Salida de proyección</span>
+                  <q-icon name="connected_tv" />
+                </div>
 
-              <div v-else class="live-content-actions">
-                <span v-if="liveServiceItem && liveVerse" class="live-position">
-                  {{ liveVersePosition }} de {{ liveServiceItem.verses.length }}
-                </span>
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="xs"
-                  icon="delete_sweep"
-                  color="red-4"
-                  :disable="!liveServiceItem && !liveVerse"
-                  @click.stop="clearLiveArea"
-                >
-                  <q-tooltip>Limpiar todo el contenido en vivo</q-tooltip>
-                </q-btn>
-              </div>
-            </header>
+                <div v-else class="live-content-actions">
+                  <span v-if="liveServiceItem && liveVerse" class="live-position">
+                    {{ liveVersePosition }} de {{ liveServiceItem.verses.length }}
+                  </span>
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    size="xs"
+                    icon="delete_sweep"
+                    color="red-4"
+                    :disable="!liveServiceItem && !liveVerse"
+                    @click.stop="clearLiveArea"
+                  >
+                    <q-tooltip>Limpiar todo el contenido en vivo</q-tooltip>
+                  </q-btn>
+                </div>
+              </header>
 
-            <template v-if="section === 'screen'">
-              <div class="bible-screen bible-screen--live">
-                <template v-if="liveVerse">
-                  <div class="screen-text">{{ liveVerse.text }}</div>
-                  <div v-if="liveServiceItem" class="screen-passage-reference">
-                    {{ liveServiceItem.projectionReference }}
-                  </div>
-                </template>
+              <template v-if="section === 'screen'">
+                <div class="bible-screen bible-screen--live">
+                  <template v-if="liveVerse">
+                    <div class="screen-text">{{ liveVerse.text }}</div>
+                    <div v-if="liveServiceItem" class="screen-passage-reference">
+                      {{ liveServiceItem.projectionReference }}
+                    </div>
+                  </template>
 
-                <template v-else>
-                  <q-icon name="live_tv" size="46px" />
-                  <span>Haz doble clic en un elemento del servicio</span>
-                </template>
-              </div>
-            </template>
+                  <template v-else>
+                    <q-icon name="live_tv" size="46px" />
+                    <span>Haz doble clic en un elemento del servicio</span>
+                  </template>
+                </div>
+              </template>
 
-            <template v-else>
-              <div v-if="liveServiceItem" class="live-verse-list">
-                <div class="live-service-title">{{ liveServiceItem.title }}</div>
-                <button
-                  v-for="verse in liveServiceItem.verses"
-                  :key="verseKey(verse)"
-                  type="button"
-                  class="live-verse-item"
-                  :class="{
-                    'live-verse-item--active':
-                      liveVerse && verseKey(liveVerse) === verseKey(verse),
-                  }"
-                  @click="setLiveVerse(verse)"
-                >
-                  <span class="verse-number">{{ verse.verseLabel }}</span>
-                  <span>{{ verse.text }}</span>
-                </button>
-              </div>
+              <template v-else>
+                <div v-if="liveServiceItem" class="live-verse-list">
+                  <div class="live-service-title">{{ liveServiceItem.title }}</div>
+                  <button
+                    v-for="verse in liveServiceItem.verses"
+                    :key="verseKey(verse)"
+                    type="button"
+                    class="live-verse-item"
+                    :class="{
+                      'live-verse-item--active':
+                        liveVerse && verseKey(liveVerse) === verseKey(verse),
+                    }"
+                    @click="setLiveVerse(verse)"
+                  >
+                    <span class="verse-number">{{ verse.verseLabel }}</span>
+                    <span>{{ verse.text }}</span>
+                  </button>
+                </div>
 
-              <div v-else class="live-content-empty">
-                El contenido del servicio aparecerá aquí.
-              </div>
-            </template>
+                <div v-else class="live-content-empty">
+                  El contenido del servicio aparecerá aquí.
+                </div>
+              </template>
             </section>
 
             <div
@@ -445,7 +440,6 @@
               <span></span>
             </div>
           </template>
-
         </div>
       </template>
     </ModuleWorkspace>
@@ -453,20 +447,9 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  reactive,
-  ref,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
-import type {
-  BibleBook,
-  BiblePassage,
-  BibleVerse,
-} from '../shared/bible';
+import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
 
 type SearchMode = 'reference' | 'manual';
 type LiveSectionId = 'screen' | 'content';
@@ -553,11 +536,7 @@ const manualVerseStartOptions = computed<SelectOption<number>[]>(() =>
 
 const manualVerseEndOptions = computed<SelectOption<number>[]>(() =>
   (manualChapterPassage.value?.verses ?? [])
-    .filter(
-      (verse) =>
-        manualVerseStart.value === null ||
-        verse.verseEnd >= manualVerseStart.value,
-    )
+    .filter((verse) => manualVerseStart.value === null || verse.verseEnd >= manualVerseStart.value)
     .map((verse) => ({
       label: verse.verseLabel,
       value: verse.verseEnd,
@@ -587,11 +566,7 @@ const suggestedBooks = computed(() => {
       const shortName = normalizeText(shortBookName(book.displayName));
       const abbreviation = normalizeText(book.abbreviation);
 
-      return (
-        completeName.includes(term) ||
-        shortName.includes(term) ||
-        abbreviation.includes(term)
-      );
+      return completeName.includes(term) || shortName.includes(term) || abbreviation.includes(term);
     })
     .sort((first, second) => {
       const firstStarts = normalizeText(shortBookName(first.displayName)).startsWith(term);
@@ -620,9 +595,7 @@ const liveVersePosition = computed(() => {
     return 0;
   }
 
-  const index = item.verses.findIndex(
-    (itemVerse) => verseKey(itemVerse) === verseKey(verse),
-  );
+  const index = item.verses.findIndex((itemVerse) => verseKey(itemVerse) === verseKey(verse));
 
   return index >= 0 ? index + 1 : 0;
 });
@@ -678,18 +651,11 @@ function shortBookName(value: string): string {
 }
 
 function verseKey(verse: BibleVerse): string {
-  return [
-    verse.versionCode,
-    verse.bookCode,
-    verse.chapter,
-    verse.verseLabel,
-  ].join(':');
+  return [verse.versionCode, verse.bookCode, verse.chapter, verse.verseLabel].join(':');
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : 'No fue posible completar la operación.';
+  return error instanceof Error ? error.message : 'No fue posible completar la operación.';
 }
 
 async function loadBooks(): Promise<void> {
@@ -709,10 +675,7 @@ async function loadBooks(): Promise<void> {
 }
 
 function updateReferenceText(value: string | number | null): void {
-  referenceText.value =
-    typeof value === 'string' || typeof value === 'number'
-      ? String(value)
-      : '';
+  referenceText.value = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 
   showBookSuggestions.value = true;
 }
@@ -822,9 +785,7 @@ async function onManualChapterChange(chapter: number | null): Promise<void> {
     return;
   }
 
-  const book = books.value.find(
-    (bookItem) => bookItem.code === manualBookCode.value,
-  );
+  const book = books.value.find((bookItem) => bookItem.code === manualBookCode.value);
 
   const bibleApi = window.icpStudio?.bible;
 
@@ -853,11 +814,7 @@ async function onManualChapterChange(chapter: number | null): Promise<void> {
 function onManualVerseStartChange(value: number | null): void {
   manualVerseStart.value = value;
 
-  if (
-    value !== null &&
-    (manualVerseEnd.value === null ||
-      manualVerseEnd.value < value)
-  ) {
+  if (value !== null && (manualVerseEnd.value === null || manualVerseEnd.value < value)) {
     manualVerseEnd.value = value;
   }
 }
@@ -873,9 +830,7 @@ function searchManualPassage(): void {
     return;
   }
 
-  const book = books.value.find(
-    (bookItem) => bookItem.code === manualBookCode.value,
-  );
+  const book = books.value.find((bookItem) => bookItem.code === manualBookCode.value);
 
   if (!book) {
     return;
@@ -886,9 +841,7 @@ function searchManualPassage(): void {
       ? String(manualVerseStart.value)
       : `${manualVerseStart.value}-${manualVerseEnd.value}`;
 
-  void executeSearch(
-    `${book.displayName} ${manualChapter.value}:${verseRange}`,
-  );
+  void executeSearch(`${book.displayName} ${manualChapter.value}:${verseRange}`);
 }
 
 function selectVerse(verse: BibleVerse): void {
@@ -898,9 +851,7 @@ function selectVerse(verse: BibleVerse): void {
 function isVerseSelected(verse: BibleVerse): boolean {
   const key = verseKey(verse);
 
-  return selectedVerses.value.some(
-    (selected) => verseKey(selected) === key,
-  );
+  return selectedVerses.value.some((selected) => verseKey(selected) === key);
 }
 
 function toggleVerseSelection(verse: BibleVerse, selected: boolean): void {
@@ -928,7 +879,7 @@ function toggleAllResults(selected: boolean): void {
   const verses = searchResult.value?.verses ?? [];
 
   selectedVerses.value = selected ? [...verses] : [];
-  selectedVerse.value = selected ? verses[0] ?? null : null;
+  selectedVerse.value = selected ? (verses[0] ?? null) : null;
 }
 
 function moveResultSelection(direction: -1 | 1): void {
@@ -940,9 +891,7 @@ function moveResultSelection(direction: -1 | 1): void {
 
   const currentVerse = selectedVerse.value;
   const currentIndex = currentVerse
-    ? verses.findIndex(
-        (verse) => verseKey(verse) === verseKey(currentVerse),
-      )
+    ? verses.findIndex((verse) => verseKey(verse) === verseKey(currentVerse))
     : -1;
 
   const nextIndex =
@@ -950,15 +899,13 @@ function moveResultSelection(direction: -1 | 1): void {
       ? direction === 1
         ? 0
         : verses.length - 1
-      : (currentIndex + direction + verses.length) %
-        verses.length;
+      : (currentIndex + direction + verses.length) % verses.length;
 
   selectedVerse.value = verses[nextIndex] ?? null;
 
-  const selectedCard =
-    resultsElement.value?.querySelector<HTMLElement>(
-      `[data-result-index="${nextIndex}"]`,
-    );
+  const selectedCard = resultsElement.value?.querySelector<HTMLElement>(
+    `[data-result-index="${nextIndex}"]`,
+  );
 
   selectedCard?.scrollIntoView({
     block: 'nearest',
@@ -975,13 +922,10 @@ function movePreview(direction: -1 | 1): void {
 
   const currentVerse = selectedVerse.value;
   const currentIndex = currentVerse
-    ? verses.findIndex(
-        (verse) => verseKey(verse) === verseKey(currentVerse),
-      )
+    ? verses.findIndex((verse) => verseKey(verse) === verseKey(currentVerse))
     : -1;
 
-  const nextIndex =
-    (currentIndex + direction + verses.length) % verses.length;
+  const nextIndex = (currentIndex + direction + verses.length) % verses.length;
 
   selectedVerse.value = verses[nextIndex] ?? null;
 }
@@ -1001,10 +945,7 @@ function buildServiceTitle(passage: BiblePassage): string {
     : `${passage.bookName} ${passage.chapter}`;
 }
 
-function buildProjectionReference(
-  passage: BiblePassage,
-  verses: BibleVerse[],
-): string {
+function buildProjectionReference(passage: BiblePassage, verses: BibleVerse[]): string {
   const selectedNumbers = new Set<number>();
 
   for (const verse of verses) {
@@ -1025,9 +966,7 @@ function buildProjectionReference(
     }
 
     if (rangeStart !== undefined && previous !== undefined) {
-      ranges.push(
-        rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`,
-      );
+      ranges.push(rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`);
     }
 
     rangeStart = number;
@@ -1035,9 +974,7 @@ function buildProjectionReference(
   }
 
   if (rangeStart !== undefined && previous !== undefined) {
-    ranges.push(
-      rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`,
-    );
+    ranges.push(rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`);
   }
 
   return `${passage.bookName} ${passage.chapter}:${ranges.join(', ')}`;
@@ -1053,9 +990,7 @@ function addSelectedToService(): void {
   const title = buildServiceTitle(passage);
   const selectedKeys = selectedVerses.value.map(verseKey).join('|');
   const alreadyExists = serviceItems.value.some(
-    (item) =>
-      item.title === title &&
-      item.verses.map(verseKey).join('|') === selectedKeys,
+    (item) => item.title === title && item.verses.map(verseKey).join('|') === selectedKeys,
   );
 
   if (alreadyExists) {
@@ -1067,10 +1002,7 @@ function addSelectedToService(): void {
     id: `bible-${Date.now()}-${serviceItems.value.length}`,
     type: 'bible',
     title,
-    projectionReference: buildProjectionReference(
-      passage,
-      selectedVerses.value,
-    ),
+    projectionReference: buildProjectionReference(passage, selectedVerses.value),
     versionCode: passage.versionCode,
     verses: [...selectedVerses.value],
   };
@@ -1128,9 +1060,7 @@ function moveLiveVerse(direction: -1 | 1): void {
 
   const currentVerse = liveVerse.value;
   const currentIndex = currentVerse
-    ? verses.findIndex(
-        (verse) => verseKey(verse) === verseKey(currentVerse),
-      )
+    ? verses.findIndex((verse) => verseKey(verse) === verseKey(currentVerse))
     : -1;
   const nextIndex =
     currentIndex < 0
@@ -1146,10 +1076,7 @@ function moveLiveVerse(direction: -1 | 1): void {
   }
 }
 
-function startLiveSectionDrag(
-  event: DragEvent,
-  section: LiveSectionId,
-): void {
+function startLiveSectionDrag(event: DragEvent, section: LiveSectionId): void {
   draggingLiveSection.value = section;
 
   if (event.dataTransfer) {
@@ -1206,8 +1133,7 @@ function startLiveSectionResize(event: PointerEvent): void {
   const minimumSize = 0.35;
 
   const handlePointerMove = (moveEvent: PointerEvent) => {
-    const sizeDifference =
-      ((moveEvent.clientY - startY) / containerHeight) * combinedSize;
+    const sizeDifference = ((moveEvent.clientY - startY) / containerHeight) * combinedSize;
     const nextTopSize = initialTopSize + sizeDifference;
     const nextBottomSize = initialBottomSize - sizeDifference;
 
@@ -1767,9 +1693,7 @@ onMounted(() => {
   gap: 14px;
   padding: clamp(18px, 3vw, 36px);
   color: #65748a;
-  background:
-    radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%),
-    #05080d;
+  background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
   border: 1px solid #293649;
   border-radius: 8px;
   text-align: center;

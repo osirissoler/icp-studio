@@ -10,9 +10,7 @@ function isSongPart(value: unknown): value is SongPart {
   const part = value as Record<string, unknown>;
 
   return (
-    typeof part.id === 'string' &&
-    typeof part.type === 'string' &&
-    typeof part.content === 'string'
+    typeof part.id === 'string' && typeof part.type === 'string' && typeof part.content === 'string'
   );
 }
 
@@ -46,9 +44,7 @@ export function getSongs(): Song[] {
     const songs: unknown = JSON.parse(storedValue);
 
     return Array.isArray(songs)
-      ? songs
-          .filter(isSong)
-          .sort((first, second) => first.title.localeCompare(second.title, 'es'))
+      ? songs.filter(isSong).sort((first, second) => first.title.localeCompare(second.title, 'es'))
       : [];
   } catch {
     return [];
@@ -68,10 +64,7 @@ export function saveSong(draft: SongDraft): Song {
     updatedAt: now,
   };
 
-  window.localStorage.setItem(
-    SONG_LIBRARY_STORAGE_KEY,
-    JSON.stringify([...songs, song]),
-  );
+  window.localStorage.setItem(SONG_LIBRARY_STORAGE_KEY, JSON.stringify([...songs, song]));
 
   return song;
 }

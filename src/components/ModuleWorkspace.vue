@@ -1,10 +1,6 @@
 <template>
   <section class="workspace-shell">
-    <div
-      ref="workspaceElement"
-      class="workspace-panels"
-      :style="workspaceGridStyle"
-    >
+    <div ref="workspaceElement" class="workspace-panels" :style="workspaceGridStyle">
       <article
         v-for="(panel, index) in panels"
         :key="panel.id"
@@ -13,155 +9,153 @@
           `workspace-panel--slot-${index + 1}`,
           { 'workspace-panel--dragging': draggingPanelId === panel.id },
         ]"
-          @dragover.prevent
-          @drop="dropPanel(panel.id)"
+        @dragover.prevent
+        @drop="dropPanel(panel.id)"
+      >
+        <header
+          class="panel-header"
+          draggable="true"
+          @dragstart="startDragging($event, panel.id)"
+          @dragend="stopDragging"
         >
-          <header
-            class="panel-header"
-            draggable="true"
-            @dragstart="startDragging($event, panel.id)"
-            @dragend="stopDragging"
+          <div class="panel-heading">
+            <q-icon name="drag_indicator" class="drag-icon">
+              <q-tooltip>Arrastra para cambiar la posición del panel</q-tooltip>
+            </q-icon>
+            <q-icon :name="panel.id === 'search' ? icon : panel.icon" size="19px" />
+            <span>{{ panel.id === 'search' ? title : panel.title }}</span>
+            <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
+          </div>
+
+          <q-btn
+            v-if="panel.id === 'search'"
+            flat
+            round
+            dense
+            size="sm"
+            icon="info_outline"
+            aria-label="Información del módulo"
+            @click.stop
           >
-            <div class="panel-heading">
-              <q-icon name="drag_indicator" class="drag-icon">
-                <q-tooltip>Arrastra para cambiar la posición del panel</q-tooltip>
-              </q-icon>
-              <q-icon :name="panel.id === 'search' ? icon : panel.icon" size="19px" />
-              <span>{{ panel.id === 'search' ? title : panel.title }}</span>
-              <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
+            <q-tooltip>{{ description }}</q-tooltip>
+          </q-btn>
+
+          <q-btn v-else flat round dense size="sm" icon="more_horiz" @click.stop />
+        </header>
+
+        <div class="panel-content">
+          <slot v-if="$slots[panel.id]" :name="panel.id" />
+
+          <template v-else-if="panel.id === 'search'">
+            <div class="search-toolbar">
+              <q-input
+                v-model="searchText"
+                outlined
+                dense
+                clearable
+                :placeholder="searchPlaceholder"
+                class="search-input"
+              >
+                <template #prepend>
+                  <q-icon name="search" />
+                </template>
+              </q-input>
+
+              <q-btn
+                v-if="isSongModule"
+                unelevated
+                color="primary"
+                icon="add"
+                class="toolbar-button"
+                aria-label="Crear nueva alabanza"
+                @click="openSongEditor"
+              >
+                <q-tooltip>Crear nueva alabanza</q-tooltip>
+              </q-btn>
+
+              <q-btn
+                outline
+                color="blue-grey-5"
+                icon="filter_list"
+                class="toolbar-button"
+                aria-label="Filtrar contenido"
+              >
+                <q-tooltip>Filtros</q-tooltip>
+              </q-btn>
             </div>
 
-            <q-btn
-              v-if="panel.id === 'search'"
-              flat
-              round
-              dense
-              size="sm"
-              icon="info_outline"
-              aria-label="Información del módulo"
-              @click.stop
-            >
-              <q-tooltip>{{ description }}</q-tooltip>
-            </q-btn>
+            <div class="empty-state">
+              <q-icon :name="icon" size="44px" />
+              <div class="empty-title">Buscar en {{ title }}</div>
+              <div class="empty-text">Los resultados y elementos guardados aparecerán aquí.</div>
+            </div>
+          </template>
 
-            <q-btn v-else flat round dense size="sm" icon="more_horiz" @click.stop />
-          </header>
+          <template v-else-if="panel.id === 'service'">
+            <div class="screen-label">
+              <span>Orden del servicio</span>
+              <q-icon name="playlist_play" />
+            </div>
 
-          <div class="panel-content">
-            <slot v-if="$slots[panel.id]" :name="panel.id" />
+            <div class="empty-state">
+              <q-icon name="playlist_add" size="44px" />
+              <div class="empty-title">Servicio vacío</div>
+              <div class="empty-text">Los elementos agregados para el culto aparecerán aquí.</div>
+            </div>
+          </template>
 
-            <template v-else-if="panel.id === 'search'">
-              <div class="search-toolbar">
-                <q-input
-                  v-model="searchText"
-                  outlined
-                  dense
-                  clearable
-                  :placeholder="searchPlaceholder"
-                  class="search-input"
-                >
-                  <template #prepend>
-                    <q-icon name="search" />
-                  </template>
-                </q-input>
+          <template v-else-if="panel.id === 'preview'">
+            <div class="screen-label">
+              <span>Vista del operador</span>
+              <q-icon name="visibility" />
+            </div>
 
-                <q-btn
-                  v-if="isSongModule"
-                  unelevated
-                  color="primary"
-                  icon="add"
-                  class="toolbar-button"
-                  aria-label="Crear nueva alabanza"
-                  @click="openSongEditor"
-                >
-                  <q-tooltip>Crear nueva alabanza</q-tooltip>
-                </q-btn>
+            <div class="projection-screen preview-screen">
+              <q-icon name="preview" size="46px" />
+              <div>Selecciona un elemento para previsualizarlo</div>
+            </div>
 
-                <q-btn
-                  outline
-                  color="blue-grey-5"
-                  icon="filter_list"
-                  class="toolbar-button"
-                  aria-label="Filtrar contenido"
-                >
-                  <q-tooltip>Filtros</q-tooltip>
-                </q-btn>
+            <div class="panel-actions">
+              <q-btn
+                outline
+                no-caps
+                color="primary"
+                icon="playlist_add"
+                label="Agregar al servicio"
+                disable
+              />
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="screen-label">
+              <div class="live-indicator">
+                <span class="live-dot"></span>
+                <span>Salida de proyección</span>
               </div>
+              <q-icon name="connected_tv" />
+            </div>
 
-              <div class="empty-state">
-                <q-icon :name="icon" size="44px" />
-                <div class="empty-title">Buscar en {{ title }}</div>
-                <div class="empty-text">Los resultados y elementos guardados aparecerán aquí.</div>
-              </div>
-            </template>
+            <div class="projection-screen live-screen">
+              <q-icon name="live_tv" size="46px" />
+              <div>Todavía no hay contenido en vivo</div>
+            </div>
 
-            <template v-else-if="panel.id === 'service'">
-              <div class="screen-label">
-                <span>Orden del servicio</span>
-                <q-icon name="playlist_play" />
-              </div>
-
-              <div class="empty-state">
-                <q-icon name="playlist_add" size="44px" />
-                <div class="empty-title">Servicio vacío</div>
-                <div class="empty-text">
-                  Los elementos agregados para el culto aparecerán aquí.
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="panel.id === 'preview'">
-              <div class="screen-label">
-                <span>Vista del operador</span>
-                <q-icon name="visibility" />
-              </div>
-
-              <div class="projection-screen preview-screen">
-                <q-icon name="preview" size="46px" />
-                <div>Selecciona un elemento para previsualizarlo</div>
-              </div>
-
-              <div class="panel-actions">
-                <q-btn
-                  outline
-                  no-caps
-                  color="primary"
-                  icon="playlist_add"
-                  label="Agregar al servicio"
-                  disable
-                />
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="screen-label">
-                <div class="live-indicator">
-                  <span class="live-dot"></span>
-                  <span>Salida de proyección</span>
-                </div>
-                <q-icon name="connected_tv" />
-              </div>
-
-              <div class="projection-screen live-screen">
-                <q-icon name="live_tv" size="46px" />
-                <div>Todavía no hay contenido en vivo</div>
-              </div>
-
-              <div class="panel-actions live-actions">
-                <q-btn flat round icon="stop_circle" color="negative">
-                  <q-tooltip>Detener proyección</q-tooltip>
-                </q-btn>
-                <q-btn
-                  unelevated
-                  no-caps
-                  color="primary"
-                  icon="present_to_all"
-                  label="Presentar"
-                  disable
-                />
-              </div>
-            </template>
-          </div>
+            <div class="panel-actions live-actions">
+              <q-btn flat round icon="stop_circle" color="negative">
+                <q-tooltip>Detener proyección</q-tooltip>
+              </q-btn>
+              <q-btn
+                unelevated
+                no-caps
+                color="primary"
+                icon="present_to_all"
+                label="Presentar"
+                disable
+              />
+            </div>
+          </template>
+        </div>
       </article>
 
       <div
@@ -312,8 +306,7 @@ function startColumnResize(event: PointerEvent, leftIndex: 0 | 1): void {
   beginResize(
     event,
     (moveEvent) => {
-      const sizeDifference =
-        ((moveEvent.clientX - startX) / containerWidth) * totalSize;
+      const sizeDifference = ((moveEvent.clientX - startX) / containerWidth) * totalSize;
       const nextLeft = initialLeft + sizeDifference;
       const nextRight = initialRight - sizeDifference;
 
@@ -341,8 +334,7 @@ function startRowResize(event: PointerEvent): void {
   beginResize(
     event,
     (moveEvent) => {
-      const difference =
-        ((moveEvent.clientY - startY) / containerHeight) * 100;
+      const difference = ((moveEvent.clientY - startY) / containerHeight) * 100;
       topRowPercent.value = Math.min(75, Math.max(25, initialTop + difference));
     },
     'is-resizing-rows',

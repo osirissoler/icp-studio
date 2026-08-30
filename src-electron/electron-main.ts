@@ -184,15 +184,13 @@ async function createProjectionWindow(display: Display | null, index: number): P
         x:
           display.workArea.x +
           Math.round(
-            (display.workArea.width -
-              Math.min(1280, Math.round(display.workArea.width * 0.78))) /
+            (display.workArea.width - Math.min(1280, Math.round(display.workArea.width * 0.78))) /
               2,
           ),
         y:
           display.workArea.y +
           Math.round(
-            (display.workArea.height -
-              Math.min(720, Math.round(display.workArea.height * 0.78))) /
+            (display.workArea.height - Math.min(720, Math.round(display.workArea.height * 0.78))) /
               2,
           ),
         frame: true,
