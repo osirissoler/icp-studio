@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { BIBLE_CHANNELS, type BiblePassageSearch } from '../../src/shared/bible';
-import { getBibleVersions, searchBiblePassage } from './bible-database';
+import { getBibleBooks, getBibleVersions, searchBiblePassage } from './bible-database';
 
 type MainWindowProvider = () => BrowserWindow | null;
 
@@ -36,12 +36,17 @@ function parsePassageSearch(value: unknown): BiblePassageSearch {
 
 export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getVersions);
-
+  ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
 
   ipcMain.handle(BIBLE_CHANNELS.getVersions, (event) => {
     validateSender(event, getMainWindow);
     return getBibleVersions();
+  });
+
+  ipcMain.handle(BIBLE_CHANNELS.getBooks, (event) => {
+    validateSender(event, getMainWindow);
+    return getBibleBooks();
   });
 
   ipcMain.handle(BIBLE_CHANNELS.searchPassage, (event, value: unknown) => {
