@@ -351,17 +351,34 @@
               <span class="live-dot"></span>
               <span>Salida de proyección</span>
             </div>
-            <q-icon name="connected_tv" />
+            <div class="live-header-actions">
+              <q-btn
+                flat
+                round
+                dense
+                size="sm"
+                icon="delete_sweep"
+                color="blue-grey-4"
+                :disable="!liveServiceItem && !liveVerse"
+                @click="clearLiveArea"
+              >
+                <q-tooltip>Limpiar todo el contenido en vivo</q-tooltip>
+              </q-btn>
+              <q-icon name="connected_tv" />
+            </div>
           </div>
 
-          <section
-            v-for="section in liveSections"
+          <template
+            v-for="(section, sectionIndex) in liveSections"
             :key="section"
-            class="live-section"
-            :class="{ 'live-section--dragging': draggingLiveSection === section }"
-            @dragover.prevent
-            @drop="dropLiveSection(section)"
           >
+            <section
+              class="live-section"
+              :class="{ 'live-section--dragging': draggingLiveSection === section }"
+              :style="{ flexGrow: liveSectionSizes[section] }"
+              @dragover.prevent
+              @drop="dropLiveSection(section)"
+            >
             <header
               class="live-section-header"
               draggable="true"
@@ -412,7 +429,17 @@
                 El contenido del servicio aparecerá aquí.
               </div>
             </template>
-          </section>
+            </section>
+
+            <div
+              v-if="sectionIndex === 0"
+              class="live-section-resizer"
+              title="Arrastra para cambiar la altura"
+              @pointerdown="startLiveSectionResize"
+            >
+              <span></span>
+            </div>
+          </template>
 
           <div class="live-actions">
             <span v-if="liveServiceItem && liveVerse" class="live-position">
@@ -436,7 +463,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+} from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import type {
   BibleBook,
@@ -478,7 +512,12 @@ const liveServiceItem = ref<BibleServiceItem | null>(null);
 const liveVerse = ref<BibleVerse | null>(null);
 const livePanelElement = ref<HTMLElement | null>(null);
 const liveSections = ref<LiveSectionId[]>(['screen', 'content']);
+const liveSectionSizes = reactive<Record<LiveSectionId, number>>({
+  screen: 1,
+  content: 1,
+});
 const draggingLiveSection = ref<LiveSectionId | null>(null);
+let stopLiveResize: (() => void) | null = null;
 const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
@@ -1089,6 +1128,62 @@ function stopProjection(): void {
   window.icpStudio?.projection.setState({ mode: 'blank' });
 }
 
+function clearLiveArea(): void {
+  liveServiceItem.value = null;
+  liveVerse.value = null;
+  window.icpStudio?.projection.setState({ mode: 'blank' });
+  livePanelElement.value?.focus();
+}
+
+function startLiveSectionResize(event: PointerEvent): void {
+  const containerHeight = livePanelElement.value?.clientHeight;
+  const topSection = liveSections.value[0];
+  const bottomSection = liveSections.value[1];
+
+  if (!containerHeight || !topSection || !bottomSection) {
+    return;
+  }
+
+  stopLiveResize?.();
+
+  const startY = event.clientY;
+  const initialTopSize = liveSectionSizes[topSection];
+  const initialBottomSize = liveSectionSizes[bottomSection];
+  const combinedSize = initialTopSize + initialBottomSize;
+  const minimumSize = 0.35;
+
+  const handlePointerMove = (moveEvent: PointerEvent) => {
+    const sizeDifference =
+      ((moveEvent.clientY - startY) / containerHeight) * combinedSize;
+    const nextTopSize = initialTopSize + sizeDifference;
+    const nextBottomSize = initialBottomSize - sizeDifference;
+
+    if (nextTopSize < minimumSize || nextBottomSize < minimumSize) {
+      return;
+    }
+
+    liveSectionSizes[topSection] = nextTopSize;
+    liveSectionSizes[bottomSection] = combinedSize - nextTopSize;
+  };
+
+  const stopResize = () => {
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', stopResize);
+    document.body.classList.remove('is-resizing-live-sections');
+    stopLiveResize = null;
+  };
+
+  stopLiveResize = stopResize;
+  document.body.classList.add('is-resizing-live-sections');
+  window.addEventListener('pointermove', handlePointerMove);
+  window.addEventListener('pointerup', stopResize);
+  event.preventDefault();
+}
+
+onBeforeUnmount(() => {
+  stopLiveResize?.();
+});
+
 onMounted(() => {
   void loadBooks();
 });
@@ -1463,11 +1558,41 @@ onMounted(() => {
 }
 
 .live-section {
+  display: flex;
+  min-height: 110px;
+  flex-basis: 0;
+  flex-direction: column;
   overflow: hidden;
-  margin-bottom: 10px;
   background: #0b131d;
   border: 1px solid #26364b;
   border-radius: 8px;
+}
+
+.live-section-resizer {
+  display: flex;
+  height: 10px;
+  flex: 0 0 10px;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.live-section-resizer span {
+  width: 44px;
+  height: 3px;
+  background: #314155;
+  border-radius: 999px;
+}
+
+.live-section-resizer:hover span {
+  background: #60a5fa;
+}
+
+.live-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .live-section--dragging {
@@ -1493,8 +1618,17 @@ onMounted(() => {
   cursor: grabbing;
 }
 
+.live-section .bible-screen {
+  min-height: 0;
+  flex: 1;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+}
+
 .live-verse-list {
-  max-height: 240px;
+  min-height: 0;
+  flex: 1;
   padding: 6px;
   overflow-y: auto;
 }
@@ -1648,5 +1782,12 @@ onMounted(() => {
   .preview-actions :deep(.q-btn) {
     width: 100%;
   }
+}
+</style>
+
+<style>
+body.is-resizing-live-sections {
+  cursor: row-resize;
+  user-select: none;
 }
 </style>
