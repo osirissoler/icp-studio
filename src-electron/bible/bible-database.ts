@@ -3,6 +3,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { app } from 'electron';
 import type {
+  BibleBook,
   BiblePassage,
   BibleVersion,
   BibleVersionStatus,
@@ -21,6 +22,13 @@ interface BibleVersionRow {
 interface BibleBookRow {
   bookCode: string;
   displayName: string;
+}
+
+interface BibleBookCatalogRow {
+  code: string;
+  displayName: string;
+  abbreviation: string | null;
+  position: number;
 }
 
 interface BibleVerseRow {
@@ -167,6 +175,33 @@ function getDefaultBibleVersionCode(database: DatabaseSync): string {
   }
 
   return row.code;
+}
+
+export function getBibleBooks(versionCode?: string): BibleBook[] {
+  const database = getBibleDatabase();
+  const effectiveVersionCode = versionCode?.trim() || getDefaultBibleVersionCode(database);
+
+  const rows = database
+    .prepare(
+      `
+      SELECT
+        book_code AS code,
+        display_name AS displayName,
+        abbreviation,
+        position
+      FROM bible_version_books
+      WHERE version_code = ?
+      ORDER BY position
+    `,
+    )
+    .all(effectiveVersionCode) as unknown as BibleBookCatalogRow[];
+
+  return rows.map((row) => ({
+    code: row.code,
+    displayName: row.displayName,
+    abbreviation: row.abbreviation ?? row.displayName,
+    position: row.position,
+  }));
 }
 
 export function searchBiblePassage(versionCode: string | undefined, reference: string): BiblePassage {
