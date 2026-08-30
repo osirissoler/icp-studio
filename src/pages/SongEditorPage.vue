@@ -9,9 +9,23 @@
         </div>
       </div>
 
-      <q-btn flat round dense icon="close" aria-label="Cerrar editor" @click="closeEditor">
-        <q-tooltip>Cerrar</q-tooltip>
-      </q-btn>
+      <div class="editor-header-actions">
+        <q-btn
+          unelevated
+          no-caps
+          dense
+          color="primary"
+          icon="save"
+          label="Guardar"
+          @click="saveCurrentSong"
+        >
+          <q-tooltip>Guardar alabanza en la biblioteca</q-tooltip>
+        </q-btn>
+
+        <q-btn flat round dense icon="close" aria-label="Cerrar editor" @click="closeEditor">
+          <q-tooltip>Cerrar</q-tooltip>
+        </q-btn>
+      </div>
     </header>
 
     <section class="song-details">
@@ -319,6 +333,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
+import { saveSong } from '../services/song-library';
 import { SONG_PART_TYPE_OPTIONS, type SongPart, type SongPartType } from '../shared/song';
 
 type EditorTab = 'parts' | 'paste' | 'preview';
@@ -567,6 +582,46 @@ function processPastedSong(): void {
   });
 }
 
+function saveCurrentSong(): void {
+  const title = songTitle.value.trim();
+  const completedParts = parts.value.filter((part) => part.content.trim());
+
+  if (!title) {
+    $q.notify({
+      type: 'warning',
+      message: 'Escribe el título de la alabanza antes de guardarla.',
+    });
+    return;
+  }
+
+  if (completedParts.length === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'Agrega por lo menos una parte con letra.',
+    });
+    return;
+  }
+
+  saveSong({
+    title,
+    author: songAuthor.value,
+    musicalKey: musicalKey.value,
+    parts: completedParts.map((part) => ({
+      ...part,
+      content: part.content.trim(),
+    })),
+  });
+
+  $q.notify({
+    type: 'positive',
+    message: 'La alabanza fue guardada correctamente.',
+  });
+
+  window.setTimeout(() => {
+    window.close();
+  }, 500);
+}
+
 function closeEditor(): void {
   window.close();
 }
@@ -591,6 +646,13 @@ function closeEditor(): void {
   background: #0b1420;
   border-bottom: 1px solid #253142;
 }
+
+.editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 
 .editor-brand {
   display: flex;
