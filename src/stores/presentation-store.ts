@@ -25,7 +25,9 @@ export const usePresentationStore = defineStore('presentation', () => {
   const selectedServiceItemId = ref<string | null>(null);
   const liveItem = ref<ServicePresentationItem | null>(null);
   const liveFrameIndex = ref(0);
-  const mediaPlayback = ref({ isPlaying: false, time: 0 });
+  const mediaPlayback = ref({ isPlaying: false, time: 0, duration: 0 });
+  const mediaCommand = ref<MediaPlaybackCommand>({ action: 'pause', time: 0 });
+  const mediaCommandSequence = ref(0);
 
   const liveFrame = computed(
     () => liveItem.value?.frames[liveFrameIndex.value] ?? null,
@@ -120,12 +122,23 @@ export const usePresentationStore = defineStore('presentation', () => {
   }
 
   function resetMediaPlayback(): void {
-    mediaPlayback.value = { isPlaying: false, time: 0 };
+    mediaPlayback.value = { isPlaying: false, time: 0, duration: 0 };
+    mediaCommand.value = { action: 'pause', time: 0 };
+    mediaCommandSequence.value += 1;
   }
 
   function updateLiveMediaTime(time: number): void {
     if (!Number.isFinite(time)) return;
     mediaPlayback.value.time = Math.max(0, time);
+  }
+
+  function updateLiveMediaDuration(duration: number): void {
+    if (!Number.isFinite(duration)) return;
+    mediaPlayback.value.duration = Math.max(0, duration);
+  }
+
+  function setLiveMediaPlaying(isPlaying: boolean): void {
+    mediaPlayback.value.isPlaying = isPlaying;
   }
 
   function controlLiveMedia(command: MediaPlaybackCommand): void {
@@ -139,6 +152,8 @@ export const usePresentationStore = defineStore('presentation', () => {
       mediaPlayback.value.isPlaying = false;
     }
 
+    mediaCommand.value = command;
+    mediaCommandSequence.value += 1;
     window.icpStudio?.projection.controlMedia(command);
   }
 
@@ -205,6 +220,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     liveFrameIndex,
     liveFrame,
     mediaPlayback,
+    mediaCommand,
+    mediaCommandSequence,
     addToService,
     updateServiceItem,
     selectServiceItem,
@@ -213,6 +230,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     setLiveFrame,
     moveLiveFrame,
     controlLiveMedia,
+    setLiveMediaPlaying,
+    updateLiveMediaDuration,
     updateLiveMediaTime,
     clearLive,
   };
