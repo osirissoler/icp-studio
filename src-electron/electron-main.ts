@@ -122,7 +122,7 @@ async function loadAppWindow(targetWindow: BrowserWindow, route?: string): Promi
   await targetWindow.loadFile('index.html');
 }
 
-async function createSongEditorWindow(): Promise<void> {
+async function createSongEditorWindow(songId?: string): Promise<void> {
   if (songEditorWindow && !songEditorWindow.isDestroyed()) {
     if (songEditorWindow.isMinimized()) {
       songEditorWindow.restore();
@@ -133,7 +133,9 @@ async function createSongEditorWindow(): Promise<void> {
   }
 
   songEditorWindow = new BrowserWindow({
-    title: 'ICP Studio - Nueva alabanza',
+    title: songId
+      ? 'ICP Studio - Editar alabanza'
+      : 'ICP Studio - Nueva alabanza',
     icon: resolveElectronAssetsPath('icons/icon.png'),
     width: 1100,
     height: 760,
@@ -162,16 +164,23 @@ async function createSongEditorWindow(): Promise<void> {
     songEditorWindow = null;
   });
 
-  await loadAppWindow(songEditorWindow, '/song-editor/new');
+  const editorRoute = songId
+    ? `/song-editor/${encodeURIComponent(songId)}`
+    : '/song-editor/new';
+
+  await loadAppWindow(songEditorWindow, editorRoute);
 }
 
 function registerWindowIpc(): void {
-  ipcMain.on(WINDOW_CHANNELS.openSongEditor, (event) => {
+  ipcMain.on(WINDOW_CHANNELS.openSongEditor, (event, value: unknown) => {
     if (event.sender !== windows.main?.webContents) {
       return;
     }
 
-    void createSongEditorWindow();
+    const songId =
+      typeof value === 'string' && value.length <= 200 ? value : undefined;
+
+    void createSongEditorWindow(songId);
   });
 }
 
