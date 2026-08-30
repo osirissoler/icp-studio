@@ -23,6 +23,7 @@ interface IcpStudioApi {
     list: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
     select: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
     remove: (itemId: string) => Promise<boolean>;
+    rename: (itemId: string, name: string) => Promise<MediaLibraryItem | null>;
   };
   projection: {
     setState: (state: ProjectionState) => void;
