@@ -97,7 +97,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/song-editor/new',
+    path: '/song-editor/:songId',
     component: () => import('../pages/SongEditorPage.vue'),
   },
   {
