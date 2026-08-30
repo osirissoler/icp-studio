@@ -1,6 +1,10 @@
 <template>
   <section class="workspace-shell">
-    <div class="workspace-panels">
+    <div
+      ref="workspaceElement"
+      class="workspace-panels"
+      :style="workspaceGridStyle"
+    >
       <article
         v-for="(panel, index) in panels"
         :key="panel.id"
@@ -159,12 +163,36 @@
             </template>
           </div>
       </article>
+
+      <div
+        class="resize-handle resize-handle--left"
+        title="Arrastra para cambiar el ancho"
+        @pointerdown="startColumnResize($event, 0)"
+      >
+        <span></span>
+      </div>
+
+      <div
+        class="resize-handle resize-handle--right"
+        title="Arrastra para cambiar el ancho"
+        @pointerdown="startColumnResize($event, 1)"
+      >
+        <span></span>
+      </div>
+
+      <div
+        class="resize-handle resize-handle--center"
+        title="Arrastra para cambiar la altura"
+        @pointerdown="startRowResize"
+      >
+        <span></span>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 
 interface Props {
   title: string;
@@ -182,6 +210,9 @@ interface WorkspacePanel {
 
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
+const workspaceElement = ref<HTMLElement | null>(null);
+const columnSizes = reactive<[number, number, number]>([1.35, 1, 1]);
+const topRowPercent = ref(50);
 const panels = ref<WorkspacePanel[]>([
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
@@ -193,6 +224,12 @@ const props = defineProps<Props>();
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
+const workspaceGridStyle = computed(() => ({
+  gridTemplateColumns: `minmax(220px, ${columnSizes[0]}fr) 12px minmax(220px, ${columnSizes[1]}fr) 12px minmax(220px, ${columnSizes[2]}fr)`,
+  gridTemplateRows: `minmax(0, ${topRowPercent.value}fr) 12px minmax(0, ${100 - topRowPercent.value}fr)`,
+}));
+
+let stopActiveResize: (() => void) | null = null;
 
 function openSongEditor(): void {
   window.icpStudio?.windows.openSongEditor();
@@ -236,6 +273,85 @@ function dropPanel(targetPanelId: PanelId) {
   stopDragging();
 }
 
+function beginResize(
+  event: PointerEvent,
+  handlePointerMove: (moveEvent: PointerEvent) => void,
+  cursorClass: string,
+): void {
+  stopActiveResize?.();
+
+  const stopResize = () => {
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', stopResize);
+    document.body.classList.remove(cursorClass);
+    stopActiveResize = null;
+  };
+
+  stopActiveResize = stopResize;
+  document.body.classList.add(cursorClass);
+  window.addEventListener('pointermove', handlePointerMove);
+  window.addEventListener('pointerup', stopResize);
+  event.preventDefault();
+}
+
+function startColumnResize(event: PointerEvent, leftIndex: 0 | 1): void {
+  const containerWidth = workspaceElement.value?.clientWidth;
+
+  if (!containerWidth) {
+    return;
+  }
+
+  const rightIndex = (leftIndex + 1) as 1 | 2;
+  const startX = event.clientX;
+  const initialLeft = columnSizes[leftIndex];
+  const initialRight = columnSizes[rightIndex];
+  const combinedSize = initialLeft + initialRight;
+  const totalSize = columnSizes[0] + columnSizes[1] + columnSizes[2];
+  const minimumSize = Math.max(0.45, (220 / containerWidth) * totalSize);
+
+  beginResize(
+    event,
+    (moveEvent) => {
+      const sizeDifference =
+        ((moveEvent.clientX - startX) / containerWidth) * totalSize;
+      const nextLeft = initialLeft + sizeDifference;
+      const nextRight = initialRight - sizeDifference;
+
+      if (nextLeft < minimumSize || nextRight < minimumSize) {
+        return;
+      }
+
+      columnSizes[leftIndex] = nextLeft;
+      columnSizes[rightIndex] = combinedSize - nextLeft;
+    },
+    'is-resizing-columns',
+  );
+}
+
+function startRowResize(event: PointerEvent): void {
+  const containerHeight = workspaceElement.value?.clientHeight;
+
+  if (!containerHeight) {
+    return;
+  }
+
+  const startY = event.clientY;
+  const initialTop = topRowPercent.value;
+
+  beginResize(
+    event,
+    (moveEvent) => {
+      const difference =
+        ((moveEvent.clientY - startY) / containerHeight) * 100;
+      topRowPercent.value = Math.min(75, Math.max(25, initialTop + difference));
+    },
+    'is-resizing-rows',
+  );
+}
+
+onBeforeUnmount(() => {
+  stopActiveResize?.();
+});
 </script>
 
 <style scoped>
@@ -250,9 +366,9 @@ function dropPanel(targetPanelId: PanelId) {
   display: grid;
   height: calc(100vh - 90px);
   min-height: 560px;
-  grid-template-columns: minmax(260px, 1.35fr) minmax(260px, 1fr) minmax(260px, 1fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1.35fr) 12px minmax(220px, 1fr) 12px minmax(220px, 1fr);
+  grid-template-rows: minmax(0, 1fr) 12px minmax(0, 1fr);
+  gap: 0;
   overflow: hidden;
 }
 
@@ -272,27 +388,72 @@ function dropPanel(targetPanelId: PanelId) {
 
 .workspace-panel--slot-1 {
   grid-column: 1;
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
 }
 
 .workspace-panel--slot-2 {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
 }
 
 .workspace-panel--slot-3 {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 3;
+  grid-row: 3;
 }
 
 .workspace-panel--slot-4 {
-  grid-column: 3;
-  grid-row: 1 / 3;
+  grid-column: 5;
+  grid-row: 1 / 4;
 }
 
 .workspace-panel--dragging {
   opacity: 0.45;
   border-color: #60a5fa;
+}
+
+.resize-handle {
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.resize-handle--left {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  cursor: col-resize;
+}
+
+.resize-handle--right {
+  grid-column: 4;
+  grid-row: 1 / 4;
+  cursor: col-resize;
+}
+
+.resize-handle--center {
+  grid-column: 3;
+  grid-row: 2;
+  cursor: row-resize;
+}
+
+.resize-handle--left span,
+.resize-handle--right span {
+  width: 3px;
+  height: 46px;
+  background: #314155;
+  border-radius: 999px;
+}
+
+.resize-handle--center span {
+  width: 46px;
+  height: 3px;
+  background: #314155;
+  border-radius: 999px;
+}
+
+.resize-handle:hover span {
+  background: #60a5fa;
 }
 
 .panel-header {
@@ -473,5 +634,21 @@ function dropPanel(targetPanelId: PanelId) {
     width: 100%;
     min-height: 420px;
   }
+
+  .resize-handle {
+    display: none;
+  }
+}
+</style>
+
+<style>
+body.is-resizing-columns {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.is-resizing-rows {
+  cursor: row-resize;
+  user-select: none;
 }
 </style>
