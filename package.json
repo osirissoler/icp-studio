@@ -11,6 +11,9 @@
     "lint:check": "prettier \"**/*.{js,ts,vue,css,scss,html,md,json}\" --ignore-path .gitignore && eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
     "dev": "quasar dev",
     "build": "quasar build",
+    "build:electron": "npm run converter:check && quasar build -m electron",
+    "dev:electron": "npm run converter:check && quasar dev -m electron",
+    "converter:check": "node scripts/check-presentation-converter.mjs",
     "typecheck": "vue-tsc --noEmit",
     "postinstall": "quasar prepare --silent"
   },

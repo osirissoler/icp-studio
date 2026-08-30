@@ -1,0 +1,24 @@
+{
+  "engine": "LibreOffice",
+  "purpose": "Convertir presentaciones PPTX a PDF sin conexión",
+  "supportedTargets": [
+    {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "distribution": "ICP-Studio-Mac-Apple-Silicon.dmg",
+      "executable": "LibreOffice.app/Contents/MacOS/soffice"
+    },
+    {
+      "platform": "darwin",
+      "architecture": "x64",
+      "distribution": "ICP-Studio-Mac-Intel.dmg",
+      "executable": "LibreOffice.app/Contents/MacOS/soffice"
+    },
+    {
+      "platform": "win32",
+      "architecture": "x64",
+      "distribution": "ICP-Studio-Windows-x64.exe",
+      "executable": "program/soffice.exe"
+    }
+  ]
+}
