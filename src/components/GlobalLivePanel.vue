@@ -171,6 +171,7 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
 let suppressPlaybackEvents = true;
+let mediaSyncVersion = 0;
 
 function controlPlayback(
   action: 'play' | 'pause' | 'seek',
@@ -191,7 +192,11 @@ function rememberPlaybackTime(event: Event): void {
 }
 
 async function synchronizeMediaElement(): Promise<void> {
+  const syncVersion = ++mediaSyncVersion;
   await nextTick();
+
+  if (syncVersion !== mediaSyncVersion) return;
+
   const media = liveMediaElement.value;
 
   if (!media) {
@@ -202,6 +207,8 @@ async function synchronizeMediaElement(): Promise<void> {
   suppressPlaybackEvents = true;
 
   const restorePlayback = () => {
+    if (syncVersion !== mediaSyncVersion) return;
+
     if (Math.abs(media.currentTime - mediaPlayback.value.time) > 0.2) {
       media.currentTime = mediaPlayback.value.time;
     }
@@ -292,6 +299,7 @@ onActivated(() => {
 });
 
 onDeactivated(() => {
+  mediaSyncVersion += 1;
   suppressPlaybackEvents = true;
   const media = liveMediaElement.value;
 
@@ -302,6 +310,7 @@ onDeactivated(() => {
 });
 
 onBeforeUnmount(() => {
+  mediaSyncVersion += 1;
   suppressPlaybackEvents = true;
   stopResizeListener?.();
   liveMediaElement.value?.pause();
