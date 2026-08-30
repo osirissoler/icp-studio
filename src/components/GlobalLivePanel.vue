@@ -53,36 +53,68 @@
               :alt="liveItem?.title"
               class="live-media"
             />
-            <video
+            <div
               v-else-if="liveFrame.mediaType === 'video' && liveFrame.mediaUrl"
-              ref="liveMediaElement"
-              :key="liveFrame.id"
-              :src="liveFrame.mediaUrl"
-              class="live-media"
-              controls
-              preload="metadata"
-              @play="controlPlayback('play', $event)"
-              @pause="controlPlayback('pause', $event)"
-              @seeked="controlPlayback('seek', $event)"
-              @timeupdate="rememberPlaybackTime"
-            />
+              class="live-video"
+            >
+              <video
+                :key="liveFrame.id"
+                :src="liveFrame.mediaUrl"
+                class="live-media"
+                muted
+                preload="metadata"
+              />
+              <div class="media-playback-controls">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  :icon="mediaPlayback.isPlaying ? 'pause' : 'play_arrow'"
+                  color="primary"
+                  @click="togglePlayback"
+                />
+                <q-slider
+                  :model-value="mediaPlayback.time"
+                  :min="0"
+                  :max="Math.max(1, mediaPlayback.duration)"
+                  color="primary"
+                  @change="seekPlayback"
+                />
+                <small>
+                  {{ formatTime(mediaPlayback.time) }} /
+                  {{ formatTime(mediaPlayback.duration) }}
+                </small>
+              </div>
+            </div>
             <div
               v-else-if="liveFrame.mediaType === 'audio' && liveFrame.mediaUrl"
               class="live-audio"
             >
               <q-icon name="album" size="52px" />
               <strong>{{ liveItem?.title }}</strong>
-              <audio
-                ref="liveMediaElement"
-                :key="liveFrame.id"
-                :src="liveFrame.mediaUrl"
-                controls
-                preload="metadata"
-                @play="controlPlayback('play', $event)"
-                @pause="controlPlayback('pause', $event)"
-                @seeked="controlPlayback('seek', $event)"
-                @timeupdate="rememberPlaybackTime"
-              />
+              <div class="media-playback-controls">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  :icon="mediaPlayback.isPlaying ? 'pause' : 'play_arrow'"
+                  color="primary"
+                  @click="togglePlayback"
+                />
+                <q-slider
+                  :model-value="mediaPlayback.time"
+                  :min="0"
+                  :max="Math.max(1, mediaPlayback.duration)"
+                  color="primary"
+                  @change="seekPlayback"
+                />
+                <small>
+                  {{ formatTime(mediaPlayback.time) }} /
+                  {{ formatTime(mediaPlayback.duration) }}
+                </small>
+              </div>
             </div>
             <FittedTechnicalText
               v-else
@@ -135,15 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  nextTick,
-  onActivated,
-  onBeforeUnmount,
-  onDeactivated,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { onBeforeUnmount, reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import { usePresentationStore } from '../stores/presentation-store';
@@ -158,11 +182,9 @@ const {
   controlLiveMedia,
   moveLiveFrame,
   setLiveFrame,
-  updateLiveMediaTime,
 } = presentationStore;
 
 const panelElement = ref<HTMLElement | null>(null);
-const liveMediaElement = ref<HTMLMediaElement | null>(null);
 const sections = ref<LiveSection[]>(['screen', 'content']);
 const sectionSizes = reactive<Record<LiveSection, number>>({
   screen: 1,
@@ -170,65 +192,25 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 });
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
-let suppressPlaybackEvents = true;
-let mediaSyncVersion = 0;
 
-function controlPlayback(
-  action: 'play' | 'pause' | 'seek',
-  event: Event,
-): void {
-  if (suppressPlaybackEvents) return;
-
-  const media = event.currentTarget as HTMLMediaElement;
+function togglePlayback(): void {
   controlLiveMedia({
-    action,
-    time: media.currentTime,
+    action: mediaPlayback.value.isPlaying ? 'pause' : 'play',
+    time: mediaPlayback.value.time,
   });
 }
 
-function rememberPlaybackTime(event: Event): void {
-  const media = event.currentTarget as HTMLMediaElement;
-  updateLiveMediaTime(media.currentTime);
+function seekPlayback(value: number | null): void {
+  if (value === null) return;
+  controlLiveMedia({ action: 'seek', time: value });
 }
 
-async function synchronizeMediaElement(): Promise<void> {
-  const syncVersion = ++mediaSyncVersion;
-  await nextTick();
-
-  if (syncVersion !== mediaSyncVersion) return;
-
-  const media = liveMediaElement.value;
-
-  if (!media) {
-    suppressPlaybackEvents = false;
-    return;
-  }
-
-  suppressPlaybackEvents = true;
-
-  const restorePlayback = () => {
-    if (syncVersion !== mediaSyncVersion) return;
-
-    if (Math.abs(media.currentTime - mediaPlayback.value.time) > 0.2) {
-      media.currentTime = mediaPlayback.value.time;
-    }
-
-    if (mediaPlayback.value.isPlaying) {
-      void media.play();
-    } else {
-      media.pause();
-    }
-
-    window.setTimeout(() => {
-      suppressPlaybackEvents = false;
-    }, 0);
-  };
-
-  if (media.readyState === 0) {
-    media.addEventListener('loadedmetadata', restorePlayback, { once: true });
-  } else {
-    restorePlayback();
-  }
+function formatTime(value: number): string {
+  if (!Number.isFinite(value)) return '0:00';
+  const totalSeconds = Math.max(0, Math.floor(value));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }
 
 function sectionTitle(section: LiveSection): string {
@@ -287,33 +269,8 @@ function startResize(event: PointerEvent): void {
   event.preventDefault();
 }
 
-watch(
-  () => liveFrame.value?.id,
-  () => {
-    void synchronizeMediaElement();
-  },
-);
-
-onActivated(() => {
-  void synchronizeMediaElement();
-});
-
-onDeactivated(() => {
-  mediaSyncVersion += 1;
-  suppressPlaybackEvents = true;
-  const media = liveMediaElement.value;
-
-  if (media) {
-    updateLiveMediaTime(media.currentTime);
-    media.pause();
-  }
-});
-
 onBeforeUnmount(() => {
-  mediaSyncVersion += 1;
-  suppressPlaybackEvents = true;
   stopResizeListener?.();
-  liveMediaElement.value?.pause();
 });
 </script>
 
@@ -387,6 +344,19 @@ onBeforeUnmount(() => {
   object-fit: contain;
 }
 
+.live-video {
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+}
+
+.live-video .live-media {
+  min-height: 0;
+  flex: 1;
+}
+
 .live-audio {
   display: flex;
   width: min(90%, 440px);
@@ -396,8 +366,20 @@ onBeforeUnmount(() => {
   color: #c7d2e0;
 }
 
-.live-audio audio {
+.media-playback-controls {
+  display: grid;
   width: 100%;
+  align-items: center;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.media-playback-controls small {
+  min-width: 72px;
+  color: #91a0b3;
+  font-size: 9px;
+  text-align: right;
 }
 
 .screen-footer {
