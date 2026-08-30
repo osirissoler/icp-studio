@@ -6,6 +6,7 @@ import type {
   BibleVersion,
 } from './src/shared/bible';
 import type { ProjectionState } from './src/shared/projection';
+import type { DefaultSongCollection } from './src/shared/song';
 
 interface IcpStudioApi {
   bible: {
@@ -13,6 +14,9 @@ interface IcpStudioApi {
     getBooks: () => Promise<BibleBook[]>;
     getBookChapters: (request: BibleBookChaptersRequest) => Promise<number[]>;
     searchPassage: (request: BiblePassageSearch) => Promise<BiblePassage>;
+  };
+  songs: {
+    getDefaultCollection: () => Promise<DefaultSongCollection>;
   };
   projection: {
     setState: (state: ProjectionState) => void;
