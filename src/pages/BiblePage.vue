@@ -386,7 +386,7 @@
                   dense
                   size="xs"
                   icon="delete_sweep"
-                  color="blue-grey-4"
+                  color="negative"
                   :disable="!liveServiceItem && !liveVerse"
                   @click.stop="clearLiveArea"
                 >
