@@ -9,6 +9,10 @@ import {
   type BibleVersion,
 } from '../src/shared/bible';
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import {
+  SONG_CHANNELS,
+  type DefaultSongCollection,
+} from '../src/shared/song';
 import { WINDOW_CHANNELS } from '../src/shared/window';
 
 const windowApi = {
@@ -34,6 +38,14 @@ const projectionApi = {
   },
 };
 
+const songApi = {
+  getDefaultCollection: (): Promise<DefaultSongCollection> => {
+    return ipcRenderer.invoke(
+      SONG_CHANNELS.getDefaultCollection,
+    ) as Promise<DefaultSongCollection>;
+  },
+};
+
 const bibleApi = {
   getVersions: (): Promise<BibleVersion[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
@@ -55,6 +67,7 @@ const bibleApi = {
 contextBridge.exposeInMainWorld('quasarRuntime', quasarRuntime);
 contextBridge.exposeInMainWorld('icpStudio', {
   bible: bibleApi,
+  songs: songApi,
   projection: projectionApi,
   windows: windowApi,
 });
