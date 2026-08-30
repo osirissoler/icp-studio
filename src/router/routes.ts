@@ -73,12 +73,21 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'juegos',
+        path: 'actividades',
         component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
-          title: 'Juegos',
-          description: 'Crea y ejecuta juegos bíblicos interactivos.',
-          icon: 'sports_esports',
+          title: 'Actividades',
+          description: 'Organiza dinámicas y actividades interactivas para la congregación.',
+          icon: 'extension',
+        },
+      },
+      {
+        path: 'herramientas',
+        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        meta: {
+          title: 'Herramientas',
+          description: 'Accede a utilidades adicionales para preparar y presentar contenido.',
+          icon: 'construction',
         },
       },
       {
