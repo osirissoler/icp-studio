@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { quasarRuntime } from '#q-app/electron/preload';
+import {
+  BIBLE_CHANNELS,
+  type BiblePassage,
+  type BiblePassageSearch,
+  type BibleVersion,
+} from '../src/shared/bible';
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
 import { WINDOW_CHANNELS } from '../src/shared/window';
 
@@ -26,11 +32,21 @@ const projectionApi = {
   },
 };
 
+const bibleApi = {
+  getVersions: (): Promise<BibleVersion[]> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
+  },
+  searchPassage: (request: BiblePassageSearch): Promise<BiblePassage> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.searchPassage, request) as Promise<BiblePassage>;
+  },
+};
+
 /**
  * APIs available to Vue through the isolated preload bridge.
  */
 contextBridge.exposeInMainWorld('quasarRuntime', quasarRuntime);
 contextBridge.exposeInMainWorld('icpStudio', {
+  bible: bibleApi,
   projection: projectionApi,
   windows: windowApi,
 });
