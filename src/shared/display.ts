@@ -1,3 +1,8 @@
+export const DISPLAY_CHANNELS = {
+  list: 'display:list',
+  changed: 'display:changed',
+} as const;
+
 export interface DisplayBounds {
   x: number;
   y: number;
