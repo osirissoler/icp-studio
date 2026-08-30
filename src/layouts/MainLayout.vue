@@ -127,12 +127,15 @@
         </keep-alive>
       </router-view>
     </q-page-container>
+
+    <PersistentMediaPlayer />
   </q-layout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useQuasar } from 'quasar';
+import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
 
 interface NavigationItem {
   label: string;
