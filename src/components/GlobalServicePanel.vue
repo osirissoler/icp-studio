@@ -1,5 +1,11 @@
 <template>
-  <div class="global-service-panel">
+  <div
+    class="global-service-panel"
+    tabindex="0"
+    @keydown.up.prevent="moveServiceSelection(-1)"
+    @keydown.down.prevent="moveServiceSelection(1)"
+    @keydown.enter.prevent="activateSelectedServiceItem"
+  >
     <div class="panel-label">
       <span>Orden del servicio</span>
       <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
@@ -7,10 +13,15 @@
       </q-chip>
     </div>
 
-    <div v-if="serviceItems.length" class="service-list">
+    <div
+      v-if="serviceItems.length"
+      ref="serviceListElement"
+      class="service-list"
+    >
       <button
         v-for="(item, index) in serviceItems"
         :key="item.id"
+        :data-service-index="index"
         type="button"
         class="service-item"
         :class="{ 'service-item--active': selectedServiceItemId === item.id }"
@@ -29,6 +40,7 @@
           aria-label="Quitar del servicio"
           @click.stop="removeFromService(item.id)"
           @dblclick.stop
+          @keydown.stop
         >
           <q-tooltip>Quitar del servicio</q-tooltip>
         </q-btn>
@@ -44,10 +56,12 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { PresentationItemType } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 
+const serviceListElement = ref<HTMLElement | null>(null);
 const presentationStore = usePresentationStore();
 const { serviceItems, selectedServiceItemId } =
   storeToRefs(presentationStore);
@@ -56,6 +70,46 @@ const {
   removeFromService,
   selectServiceItem,
 } = presentationStore;
+
+function moveServiceSelection(direction: -1 | 1): void {
+  if (serviceItems.value.length === 0) {
+    return;
+  }
+
+  const currentIndex = serviceItems.value.findIndex(
+    (item) => item.id === selectedServiceItemId.value,
+  );
+  const nextIndex =
+    currentIndex < 0
+      ? 0
+      : Math.min(
+          serviceItems.value.length - 1,
+          Math.max(0, currentIndex + direction),
+        );
+  const nextItem = serviceItems.value[nextIndex];
+
+  if (!nextItem) {
+    return;
+  }
+
+  selectServiceItem(nextItem.id);
+
+  void nextTick(() => {
+    serviceListElement.value
+      ?.querySelector<HTMLElement>(`[data-service-index="${nextIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+}
+
+function activateSelectedServiceItem(): void {
+  const selectedItem = serviceItems.value.find(
+    (item) => item.id === selectedServiceItemId.value,
+  );
+
+  if (selectedItem) {
+    activateServiceItem(selectedItem.id);
+  }
+}
 
 function itemIcon(type: PresentationItemType): string {
   const icons: Record<PresentationItemType, string> = {
