@@ -7,7 +7,8 @@
     >
       <template #search>
         <div class="bible-search-panel">
-          <q-tabs
+          <div class="search-controls">
+            <q-tabs
             v-model="searchMode"
             dense
             no-caps
@@ -167,6 +168,7 @@
                 <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
               </q-btn>
             </div>
+          </div>
           </div>
 
           <q-banner v-if="errorMessage" dense rounded class="error-banner">
@@ -847,6 +849,16 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.search-controls {
+  position: sticky;
+  z-index: 15;
+  top: -14px;
+  margin: -6px -2px 0;
+  padding: 6px 2px 10px;
+  background: #111b28;
+  border-bottom: 1px solid #263448;
+}
+
 .search-tabs {
   min-height: 36px;
   margin: -8px 0 10px;
@@ -1036,10 +1048,10 @@ onMounted(() => {
 .verse-card {
   display: flex;
   width: 100%;
-  align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 7px;
-  padding: 10px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+  padding: 6px 8px;
   color: #bdc8d6;
   background: #0d1621;
   border: 1px solid #26364b;
@@ -1063,8 +1075,8 @@ onMounted(() => {
 
 .verse-number {
   display: flex;
-  min-width: 28px;
-  height: 28px;
+  min-width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
   color: #93c5fd;
@@ -1079,17 +1091,21 @@ onMounted(() => {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .verse-content strong {
   color: #dce6f2;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .verse-content span {
-  line-height: 1.45;
-  font-size: 12px;
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.3;
+  font-size: 11px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .panel-label {
