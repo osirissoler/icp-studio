@@ -222,7 +222,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
-import { getSongs, SONG_LIBRARY_STORAGE_KEY } from '../services/song-library';
+import {
+  getSongs,
+  initializeSongLibrary,
+  SONG_LIBRARY_STORAGE_KEY,
+} from '../services/song-library';
 import {
   SONG_PART_TYPE_OPTIONS,
   type Song,
@@ -279,11 +283,31 @@ function partLabel(type: SongPartType): string {
   return SONG_PART_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? 'Parte';
 }
 
-function loadSongs(): void {
-  songs.value = getSongs();
+function applySongs(nextSongs: Song[]): void {
+  songs.value = nextSongs;
 
   if (selectedSong.value) {
-    selectedSong.value = songs.value.find((song) => song.id === selectedSong.value?.id) ?? null;
+    selectedSong.value =
+      songs.value.find((song) => song.id === selectedSong.value?.id) ??
+      null;
+  }
+}
+
+function loadSongs(): void {
+  applySongs(getSongs());
+}
+
+async function initializeSongs(): Promise<void> {
+  try {
+    applySongs(await initializeSongLibrary());
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'No fue posible cargar las alabanzas predefinidas.';
+
+    showMessage(message);
+    loadSongs();
   }
 }
 
@@ -373,7 +397,7 @@ function handleStorage(event: StorageEvent): void {
 }
 
 onMounted(() => {
-  loadSongs();
+  void initializeSongs();
   window.addEventListener('focus', loadSongs);
   window.addEventListener('storage', handleStorage);
 });
