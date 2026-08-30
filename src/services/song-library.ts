@@ -1,6 +1,8 @@
 import type { Song, SongDraft, SongPart } from '../shared/song';
 
 export const SONG_LIBRARY_STORAGE_KEY = 'icp-studio:songs:v1';
+const DEFAULT_SONG_COLLECTION_VERSION_KEY =
+  'icp-studio:songs:default-collection-version';
 
 function isSongPart(value: unknown): value is SongPart {
   if (typeof value !== 'object' || value === null) {
@@ -49,6 +51,51 @@ export function getSongs(): Song[] {
   } catch {
     return [];
   }
+}
+
+export async function initializeSongLibrary(): Promise<Song[]> {
+  const songApi = window.icpStudio?.songs;
+
+  if (!songApi) {
+    return getSongs();
+  }
+
+  const collection = await songApi.getDefaultCollection();
+  const collectionVersion =
+    `${collection.collectionId}:${collection.schemaVersion}`;
+  const importedVersion = window.localStorage.getItem(
+    DEFAULT_SONG_COLLECTION_VERSION_KEY,
+  );
+
+  if (importedVersion === collectionVersion) {
+    return getSongs();
+  }
+
+  const currentSongs = getSongs();
+  const currentSongIds = new Set(currentSongs.map((song) => song.id));
+  const defaultTimestamp = new Date(0).toISOString();
+  const newDefaultSongs: Song[] = collection.songs
+    .filter((song) => !currentSongIds.has(song.id))
+    .map((song) => ({
+      id: song.id,
+      title: song.title.trim(),
+      author: song.author.trim(),
+      musicalKey: song.musicalKey.trim(),
+      parts: song.parts.map((part) => ({ ...part })),
+      createdAt: defaultTimestamp,
+      updatedAt: defaultTimestamp,
+    }));
+
+  window.localStorage.setItem(
+    SONG_LIBRARY_STORAGE_KEY,
+    JSON.stringify([...currentSongs, ...newDefaultSongs]),
+  );
+  window.localStorage.setItem(
+    DEFAULT_SONG_COLLECTION_VERSION_KEY,
+    collectionVersion,
+  );
+
+  return getSongs();
 }
 
 export function saveSong(draft: SongDraft): Song {
