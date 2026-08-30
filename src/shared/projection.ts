@@ -7,6 +7,7 @@ export interface ProjectionContentState {
   mode: 'content';
   title: string;
   body: string;
+  footer?: string;
 }
 
 export interface ProjectionBlankState {
