@@ -3,7 +3,11 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import os from 'node:os';
 import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electron/main';
-import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import {
+  PROJECTION_CHANNELS,
+  type MediaPlaybackCommand,
+  type ProjectionState,
+} from '../src/shared/projection';
 import { WINDOW_CHANNELS } from '../src/shared/window';
 import type { DisplayInfo } from '../src/shared/display';
 import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
@@ -88,6 +92,21 @@ function parseProjectionState(value: unknown): ProjectionState | null {
   }
 
   if (
+    state.mode === 'media' &&
+    (state.mediaType === 'image' || state.mediaType === 'video') &&
+    typeof state.url === 'string' &&
+    state.url.startsWith('icp-media://library/') &&
+    typeof state.name === 'string'
+  ) {
+    return {
+      mode: 'media',
+      mediaType: state.mediaType,
+      url: state.url,
+      name: state.name.slice(0, 300),
+    };
+  }
+
+  if (
     state.mode === 'content' &&
     typeof state.title === 'string' &&
     typeof state.body === 'string'
@@ -118,6 +137,23 @@ function broadcastProjectionState(state: ProjectionState): void {
 }
 
 function registerProjectionIpc(): void {
+  ipcMain.on(
+    PROJECTION_CHANNELS.controlMedia,
+    (event, command: MediaPlaybackCommand) => {
+      if (event.sender !== windows.main?.webContents) return;
+      if (!['play', 'pause', 'seek'].includes(command.action)) return;
+
+      for (const projectionWindow of projectionWindows.values()) {
+        if (!projectionWindow.isDestroyed()) {
+          projectionWindow.webContents.send(
+            PROJECTION_CHANNELS.mediaControl,
+            command,
+          );
+        }
+      }
+    },
+  );
+
   ipcMain.on(PROJECTION_CHANNELS.setState, (event, value: unknown) => {
     if (event.sender !== windows.main?.webContents) {
       return;
