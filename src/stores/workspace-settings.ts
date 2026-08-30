@@ -13,6 +13,7 @@ const defaultVisibility: Record<WorkspacePanelId, boolean> = {
   preview: true,
   service: true,
   live: true,
+  monitors: true,
 };
 
 function loadVisibility(): Record<WorkspacePanelId, boolean> {
