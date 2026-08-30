@@ -94,10 +94,11 @@
           </div>
 
           <div v-else-if="filteredItems.length" class="document-list">
-            <button
+            <div
               v-for="item in filteredItems"
               :key="item.id"
-              type="button"
+              role="button"
+              tabindex="0"
               class="document-item"
               :class="{ 'document-item--active': selectedItem?.id === item.id }"
               @click="selectItem(item)"
@@ -110,7 +111,20 @@
                 <strong>{{ item.name }}</strong>
                 <small>{{ formatLabel(item) }}</small>
               </span>
-            </button>
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                color="red-4"
+                icon="delete_outline"
+                aria-label="Eliminar documento"
+                @click.stop="void deleteDocument(item)"
+                @dblclick.stop
+              >
+                <q-tooltip>Eliminar documento</q-tooltip>
+              </q-btn>
+            </div>
           </div>
 
           <div v-else class="empty-state">
@@ -130,7 +144,7 @@
             <span v-if="selectedItem">{{ selectedItem.name }}</span>
           </div>
 
-          <div class="document-preview">
+          <div class="document-preview" @wheel="handlePreviewWheel">
             <DocumentViewer
               v-if="selectedItem?.documentFormat"
               :key="selectedItem.id"
@@ -208,6 +222,7 @@ const documentInfo = new Map<string, DocumentInfo>();
 let unsubscribeImportProgress: (() => void) | undefined;
 let messageTimer: number | undefined;
 let progressVisibleSince = 0;
+let wheelLockedUntil = 0;
 
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
@@ -272,6 +287,53 @@ function movePreview(direction: -1 | 1): void {
     pageCount.value - 1,
     Math.max(0, previewPageIndex.value + direction),
   );
+}
+
+function handlePreviewWheel(event: WheelEvent): void {
+  if (!selectedItem.value || selectedItem.value.documentFormat === 'spreadsheet') return;
+  event.preventDefault();
+  const now = Date.now();
+  if (now < wheelLockedUntil || Math.abs(event.deltaY) < 4) return;
+  wheelLockedUntil = now + 220;
+  movePreview(event.deltaY > 0 ? 1 : -1);
+}
+
+async function deleteDocument(item: MediaLibraryItem): Promise<void> {
+  const confirmed = window.confirm(`¿Quieres eliminar “${item.name}” de ICP Studio?`);
+  if (!confirmed) return;
+
+  try {
+    const removed = await window.icpStudio?.media.remove(item.id);
+    if (!removed) {
+      showImportMessage('No fue posible eliminar el documento.', true);
+      return;
+    }
+
+    if (presentationStore.liveItem?.sourceId === item.id) {
+      presentationStore.clearLive();
+    }
+
+    presentationStore.serviceItems
+      .filter((serviceItem) => serviceItem.sourceId === item.id)
+      .forEach((serviceItem) => {
+        presentationStore.removeFromService(serviceItem.id);
+      });
+
+    items.value = items.value.filter((entry) => entry.id !== item.id);
+    documentInfo.delete(item.id);
+    if (selectedItem.value?.id === item.id) {
+      selectedItem.value = null;
+      previewPageIndex.value = 0;
+      pageCount.value = 1;
+      pageLabels.value = [];
+    }
+    showImportMessage('Documento eliminado correctamente.');
+  } catch (error) {
+    showImportMessage(
+      error instanceof Error ? error.message : 'No fue posible eliminar el documento.',
+      true,
+    );
+  }
 }
 
 async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo> {
@@ -494,6 +556,10 @@ onBeforeUnmount(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+}
+
+.document-item > .q-btn {
+  flex: 0 0 auto;
 }
 
 .document-details strong {

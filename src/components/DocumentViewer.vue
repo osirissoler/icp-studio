@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist';
-import { PPTXViewer } from 'pptx-viewer';
+import { loadPresentation, renderSlideToElement, type Presentation } from 'pptx-viewer';
 import * as XLSX from 'xlsx';
 import type { DocumentFormat } from '../shared/media';
 
@@ -54,6 +54,8 @@ const emit = defineEmits<{
   loaded: [pageCount: number, labels: string[]];
 }>();
 
+type LoadedPresentation = Presentation & { cleanup: () => void };
+
 const container = ref<HTMLElement | null>(null);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
 const presentationContainer = ref<HTMLElement | null>(null);
@@ -61,7 +63,7 @@ const spreadsheetRows = ref<string[][]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
 let pdfDocument: PDFDocumentProxy | null = null;
-let presentationViewer: PPTXViewer | null = null;
+let presentation: LoadedPresentation | null = null;
 let workbook: XLSX.WorkBook | null = null;
 let loadSequence = 0;
 
@@ -84,8 +86,10 @@ async function renderCurrentPage(): Promise<void> {
     return;
   }
 
-  if (props.format === 'presentation' && presentationViewer) {
-    presentationViewer.goToSlide(props.pageIndex);
+  if (props.format === 'presentation' && presentation && presentationContainer.value) {
+    presentationContainer.value.replaceChildren();
+    const safeSlideIndex = Math.min(presentation.slides.length - 1, Math.max(0, props.pageIndex));
+    renderSlideToElement(presentation, safeSlideIndex, presentationContainer.value);
     return;
   }
 
@@ -104,8 +108,8 @@ async function loadDocument(): Promise<void> {
   errorMessage.value = '';
   void pdfDocument?.cleanup();
   pdfDocument = null;
-  presentationViewer?.destroy();
-  presentationViewer = null;
+  presentation?.cleanup();
+  presentation = null;
   workbook = null;
 
   try {
@@ -125,16 +129,12 @@ async function loadDocument(): Promise<void> {
     } else {
       await nextTick();
       if (!presentationContainer.value) return;
-      presentationViewer = new PPTXViewer(presentationContainer.value, {
-        showControls: false,
-        keyboardNavigation: false,
-      });
-      await presentationViewer.load(buffer);
+      presentation = await loadPresentation(buffer);
       emit(
         'loaded',
-        presentationViewer.getSlideCount(),
+        presentation.slides.length,
         Array.from(
-          { length: presentationViewer.getSlideCount() },
+          { length: presentation.slides.length },
           (_, index) => `Diapositiva ${index + 1}`,
         ),
       );
@@ -163,7 +163,7 @@ watch(
 onBeforeUnmount(() => {
   loadSequence += 1;
   void pdfDocument?.cleanup();
-  presentationViewer?.destroy();
+  presentation?.cleanup();
 });
 </script>
 

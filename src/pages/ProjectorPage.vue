@@ -10,7 +10,7 @@
 
       <section
         v-else-if="projectionState.mode === 'document'"
-        :key="`${projectionState.url}-${projectionState.pageIndex}`"
+        :key="projectionState.url"
         class="projector-document"
       >
         <DocumentViewer

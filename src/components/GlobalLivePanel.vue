@@ -5,6 +5,7 @@
     tabindex="0"
     @keydown.up.prevent="moveLiveFrame(-1)"
     @keydown.down.prevent="moveLiveFrame(1)"
+    @wheel="handleLiveWheel"
   >
     <template v-for="(section, index) in sections" :key="section">
       <section
@@ -189,6 +190,22 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 });
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
+let wheelLockedUntil = 0;
+
+function handleLiveWheel(event: WheelEvent): void {
+  if (
+    liveFrame.value?.mediaType !== 'document' ||
+    liveFrame.value.documentFormat === 'spreadsheet'
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  const now = Date.now();
+  if (now < wheelLockedUntil || Math.abs(event.deltaY) < 4) return;
+  wheelLockedUntil = now + 220;
+  moveLiveFrame(event.deltaY > 0 ? 1 : -1);
+}
 
 function togglePlayback(): void {
   controlLiveMedia({
