@@ -203,6 +203,7 @@
                   selectedVerse && verseKey(selectedVerse) === verseKey(verse),
               }"
               @click="selectVerse(verse)"
+              @dblclick="addSingleVerseToService(verse)"
             >
               <q-checkbox
                 :model-value="isVerseSelected(verse)"
@@ -953,6 +954,35 @@ function buildProjectionReference(passage: BiblePassage, verses: BibleVerse[]): 
   }
 
   return `${passage.bookName} ${passage.chapter}:${ranges.join(', ')}`;
+}
+
+function addSingleVerseToService(verse: BibleVerse): void {
+  const item: BibleServiceItem = {
+    id: `bible-${Date.now()}-${serviceItems.value.length}`,
+    type: 'bible',
+    title: verse.reference,
+    projectionReference: verse.reference,
+    versionCode: verse.versionCode,
+    verses: [verse],
+  };
+
+  const wasAdded = presentationStore.addToService({
+    id: `service-${item.id}`,
+    sourceId: `${verse.versionCode}:${verseKey(verse)}`,
+    type: 'bible',
+    title: verse.reference,
+    footer: verse.reference,
+    frames: [{
+      id: verseKey(verse),
+      label: verse.reference,
+      text: verse.text,
+    }],
+  });
+
+  if (!wasAdded) return;
+
+  serviceItems.value = [...serviceItems.value, item];
+  selectedServiceItemId.value = item.id;
 }
 
 function addSelectedToService(): void {
