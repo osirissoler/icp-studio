@@ -57,11 +57,18 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.title === 'string' &&
     typeof state.body === 'string'
   ) {
-    return {
+    const contentState: ProjectionState = {
       mode: 'content',
       title: state.title.slice(0, 200),
       body: state.body.slice(0, 5000),
     };
+
+    return typeof state.footer === 'string'
+      ? {
+          ...contentState,
+          footer: state.footer.slice(0, 500),
+        }
+      : contentState;
   }
 
   return null;
