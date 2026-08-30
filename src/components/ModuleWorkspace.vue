@@ -216,8 +216,9 @@ const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}
 const isSongModule = computed(() => props.title === 'Alabanzas');
 const workspaceGridStyle = computed(() => {
   const panelCount = visiblePanels.value.length;
+  const columnCount = panelCount === 4 ? 3 : panelCount;
   const columns = Array.from(
-    { length: panelCount },
+    { length: columnCount },
     (_, index) => `minmax(220px, ${columnSizes[index] ?? 1}fr)`,
   ).join(' 12px ');
 
