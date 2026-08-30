@@ -189,16 +189,20 @@ function notifyRendererDisplays(): void {
 }
 
 async function synchronizeProjectionWindows(): Promise<void> {
-  const primaryDisplayId = screen.getPrimaryDisplay().id;
+  const primaryDisplay = screen.getPrimaryDisplay();
   const externalDisplays = screen
     .getAllDisplays()
-    .filter((display) => display.id !== primaryDisplayId);
-  const externalDisplayIds = new Set(
-    externalDisplays.map((display) => display.id),
+    .filter((display) => display.id !== primaryDisplay.id);
+  const usesOperatorDisplay = externalDisplays.length === 0;
+  const outputDisplays = usesOperatorDisplay
+    ? [primaryDisplay]
+    : externalDisplays;
+  const outputDisplayIds = new Set(
+    outputDisplays.map((display) => display.id),
   );
 
   for (const [displayId, projectionWindow] of projectionWindows) {
-    if (!externalDisplayIds.has(displayId)) {
+    if (!outputDisplayIds.has(displayId)) {
       projectionWindows.delete(displayId);
       if (!projectionWindow.isDestroyed()) {
         projectionWindow.close();
@@ -206,9 +210,9 @@ async function synchronizeProjectionWindows(): Promise<void> {
     }
   }
 
-  for (const [index, display] of externalDisplays.entries()) {
+  for (const [index, display] of outputDisplays.entries()) {
     if (!projectionWindows.has(display.id)) {
-      await createProjectionWindow(display, index);
+      await createProjectionWindow(display, index, usesOperatorDisplay);
     }
   }
 }
@@ -414,7 +418,11 @@ function registerWindowIpc(): void {
   });
 }
 
-async function createProjectionWindow(display: Display | null, index: number): Promise<void> {
+async function createProjectionWindow(
+  display: Display | null,
+  index: number,
+  usesOperatorDisplay = false,
+): Promise<void> {
   const displayWindowOptions = display
     ? {
         width: Math.min(1280, Math.round(display.workArea.width * 0.78)),
@@ -453,9 +461,11 @@ async function createProjectionWindow(display: Display | null, index: number): P
       };
 
   const projectorWindow = new BrowserWindow({
-    title: display
-      ? `ICP Studio - Proyector ${index + 1} - ${display.label}`
-      : 'ICP Studio - Vista previa del proyector',
+    title: usesOperatorDisplay
+      ? 'ICP Studio - Presentación en pantalla del operador'
+      : display
+        ? `ICP Studio - Proyector ${index + 1} - ${display.label}`
+        : 'ICP Studio - Vista previa del proyector',
     icon: resolveElectronAssetsPath('icons/icon.png'),
     ...displayWindowOptions,
     useContentSize: false,
