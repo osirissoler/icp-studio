@@ -161,7 +161,7 @@
               v-if="selectedItem?.documentFormat"
               :key="selectedItem.id"
               :url="selectedItem.url"
-              :format="selectedItem.documentFormat"
+              :format="viewerFormat(selectedItem)"
               :page-index="previewPageIndex"
               :zoom="previewZoom"
               @loaded="handleDocumentLoaded"
@@ -242,7 +242,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { inspectDocument, type DocumentInfo } from '../services/document-reader';
-import type { MediaImportProgress, MediaLibraryItem } from '../shared/media';
+import type { DocumentFormat, MediaImportProgress, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
 import { showAppNotification } from '../services/app-notification';
 
@@ -295,6 +295,10 @@ function formatLabel(item: MediaLibraryItem): string {
   return 'PowerPoint';
 }
 
+function viewerFormat(item: MediaLibraryItem): DocumentFormat {
+  return item.renderFormat ?? item.documentFormat ?? 'pdf';
+}
+
 function handleDocumentLoaded(count: number, labels: string[]): void {
   const item = selectedItem.value;
   if (!item) return;
@@ -331,8 +335,8 @@ function movePreview(direction: -1 | 1): void {
 }
 
 function handlePreviewWheel(event: WheelEvent): void {
-  if (!selectedItem.value || selectedItem.value.documentFormat === 'spreadsheet') return;
-  if (selectedItem.value.documentFormat === 'pdf' && previewZoom.value > 1) return;
+  if (!selectedItem.value || viewerFormat(selectedItem.value) === 'spreadsheet') return;
+  if (viewerFormat(selectedItem.value) === 'pdf' && previewZoom.value > 1) return;
   event.preventDefault();
   const now = Date.now();
   if (now < wheelLockedUntil || Math.abs(event.deltaY) < 4) return;
@@ -426,7 +430,14 @@ async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo>
   const cached = documentInfo.get(item.id);
   if (cached) return cached;
   if (!item.documentFormat) throw new Error('Formato de documento no reconocido.');
-  const info = await inspectDocument(item.url, item.documentFormat);
+  const inspectedInfo = await inspectDocument(item.url, viewerFormat(item));
+  const info =
+    item.documentFormat === 'presentation' && item.renderFormat === 'pdf'
+      ? {
+          ...inspectedInfo,
+          labels: inspectedInfo.labels.map((_, index) => `Diapositiva ${index + 1}`),
+        }
+      : inspectedInfo;
   documentInfo.set(item.id, info);
   return info;
 }
@@ -434,12 +445,12 @@ async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo>
 async function addItemToService(item: MediaLibraryItem): Promise<boolean> {
   try {
     if (!item.documentFormat) return false;
-    const documentFormat = item.documentFormat;
+    const documentFormat = viewerFormat(item);
     const info = await ensureDocumentInfo(item);
     return presentationStore.addToService({
       id: `service-document-${item.id}`,
       sourceId: item.id,
-      type: documentFormat === 'presentation' ? 'presentation' : 'document',
+      type: item.documentFormat === 'presentation' ? 'presentation' : 'document',
       title: item.name,
       footer: '',
       frames: info.labels.map((label, index) => ({

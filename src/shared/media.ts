@@ -19,6 +19,8 @@ export interface MediaLibraryItem {
   createdAt: string;
   url: string;
   documentFormat?: DocumentFormat;
+  renderFormat?: DocumentFormat;
+  sourceStoredName?: string;
 }
 
 export interface MediaImportProgress {

@@ -12,6 +12,7 @@ import {
   type DocumentFormat,
   type MediaImportProgress,
 } from '../../src/shared/media';
+import { convertPptxToPdf } from './pptx-converter';
 
 type StoredMediaItem = Omit<MediaLibraryItem, 'url'>;
 const MAX_DOCUMENT_SIZE = 80 * 1024 * 1024;
@@ -184,17 +185,41 @@ async function selectMedia(
   for (const { sourcePath, fileInfo } of selectedFiles) {
     const extension = path.extname(sourcePath).toLowerCase();
     const documentFormat = documentFormatFor(extension);
-    const storedName = `${randomUUID()}${extension}`;
-    const destination = path.join(mediaFolder(kind), storedName);
+    const fileId = randomUUID();
+    const sourceStoredName = `${fileId}${extension}`;
+    const sourceDestination = path.join(mediaFolder(kind), sourceStoredName);
     completedBytes += await copyWithProgress(
       sourcePath,
-      destination,
+      sourceDestination,
       completedBytes,
       totalBytes,
       (progress) => {
         mainWindow.webContents.send(MEDIA_CHANNELS.importProgress, progress);
       },
     );
+
+    let storedName = sourceStoredName;
+    let renderFormat: DocumentFormat | undefined;
+    let originalStoredName: string | undefined;
+
+    if (kind === 'document' && extension === '.pptx') {
+      mainWindow.webContents.send(MEDIA_CHANNELS.importProgress, {
+        fileName: `Convirtiendo ${path.basename(sourcePath)} a PDF...`,
+        completedBytes,
+        totalBytes,
+        percent: 100,
+      });
+
+      try {
+        const convertedPdfPath = await convertPptxToPdf(sourceDestination, mediaFolder(kind));
+        storedName = path.basename(convertedPdfPath);
+        renderFormat = 'pdf';
+        originalStoredName = sourceStoredName;
+      } catch (error) {
+        await rm(sourceDestination, { force: true });
+        throw error;
+      }
+    }
 
     const item: StoredMediaItem = {
       id: randomUUID(),
@@ -205,6 +230,8 @@ async function selectMedia(
       size: fileInfo.size,
       createdAt: new Date().toISOString(),
       ...(documentFormat ? { documentFormat } : {}),
+      ...(renderFormat ? { renderFormat } : {}),
+      ...(originalStoredName ? { sourceStoredName: originalStoredName } : {}),
     };
 
     catalog.push(item);
@@ -244,6 +271,9 @@ export function registerMediaIpc(getMainWindow: () => BrowserWindow | null): voi
     if (!item) return false;
 
     await rm(path.join(mediaFolder(item.kind), item.storedName), { force: true });
+    if (item.sourceStoredName && item.sourceStoredName !== item.storedName) {
+      await rm(path.join(mediaFolder(item.kind), item.sourceStoredName), { force: true });
+    }
     await saveCatalog(catalog.filter((entry) => entry.id !== itemId));
     return true;
   });

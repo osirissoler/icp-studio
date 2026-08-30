@@ -228,6 +228,7 @@ export default defineConfig((ctx) => {
         extraResource: [
           'resources/bibles/database/icp-bibles.sqlite',
           'resources/songs/icp-studio-default-songs.json',
+          'resources/converter',
         ],
 
         // https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
