@@ -42,6 +42,10 @@ interface DefaultBibleVersionRow {
   code: string;
 }
 
+interface BibleChapterRow {
+  chapter: number;
+}
+
 interface ParsedBibleReference {
   normalizedBookName: string;
   chapter: number;
@@ -204,6 +208,25 @@ export function getBibleBooks(versionCode?: string): BibleBook[] {
   }));
 }
 
+export function getBibleBookChapters(bookCode: string, versionCode?: string): number[] {
+  const database = getBibleDatabase();
+  const effectiveVersionCode = versionCode?.trim() || getDefaultBibleVersionCode(database);
+
+  const rows = database
+    .prepare(
+      `
+      SELECT DISTINCT chapter
+      FROM bible_verses
+      WHERE version_code = ?
+        AND book_code = ?
+      ORDER BY chapter
+    `,
+    )
+    .all(effectiveVersionCode, bookCode) as unknown as BibleChapterRow[];
+
+  return rows.map((row) => row.chapter);
+}
+
 export function searchBiblePassage(versionCode: string | undefined, reference: string): BiblePassage {
   const database = getBibleDatabase();
   const effectiveVersionCode = versionCode?.trim() || getDefaultBibleVersionCode(database);
@@ -218,12 +241,22 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
       FROM bible_book_aliases AS alias
       INNER JOIN bible_version_books AS versionBook
         ON versionBook.book_code = alias.book_code
-      WHERE alias.alias = ?
+      WHERE (
+          alias.alias = ?
+          OR (
+            alias.alias LIKE 'san %'
+            AND substr(alias.alias, 5) = ?
+          )
+        )
         AND versionBook.version_code = ?
       LIMIT 1
     `,
     )
-    .get(parsedReference.normalizedBookName, effectiveVersionCode) as unknown as BibleBookRow | undefined;
+    .get(
+      parsedReference.normalizedBookName,
+      parsedReference.normalizedBookName,
+      effectiveVersionCode,
+    ) as unknown as BibleBookRow | undefined;
 
   if (!book) {
     throw new Error(`No se encontró ese libro en la versión ${effectiveVersionCode}.`);
