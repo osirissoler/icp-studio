@@ -21,10 +21,14 @@
             </q-input>
 
             <q-btn
-              unelevated
+              flat
+              round
+              dense
+              size="sm"
               color="primary"
               icon="add"
               aria-label="Crear nueva alabanza"
+              class="song-toolbar-button"
               @click="openSongEditor"
             >
               <q-tooltip>Crear nueva alabanza</q-tooltip>
@@ -34,8 +38,11 @@
               flat
               round
               dense
+              size="sm"
               icon="playlist_add"
               color="primary"
+              aria-label="Agregar alabanza seleccionada al servicio"
+              class="song-toolbar-button"
               :disable="!selectedSong"
               @click="addSelectedSongToService"
             >
@@ -67,9 +74,11 @@
                 flat
                 round
                 dense
-                size="sm"
+                size="xs"
                 icon="edit"
+                color="blue-grey-4"
                 aria-label="Editar alabanza"
+                class="song-edit-button"
                 @click.stop="editSong(song)"
               >
                 <q-tooltip>Editar alabanza</q-tooltip>
@@ -517,6 +526,34 @@ onBeforeUnmount(() => {
 .song-search {
   min-width: 0;
   flex: 1;
+}
+
+.song-toolbar-button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  color: #93c5fd;
+  background: #13243a;
+  border: 1px solid #2d4665;
+  border-radius: 7px;
+}
+
+.song-toolbar-button:hover {
+  background: #193253;
+  border-color: #4b83c5;
+}
+
+.song-edit-button {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  color: #9aabc0;
+  background: transparent;
+}
+
+.song-edit-button:hover {
+  color: #bfdbfe;
+  background: #1a2b40;
 }
 
 .action-banner {
