@@ -2,13 +2,11 @@
   <section class="workspace-shell">
     <div ref="workspaceElement" class="workspace-panels" :style="workspaceGridStyle">
       <article
-        v-for="(panel, index) in panels"
+        v-for="(panel, index) in visiblePanels"
         :key="panel.id"
         class="workspace-panel"
-        :class="[
-          `workspace-panel--slot-${index + 1}`,
-          { 'workspace-panel--dragging': draggingPanelId === panel.id },
-        ]"
+        :class="{ 'workspace-panel--dragging': draggingPanelId === panel.id }"
+        :style="panelGridPosition(index)"
         @dragover.prevent
         @drop="dropPanel(panel.id)"
       >
@@ -27,20 +25,45 @@
             <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
           </div>
 
-          <q-btn
-            v-if="panel.id === 'search'"
-            flat
-            round
-            dense
-            size="sm"
-            icon="info_outline"
-            aria-label="Información del módulo"
-            @click.stop
-          >
-            <q-tooltip>{{ description }}</q-tooltip>
-          </q-btn>
+          <div class="panel-header-actions">
+            <q-btn
+              v-if="panel.id === 'search'"
+              flat
+              round
+              dense
+              size="sm"
+              icon="info_outline"
+              aria-label="Información del módulo"
+              @click.stop
+            >
+              <q-tooltip>{{ description }}</q-tooltip>
+            </q-btn>
 
-          <q-btn v-else flat round dense size="sm" icon="more_horiz" @click.stop />
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
+              icon="more_horiz"
+              aria-label="Opciones del área"
+              @click.stop
+            >
+              <q-menu dark>
+                <q-list dense style="min-width: 170px">
+                  <q-item
+                    clickable
+                    v-close-popup
+                    @click="workspaceSettings.setPanelVisible(panel.id, false)"
+                  >
+                    <q-item-section avatar>
+                      <q-icon name="visibility_off" />
+                    </q-item-section>
+                    <q-item-section>Ocultar área</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </div>
         </header>
 
         <div class="panel-content">
@@ -120,6 +143,7 @@
       </article>
 
       <div
+        v-if="visiblePanels.length >= 2"
         class="resize-handle resize-handle--left"
         title="Arrastra para cambiar el ancho"
         @pointerdown="startColumnResize($event, 0)"
@@ -128,6 +152,7 @@
       </div>
 
       <div
+        v-if="visiblePanels.length >= 3"
         class="resize-handle resize-handle--right"
         title="Arrastra para cambiar el ancho"
         @pointerdown="startColumnResize($event, 1)"
@@ -136,6 +161,7 @@
       </div>
 
       <div
+        v-if="visiblePanels.length === 4"
         class="resize-handle resize-handle--center"
         title="Arrastra para cambiar la altura"
         @pointerdown="startRowResize"
@@ -150,6 +176,8 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import GlobalLivePanel from './GlobalLivePanel.vue';
 import GlobalServicePanel from './GlobalServicePanel.vue';
+import type { WorkspacePanelId } from '../shared/workspace';
+import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
 interface Props {
   title: string;
@@ -157,7 +185,7 @@ interface Props {
   icon: string;
 }
 
-type PanelId = 'search' | 'service' | 'preview' | 'live';
+type PanelId = WorkspacePanelId;
 
 interface WorkspacePanel {
   id: PanelId;
@@ -165,6 +193,7 @@ interface WorkspacePanel {
   icon: string;
 }
 
+const workspaceSettings = useWorkspaceSettingsStore();
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
@@ -179,12 +208,45 @@ const panels = ref<WorkspacePanel[]>([
 
 const props = defineProps<Props>();
 
+const visiblePanels = computed(() =>
+  panels.value.filter((panel) => workspaceSettings.isVisible(panel.id)),
+);
+
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
-const workspaceGridStyle = computed(() => ({
-  gridTemplateColumns: `minmax(220px, ${columnSizes[0]}fr) 12px minmax(220px, ${columnSizes[1]}fr) 12px minmax(220px, ${columnSizes[2]}fr)`,
-  gridTemplateRows: `minmax(0, ${topRowPercent.value}fr) 12px minmax(0, ${100 - topRowPercent.value}fr)`,
-}));
+const workspaceGridStyle = computed(() => {
+  const panelCount = visiblePanels.value.length;
+  const columns = Array.from(
+    { length: panelCount },
+    (_, index) => `minmax(220px, ${columnSizes[index] ?? 1}fr)`,
+  ).join(' 12px ');
+
+  return {
+    gridTemplateColumns: columns || '1fr',
+    gridTemplateRows:
+      panelCount === 4
+        ? `minmax(0, ${topRowPercent.value}fr) 12px minmax(0, ${100 - topRowPercent.value}fr)`
+        : 'minmax(0, 1fr)',
+  };
+});
+
+function panelGridPosition(index: number): Record<string, string> {
+  if (visiblePanels.value.length === 4) {
+    const positions = [
+      { gridColumn: '1', gridRow: '1 / 4' },
+      { gridColumn: '3', gridRow: '1' },
+      { gridColumn: '3', gridRow: '3' },
+      { gridColumn: '5', gridRow: '1 / 4' },
+    ];
+
+    return positions[index] ?? {};
+  }
+
+  return {
+    gridColumn: String(index * 2 + 1),
+    gridRow: '1',
+  };
+}
 
 let stopActiveResize: (() => void) | null = null;
 
@@ -425,6 +487,11 @@ onBeforeUnmount(() => {
 
 .panel-header:active {
   cursor: grabbing;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
 }
 
 .panel-heading {
