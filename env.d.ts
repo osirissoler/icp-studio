@@ -6,7 +6,7 @@ import type {
   BibleVersion,
 } from './src/shared/bible';
 import type { MediaKind, MediaLibraryItem } from './src/shared/media';
-import type { ProjectionState } from './src/shared/projection';
+import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
 import type { DefaultSongCollection } from './src/shared/song';
 
 interface IcpStudioApi {
@@ -26,6 +26,8 @@ interface IcpStudioApi {
   };
   projection: {
     setState: (state: ProjectionState) => void;
+    controlMedia: (command: MediaPlaybackCommand) => void;
+    onMediaControl: (listener: (command: MediaPlaybackCommand) => void) => () => void;
     onState: (listener: (state: ProjectionState) => void) => () => void;
   };
   windows: {
