@@ -259,6 +259,7 @@
                 'service-item--active': selectedServiceItemId === item.id,
               }"
               @click="selectServiceItem(item)"
+              @dblclick="activateServiceItem(item)"
             >
               <span class="service-position">{{ index + 1 }}</span>
               <span class="service-item-content">
@@ -278,6 +279,7 @@
                 icon="close"
                 aria-label="Quitar del servicio"
                 @click.stop="removeServiceItem(item.id)"
+                @dblclick.stop
               >
                 <q-tooltip>Quitar del servicio</q-tooltip>
               </q-btn>
@@ -337,7 +339,13 @@
       </template>
 
       <template #live>
-        <div class="bible-live-panel">
+        <div
+          ref="livePanelElement"
+          class="bible-live-panel"
+          tabindex="0"
+          @keydown.up.prevent="moveLiveVerse(-1)"
+          @keydown.down.prevent="moveLiveVerse(1)"
+        >
           <div class="panel-label">
             <div class="live-label">
               <span class="live-dot"></span>
@@ -346,20 +354,70 @@
             <q-icon name="connected_tv" />
           </div>
 
-          <div class="bible-screen bible-screen--live">
-            <template v-if="liveVerse">
-              <div class="screen-reference">{{ liveVerse.reference }}</div>
-              <div class="screen-text">{{ liveVerse.text }}</div>
-              <div class="screen-version">{{ liveVerse.versionCode }}</div>
+          <section
+            v-for="section in liveSections"
+            :key="section"
+            class="live-section"
+            :class="{ 'live-section--dragging': draggingLiveSection === section }"
+            @dragover.prevent
+            @drop="dropLiveSection(section)"
+          >
+            <header
+              class="live-section-header"
+              draggable="true"
+              @dragstart="startLiveSectionDrag($event, section)"
+              @dragend="stopLiveSectionDrag"
+            >
+              <q-icon name="drag_indicator" />
+              <span>
+                {{ section === 'screen' ? 'Pantalla en vivo' : 'Contenido del pasaje' }}
+              </span>
+            </header>
+
+            <template v-if="section === 'screen'">
+              <div class="bible-screen bible-screen--live">
+                <template v-if="liveVerse">
+                  <div class="screen-reference">{{ liveVerse.reference }}</div>
+                  <div class="screen-text">{{ liveVerse.text }}</div>
+                  <div class="screen-version">{{ liveVerse.versionCode }}</div>
+                </template>
+
+                <template v-else>
+                  <q-icon name="live_tv" size="46px" />
+                  <span>Haz doble clic en un elemento del servicio</span>
+                </template>
+              </div>
             </template>
 
             <template v-else>
-              <q-icon name="live_tv" size="46px" />
-              <span>Todavía no hay un versículo en vivo</span>
+              <div v-if="liveServiceItem" class="live-verse-list">
+                <div class="live-service-title">{{ liveServiceItem.title }}</div>
+                <button
+                  v-for="verse in liveServiceItem.verses"
+                  :key="verseKey(verse)"
+                  type="button"
+                  class="live-verse-item"
+                  :class="{
+                    'live-verse-item--active':
+                      liveVerse && verseKey(liveVerse) === verseKey(verse),
+                  }"
+                  @click="setLiveVerse(verse)"
+                >
+                  <span class="verse-number">{{ verse.verseLabel }}</span>
+                  <span>{{ verse.text }}</span>
+                </button>
+              </div>
+
+              <div v-else class="live-content-empty">
+                El contenido del servicio aparecerá aquí.
+              </div>
             </template>
-          </div>
+          </section>
 
           <div class="live-actions">
+            <span v-if="liveServiceItem && liveVerse" class="live-position">
+              {{ liveVersePosition }} de {{ liveServiceItem.verses.length }}
+            </span>
             <q-btn
               flat
               round
@@ -387,6 +445,7 @@ import type {
 } from '../shared/bible';
 
 type SearchMode = 'reference' | 'manual';
+type LiveSectionId = 'screen' | 'content';
 
 interface FocusableInput {
   focus: () => void;
@@ -415,7 +474,11 @@ const selectedVerse = ref<BibleVerse | null>(null);
 const selectedVerses = ref<BibleVerse[]>([]);
 const serviceItems = ref<BibleServiceItem[]>([]);
 const selectedServiceItemId = ref<string | null>(null);
+const liveServiceItem = ref<BibleServiceItem | null>(null);
 const liveVerse = ref<BibleVerse | null>(null);
+const livePanelElement = ref<HTMLElement | null>(null);
+const liveSections = ref<LiveSectionId[]>(['screen', 'content']);
+const draggingLiveSection = ref<LiveSectionId | null>(null);
 const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
@@ -516,6 +579,21 @@ const allResultsSelected = computed(() => {
   const verses = searchResult.value?.verses ?? [];
 
   return verses.length > 0 && verses.every((verse) => isVerseSelected(verse));
+});
+
+const liveVersePosition = computed(() => {
+  const item = liveServiceItem.value;
+  const verse = liveVerse.value;
+
+  if (!item || !verse) {
+    return 0;
+  }
+
+  const index = item.verses.findIndex(
+    (itemVerse) => verseKey(itemVerse) === verseKey(verse),
+  );
+
+  return index >= 0 ? index + 1 : 0;
 });
 
 const previewPosition = computed(() => {
@@ -912,6 +990,21 @@ function selectServiceItem(item: BibleServiceItem): void {
   selectedVerse.value = item.verses[0] ?? null;
 }
 
+function activateServiceItem(item: BibleServiceItem): void {
+  selectedServiceItemId.value = item.id;
+  liveServiceItem.value = item;
+
+  const firstVerse = item.verses[0];
+
+  if (firstVerse) {
+    setLiveVerse(firstVerse);
+  }
+
+  void nextTick(() => {
+    livePanelElement.value?.focus();
+  });
+}
+
 function removeServiceItem(itemId: string): void {
   serviceItems.value = serviceItems.value.filter((item) => item.id !== itemId);
 
@@ -920,18 +1013,75 @@ function removeServiceItem(itemId: string): void {
   }
 }
 
-function presentSelectedVerse(): void {
-  if (!selectedVerse.value) {
-    return;
-  }
-
-  liveVerse.value = selectedVerse.value;
+function setLiveVerse(verse: BibleVerse): void {
+  liveVerse.value = verse;
 
   window.icpStudio?.projection.setState({
     mode: 'content',
-    title: selectedVerse.value.reference,
-    body: selectedVerse.value.text,
+    title: verse.reference,
+    body: verse.text,
   });
+}
+
+function moveLiveVerse(direction: -1 | 1): void {
+  const verses = liveServiceItem.value?.verses ?? [];
+
+  if (verses.length === 0) {
+    return;
+  }
+
+  const currentVerse = liveVerse.value;
+  const currentIndex = currentVerse
+    ? verses.findIndex(
+        (verse) => verseKey(verse) === verseKey(currentVerse),
+      )
+    : -1;
+  const nextIndex =
+    currentIndex < 0
+      ? direction === 1
+        ? 0
+        : verses.length - 1
+      : (currentIndex + direction + verses.length) % verses.length;
+
+  const nextVerse = verses[nextIndex];
+
+  if (nextVerse) {
+    setLiveVerse(nextVerse);
+  }
+}
+
+function startLiveSectionDrag(
+  event: DragEvent,
+  section: LiveSectionId,
+): void {
+  draggingLiveSection.value = section;
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', section);
+  }
+}
+
+function stopLiveSectionDrag(): void {
+  draggingLiveSection.value = null;
+}
+
+function dropLiveSection(targetSection: LiveSectionId): void {
+  const sourceSection = draggingLiveSection.value;
+
+  if (!sourceSection || sourceSection === targetSection) {
+    stopLiveSectionDrag();
+    return;
+  }
+
+  liveSections.value = [...liveSections.value].reverse();
+  stopLiveSectionDrag();
+}
+
+function presentSelectedVerse(): void {
+  if (selectedVerse.value) {
+    setLiveVerse(selectedVerse.value);
+  }
 }
 
 function stopProjection(): void {
@@ -1312,6 +1462,85 @@ onMounted(() => {
   font-size: 11px;
 }
 
+.live-section {
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: #0b131d;
+  border: 1px solid #26364b;
+  border-radius: 8px;
+}
+
+.live-section--dragging {
+  opacity: 0.5;
+  border-color: #60a5fa;
+}
+
+.live-section-header {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  color: #77869a;
+  background: #121e2c;
+  border-bottom: 1px solid #26364b;
+  font-size: 10px;
+  cursor: grab;
+  user-select: none;
+}
+
+.live-section-header:active {
+  cursor: grabbing;
+}
+
+.live-verse-list {
+  max-height: 240px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.live-service-title {
+  padding: 3px 5px 7px;
+  color: #dce6f2;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.live-verse-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  padding: 5px;
+  color: #aebaca;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.live-verse-item:hover,
+.live-verse-item--active {
+  color: #e4edf7;
+  background: #12243a;
+  border-color: #3b82f6;
+}
+
+.live-content-empty {
+  padding: 24px 12px;
+  color: #66758a;
+  text-align: center;
+  font-size: 11px;
+}
+
+.live-position {
+  color: #8492a6;
+  font-size: 10px;
+}
+
 .live-label {
   display: flex;
   align-items: center;
@@ -1387,7 +1616,8 @@ onMounted(() => {
 }
 
 .live-actions {
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: space-between;
 }
 
 @container (max-width: 430px) {
