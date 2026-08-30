@@ -137,13 +137,6 @@
             {{ errorMessage }}
           </q-banner>
 
-          <q-banner v-if="actionMessage" dense rounded class="action-banner">
-            <template #avatar>
-              <q-icon name="playlist_add_check" color="positive" />
-            </template>
-            {{ actionMessage }}
-          </q-banner>
-
           <div v-if="searching" class="panel-state">
             <q-spinner color="primary" size="34px" />
             <span>Buscando el pasaje...</span>
@@ -495,12 +488,10 @@ const liveSectionSizes = reactive<Record<LiveSectionId, number>>({
 });
 const draggingLiveSection = ref<LiveSectionId | null>(null);
 let stopLiveResize: (() => void) | null = null;
-let actionMessageTimer: number | null = null;
 const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
 const errorMessage = ref('');
-const actionMessage = ref('');
 
 const manualBookCode = ref<string | null>(null);
 const manualChapter = ref<number | null>(null);
@@ -617,24 +608,6 @@ const previewPosition = computed(() => {
   return index >= 0 ? index + 1 : 0;
 });
 
-function clearActionMessage(): void {
-  if (actionMessageTimer !== null) {
-    window.clearTimeout(actionMessageTimer);
-    actionMessageTimer = null;
-  }
-
-  actionMessage.value = '';
-}
-
-function showActionMessage(message: string): void {
-  clearActionMessage();
-  actionMessage.value = message;
-  actionMessageTimer = window.setTimeout(() => {
-    actionMessage.value = '';
-    actionMessageTimer = null;
-  }, 3500);
-}
-
 function normalizeText(value: string): string {
   return value
     .normalize('NFD')
@@ -686,7 +659,6 @@ function updateReferenceText(value: string | number | null): void {
 function clearReferenceSearch(): void {
   referenceText.value = '';
   errorMessage.value = '';
-  clearActionMessage();
   showBookSuggestions.value = true;
 
   void nextTick(() => {
@@ -719,7 +691,6 @@ async function executeSearch(reference: string): Promise<void> {
   showBookSuggestions.value = false;
   searching.value = true;
   errorMessage.value = '';
-  clearActionMessage();
   searchResult.value = null;
   selectedVerse.value = null;
   selectedVerses.value = [];
@@ -1170,7 +1141,6 @@ function startLiveSectionResize(event: PointerEvent): void {
 
 onBeforeUnmount(() => {
   stopLiveResize?.();
-  clearActionMessage();
 });
 
 onMounted(() => {
@@ -1316,8 +1286,7 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.error-banner,
-.action-banner {
+.error-banner {
   margin-top: 10px;
   font-size: 12px;
 }
@@ -1328,11 +1297,6 @@ onMounted(() => {
   border: 1px solid rgb(248 113 113 / 25%);
 }
 
-.action-banner {
-  color: #bbf7d0;
-  background: rgb(20 83 45 / 25%);
-  border: 1px solid rgb(74 222 128 / 22%);
-}
 
 .panel-state {
   display: flex;
