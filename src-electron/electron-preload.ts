@@ -8,7 +8,11 @@ import {
   type BiblePassageSearch,
   type BibleVersion,
 } from '../src/shared/bible';
-import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
+import {
+  PROJECTION_CHANNELS,
+  type MediaPlaybackCommand,
+  type ProjectionState,
+} from '../src/shared/projection';
 import {
   SONG_CHANNELS,
   type DefaultSongCollection,
@@ -29,6 +33,23 @@ const windowApi = {
 const projectionApi = {
   setState: (state: ProjectionState): void => {
     ipcRenderer.send(PROJECTION_CHANNELS.setState, state);
+  },
+  controlMedia: (command: MediaPlaybackCommand): void => {
+    ipcRenderer.send(PROJECTION_CHANNELS.controlMedia, command);
+  },
+  onMediaControl: (
+    listener: (command: MediaPlaybackCommand) => void,
+  ): (() => void) => {
+    const subscription = (
+      _event: Electron.IpcRendererEvent,
+      command: MediaPlaybackCommand,
+    ) => listener(command);
+
+    ipcRenderer.on(PROJECTION_CHANNELS.mediaControl, subscription);
+    return () => ipcRenderer.removeListener(
+      PROJECTION_CHANNELS.mediaControl,
+      subscription,
+    );
   },
   onState: (listener: (state: ProjectionState) => void): (() => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, state: ProjectionState) => {
