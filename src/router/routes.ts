@@ -7,11 +7,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        component: () => import('../pages/IndexPage.vue'),
-        meta: {
-          title: 'Servicios',
-          icon: 'event_note',
-        },
+        redirect: '/alabanzas',
       },
       {
         path: 'alabanzas',
