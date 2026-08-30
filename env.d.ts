@@ -1,6 +1,15 @@
+import type {
+  BiblePassage,
+  BiblePassageSearch,
+  BibleVersion,
+} from './src/shared/bible';
 import type { ProjectionState } from './src/shared/projection';
 
 interface IcpStudioApi {
+  bible: {
+    getVersions: () => Promise<BibleVersion[]>;
+    searchPassage: (request: BiblePassageSearch) => Promise<BiblePassage>;
+  };
   projection: {
     setState: (state: ProjectionState) => void;
     onState: (listener: (state: ProjectionState) => void) => () => void;
