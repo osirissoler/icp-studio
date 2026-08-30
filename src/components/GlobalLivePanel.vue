@@ -55,6 +55,7 @@
             />
             <video
               v-else-if="liveFrame.mediaType === 'video' && liveFrame.mediaUrl"
+              ref="liveMediaElement"
               :key="liveFrame.id"
               :src="liveFrame.mediaUrl"
               class="live-media"
@@ -63,6 +64,7 @@
               @play="controlPlayback('play', $event)"
               @pause="controlPlayback('pause', $event)"
               @seeked="controlPlayback('seek', $event)"
+              @timeupdate="rememberPlaybackTime"
             />
             <div
               v-else-if="liveFrame.mediaType === 'audio' && liveFrame.mediaUrl"
@@ -71,6 +73,7 @@
               <q-icon name="album" size="52px" />
               <strong>{{ liveItem?.title }}</strong>
               <audio
+                ref="liveMediaElement"
                 :key="liveFrame.id"
                 :src="liveFrame.mediaUrl"
                 controls
@@ -78,6 +81,7 @@
                 @play="controlPlayback('play', $event)"
                 @pause="controlPlayback('pause', $event)"
                 @seeked="controlPlayback('seek', $event)"
+                @timeupdate="rememberPlaybackTime"
               />
             </div>
             <FittedTechnicalText
@@ -131,7 +135,15 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from 'vue';
+import {
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import { storeToRefs } from 'pinia';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import { usePresentationStore } from '../stores/presentation-store';
@@ -139,11 +151,18 @@ import { usePresentationStore } from '../stores/presentation-store';
 type LiveSection = 'screen' | 'content';
 
 const presentationStore = usePresentationStore();
-const { liveFrame, liveFrameIndex, liveItem } =
+const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } =
   storeToRefs(presentationStore);
-const { clearLive, moveLiveFrame, setLiveFrame } = presentationStore;
+const {
+  clearLive,
+  controlLiveMedia,
+  moveLiveFrame,
+  setLiveFrame,
+  updateLiveMediaTime,
+} = presentationStore;
 
 const panelElement = ref<HTMLElement | null>(null);
+const liveMediaElement = ref<HTMLMediaElement | null>(null);
 const sections = ref<LiveSection[]>(['screen', 'content']);
 const sectionSizes = reactive<Record<LiveSection, number>>({
   screen: 1,
@@ -151,16 +170,58 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 });
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
+let suppressPlaybackEvents = true;
 
 function controlPlayback(
   action: 'play' | 'pause' | 'seek',
   event: Event,
 ): void {
+  if (suppressPlaybackEvents) return;
+
   const media = event.currentTarget as HTMLMediaElement;
-  window.icpStudio?.projection.controlMedia({
+  controlLiveMedia({
     action,
     time: media.currentTime,
   });
+}
+
+function rememberPlaybackTime(event: Event): void {
+  const media = event.currentTarget as HTMLMediaElement;
+  updateLiveMediaTime(media.currentTime);
+}
+
+async function synchronizeMediaElement(): Promise<void> {
+  await nextTick();
+  const media = liveMediaElement.value;
+
+  if (!media) {
+    suppressPlaybackEvents = false;
+    return;
+  }
+
+  suppressPlaybackEvents = true;
+
+  const restorePlayback = () => {
+    if (Math.abs(media.currentTime - mediaPlayback.value.time) > 0.2) {
+      media.currentTime = mediaPlayback.value.time;
+    }
+
+    if (mediaPlayback.value.isPlaying) {
+      void media.play();
+    } else {
+      media.pause();
+    }
+
+    window.setTimeout(() => {
+      suppressPlaybackEvents = false;
+    }, 0);
+  };
+
+  if (media.readyState === 0) {
+    media.addEventListener('loadedmetadata', restorePlayback, { once: true });
+  } else {
+    restorePlayback();
+  }
 }
 
 function sectionTitle(section: LiveSection): string {
@@ -219,8 +280,31 @@ function startResize(event: PointerEvent): void {
   event.preventDefault();
 }
 
+watch(
+  () => liveFrame.value?.id,
+  () => {
+    void synchronizeMediaElement();
+  },
+);
+
+onActivated(() => {
+  void synchronizeMediaElement();
+});
+
+onDeactivated(() => {
+  suppressPlaybackEvents = true;
+  const media = liveMediaElement.value;
+
+  if (media) {
+    updateLiveMediaTime(media.currentTime);
+    media.pause();
+  }
+});
+
 onBeforeUnmount(() => {
+  suppressPlaybackEvents = true;
   stopResizeListener?.();
+  liveMediaElement.value?.pause();
 });
 </script>
 
