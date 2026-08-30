@@ -207,6 +207,7 @@ const pageLabels = ref<string[]>([]);
 const documentInfo = new Map<string, DocumentInfo>();
 let unsubscribeImportProgress: (() => void) | undefined;
 let messageTimer: number | undefined;
+let progressVisibleSince = 0;
 
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
@@ -283,26 +284,36 @@ async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo>
 }
 
 async function addItemToService(item: MediaLibraryItem): Promise<boolean> {
-  if (!item.documentFormat) return false;
-  const documentFormat = item.documentFormat;
-  const info = await ensureDocumentInfo(item);
-  return presentationStore.addToService({
-    id: `service-document-${item.id}`,
-    sourceId: item.id,
-    type: documentFormat === 'presentation' ? 'presentation' : 'document',
-    title: item.name,
-    footer: '',
-    frames: info.labels.map((label, index) => ({
-      id: `${item.id}-${index}`,
-      label,
-      text: '',
-      mediaType: 'document',
-      mediaUrl: item.url,
-      mimeType: item.mimeType,
-      documentFormat,
-      pageIndex: index,
-    })),
-  });
+  try {
+    if (!item.documentFormat) return false;
+    const documentFormat = item.documentFormat;
+    const info = await ensureDocumentInfo(item);
+    return presentationStore.addToService({
+      id: `service-document-${item.id}`,
+      sourceId: item.id,
+      type: documentFormat === 'presentation' ? 'presentation' : 'document',
+      title: item.name,
+      footer: '',
+      frames: info.labels.map((label, index) => ({
+        id: `${item.id}-${index}`,
+        label,
+        text: '',
+        mediaType: 'document',
+        mediaUrl: item.url,
+        mimeType: item.mimeType,
+        documentFormat,
+        pageIndex: index,
+      })),
+    });
+  } catch (error) {
+    showImportMessage(
+      error instanceof Error
+        ? error.message
+        : 'No fue posible preparar el documento para el servicio.',
+      true,
+    );
+    return false;
+  }
 }
 
 async function addSelectedToService(): Promise<void> {
@@ -341,12 +352,19 @@ async function importDocuments(): Promise<void> {
     );
   } finally {
     importing.value = false;
+    const elapsed = progressVisibleSince > 0 ? Date.now() - progressVisibleSince : 0;
+    const remainingTime = Math.max(0, 900 - elapsed);
+    if (remainingTime > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remainingTime));
+    }
     importProgress.value = null;
+    progressVisibleSince = 0;
   }
 }
 
 onMounted(async () => {
   unsubscribeImportProgress = window.icpStudio?.media.onImportProgress((progress) => {
+    if (progressVisibleSince === 0) progressVisibleSince = Date.now();
     importProgress.value = progress;
   });
 
