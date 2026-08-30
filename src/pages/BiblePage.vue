@@ -449,7 +449,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
+import { usePresentationStore } from '../stores/presentation-store';
 import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
+
+const presentationStore = usePresentationStore();
 
 type SearchMode = 'reference' | 'manual';
 type LiveSectionId = 'screen' | 'content';
@@ -1006,6 +1009,19 @@ function addSelectedToService(): void {
     versionCode: passage.versionCode,
     verses: [...selectedVerses.value],
   };
+
+  presentationStore.addToService({
+    id: `service-${item.id}`,
+    sourceId: `${item.versionCode}:${item.title}:${selectedKeys}`,
+    type: 'bible',
+    title: item.title,
+    footer: item.projectionReference,
+    frames: item.verses.map((verse) => ({
+      id: verseKey(verse),
+      label: verse.reference,
+      text: verse.text,
+    })),
+  });
 
   serviceItems.value = [...serviceItems.value, item];
   selectedServiceItemId.value = item.id;
