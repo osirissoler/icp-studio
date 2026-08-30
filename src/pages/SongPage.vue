@@ -88,7 +88,12 @@
 
           <div class="song-screen">
             <template v-if="selectedPart">
-              <div class="song-screen-text">{{ selectedPart.content }}</div>
+              <div
+                class="song-screen-text"
+                :style="{ fontSize: technicalTextSize(selectedPart.content) }"
+              >
+                {{ selectedPart.content }}
+              </div>
               <div class="song-screen-footer">{{ selectedSong?.title }}</div>
             </template>
             <template v-else>
@@ -188,7 +193,12 @@
 
           <div class="song-screen song-screen--live">
             <template v-if="livePart">
-              <div class="song-screen-text">{{ livePart.content }}</div>
+              <div
+                class="song-screen-text"
+                :style="{ fontSize: technicalTextSize(livePart.content) }"
+              >
+                {{ livePart.content }}
+              </div>
               <div class="song-screen-footer">{{ liveSong?.title }}</div>
             </template>
             <template v-else>
@@ -277,6 +287,30 @@ function normalize(value: string): string {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .trim();
+}
+
+function technicalTextSize(content: string): string {
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
+  const longestLine = Math.max(0, ...lines.map((line) => line.length));
+  const characters = content.length;
+
+  if (characters > 520 || lines.length > 14 || longestLine > 95) {
+    return '8px';
+  }
+
+  if (characters > 380 || lines.length > 11 || longestLine > 78) {
+    return '9px';
+  }
+
+  if (characters > 260 || lines.length > 8 || longestLine > 62) {
+    return '10px';
+  }
+
+  if (characters > 170 || lines.length > 6 || longestLine > 48) {
+    return '12px';
+  }
+
+  return '14px';
 }
 
 function partLabel(type: SongPartType): string {
@@ -521,7 +555,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: 22px;
+  padding: 18px 18px 28px;
   color: #65748a;
   background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
   border: 1px solid #293649;
@@ -534,10 +568,13 @@ onBeforeUnmount(() => {
 }
 
 .song-screen-text {
+  width: 100%;
+  max-height: 100%;
+  overflow: hidden;
   color: #f2f5f9;
-  font-size: clamp(16px, 2vw, 29px);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
   white-space: pre-line;
 }
 
