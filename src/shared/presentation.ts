@@ -3,6 +3,7 @@ export type PresentationItemType =
   | 'song'
   | 'image'
   | 'video'
+  | 'audio'
   | 'document'
   | 'presentation'
   | 'game';
@@ -11,7 +12,7 @@ export interface PresentationFrame {
   id: string;
   label: string;
   text: string;
-  mediaType?: 'image' | 'video';
+  mediaType?: 'image' | 'video' | 'audio';
   mediaUrl?: string;
   mimeType?: string;
 }
