@@ -1,11 +1,14 @@
 <template>
   <section class="workspace-shell">
-    <div ref="workspaceElement" class="workspace-panels">
-      <template v-for="(panel, index) in panels" :key="panel.id">
-        <article
-          class="workspace-panel"
-          :class="{ 'workspace-panel--dragging': draggingPanelId === panel.id }"
-          :style="{ flexGrow: panelSizes[panel.id] }"
+    <div class="workspace-panels">
+      <article
+        v-for="(panel, index) in panels"
+        :key="panel.id"
+        class="workspace-panel"
+        :class="[
+          `workspace-panel--slot-${index + 1}`,
+          { 'workspace-panel--dragging': draggingPanelId === panel.id },
+        ]"
           @dragover.prevent
           @drop="dropPanel(panel.id)"
         >
@@ -155,23 +158,13 @@
               </div>
             </template>
           </div>
-        </article>
-
-        <div
-          v-if="index < panels.length - 1"
-          class="resize-handle"
-          title="Arrastra para cambiar el ancho"
-          @pointerdown="startResize($event, index)"
-        >
-          <span></span>
-        </div>
-      </template>
+      </article>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface Props {
   title: string;
@@ -189,28 +182,17 @@ interface WorkspacePanel {
 
 const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
-const workspaceElement = ref<HTMLElement | null>(null);
-
 const panels = ref<WorkspacePanel[]>([
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
-  { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
+  { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
 ]);
-
-const panelSizes = reactive<Record<PanelId, number>>({
-  search: 30,
-  service: 24,
-  preview: 23,
-  live: 23,
-});
 
 const props = defineProps<Props>();
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
-
-let stopActiveResize: (() => void) | null = null;
 
 function openSongEditor(): void {
   window.icpStudio?.windows.openSongEditor();
@@ -254,53 +236,6 @@ function dropPanel(targetPanelId: PanelId) {
   stopDragging();
 }
 
-function startResize(event: PointerEvent, dividerIndex: number) {
-  const leftPanel = panels.value[dividerIndex];
-  const rightPanel = panels.value[dividerIndex + 1];
-  const containerWidth = workspaceElement.value?.clientWidth;
-
-  if (!leftPanel || !rightPanel || !containerWidth) {
-    return;
-  }
-
-  stopActiveResize?.();
-
-  const startX = event.clientX;
-  const initialLeftSize = panelSizes[leftPanel.id];
-  const initialRightSize = panelSizes[rightPanel.id];
-  const combinedSize = initialLeftSize + initialRightSize;
-  const minimumSize = 18;
-
-  const handlePointerMove = (moveEvent: PointerEvent) => {
-    const sizeDifference = ((moveEvent.clientX - startX) / containerWidth) * 100;
-    const nextLeftSize = initialLeftSize + sizeDifference;
-    const nextRightSize = initialRightSize - sizeDifference;
-
-    if (nextLeftSize < minimumSize || nextRightSize < minimumSize) {
-      return;
-    }
-
-    panelSizes[leftPanel.id] = nextLeftSize;
-    panelSizes[rightPanel.id] = combinedSize - nextLeftSize;
-  };
-
-  const stopResize = () => {
-    window.removeEventListener('pointermove', handlePointerMove);
-    window.removeEventListener('pointerup', stopResize);
-    document.body.classList.remove('is-resizing-panels');
-    stopActiveResize = null;
-  };
-
-  stopActiveResize = stopResize;
-  document.body.classList.add('is-resizing-panels');
-  window.addEventListener('pointermove', handlePointerMove);
-  window.addEventListener('pointerup', stopResize);
-  event.preventDefault();
-}
-
-onBeforeUnmount(() => {
-  stopActiveResize?.();
-});
 </script>
 
 <style scoped>
@@ -312,17 +247,19 @@ onBeforeUnmount(() => {
 }
 
 .workspace-panels {
-  display: flex;
-  align-items: stretch;
+  display: grid;
   height: calc(100vh - 90px);
-  min-height: 480px;
+  min-height: 560px;
+  grid-template-columns: minmax(260px, 1.35fr) minmax(260px, 1fr) minmax(260px, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
   overflow: hidden;
 }
 
 .workspace-panel {
   display: flex;
   min-width: 0;
-  flex-basis: 0;
+  min-height: 0;
   flex-direction: column;
   overflow: hidden;
   background: #111b28;
@@ -331,6 +268,26 @@ onBeforeUnmount(() => {
   transition:
     opacity 160ms ease,
     border-color 160ms ease;
+}
+
+.workspace-panel--slot-1 {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.workspace-panel--slot-2 {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.workspace-panel--slot-3 {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.workspace-panel--slot-4 {
+  grid-column: 3;
+  grid-row: 1 / 3;
 }
 
 .workspace-panel--dragging {
@@ -503,33 +460,9 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 
-.resize-handle {
-  display: flex;
-  width: 12px;
-  flex: 0 0 12px;
-  align-items: center;
-  justify-content: center;
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.resize-handle span {
-  width: 3px;
-  height: 46px;
-  background: #314155;
-  border-radius: 999px;
-  transition:
-    height 150ms ease,
-    background 150ms ease;
-}
-
-.resize-handle:hover span {
-  height: 70px;
-  background: #60a5fa;
-}
-
 @media (max-width: 900px) {
   .workspace-panels {
+    display: flex;
     height: auto;
     overflow: visible;
     flex-direction: column;
@@ -539,18 +472,6 @@ onBeforeUnmount(() => {
   .workspace-panel {
     width: 100%;
     min-height: 420px;
-    flex-basis: auto;
   }
-
-  .resize-handle {
-    display: none;
-  }
-}
-</style>
-
-<style>
-body.is-resizing-panels {
-  cursor: col-resize;
-  user-select: none;
 }
 </style>
