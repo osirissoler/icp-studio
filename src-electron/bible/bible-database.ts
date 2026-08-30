@@ -245,7 +245,7 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
   }
 
   const verses: BibleVerse[] = rows.map((row) => ({
-    effectiveVersionCode,
+    versionCode: effectiveVersionCode,
     bookCode: book.bookCode,
     bookName: book.displayName,
     chapter: parsedReference.chapter,
@@ -257,7 +257,7 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
   }));
 
   return {
-    effectiveVersionCode,
+    versionCode: effectiveVersionCode,
     bookCode: book.bookCode,
     bookName: book.displayName,
     chapter: parsedReference.chapter,
