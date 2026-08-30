@@ -44,7 +44,9 @@
         </header>
 
         <div class="panel-content">
-          <slot v-if="$slots[panel.id]" :name="panel.id" />
+          <GlobalServicePanel v-if="panel.id === 'service'" />
+          <GlobalLivePanel v-else-if="panel.id === 'live'" />
+          <slot v-else-if="$slots[panel.id]" :name="panel.id" />
 
           <template v-else-if="panel.id === 'search'">
             <div class="search-toolbar">
@@ -187,6 +189,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import GlobalLivePanel from './GlobalLivePanel.vue';
+import GlobalServicePanel from './GlobalServicePanel.vue';
 
 interface Props {
   title: string;
