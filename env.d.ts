@@ -5,6 +5,7 @@ import type {
   BiblePassageSearch,
   BibleVersion,
 } from './src/shared/bible';
+import type { MediaKind, MediaLibraryItem } from './src/shared/media';
 import type { ProjectionState } from './src/shared/projection';
 import type { DefaultSongCollection } from './src/shared/song';
 
@@ -17,6 +18,11 @@ interface IcpStudioApi {
   };
   songs: {
     getDefaultCollection: () => Promise<DefaultSongCollection>;
+  };
+  media: {
+    list: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
+    select: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
+    remove: (itemId: string) => Promise<boolean>;
   };
   projection: {
     setState: (state: ProjectionState) => void;
