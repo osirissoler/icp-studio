@@ -115,8 +115,16 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
-    liveFrameIndex.value =
-      (liveFrameIndex.value + direction + frames.length) % frames.length;
+    const nextIndex = Math.min(
+      frames.length - 1,
+      Math.max(0, liveFrameIndex.value + direction),
+    );
+
+    if (nextIndex === liveFrameIndex.value) {
+      return;
+    }
+
+    liveFrameIndex.value = nextIndex;
     projectCurrentFrame();
   }
 
