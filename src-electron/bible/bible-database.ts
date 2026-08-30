@@ -250,9 +250,13 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
         ON versionBook.book_code = alias.book_code
       WHERE (
           alias.alias = ?
+          OR alias.alias = ? || 's'
           OR (
             alias.alias LIKE 'san %'
-            AND substr(alias.alias, 5) = ?
+            AND (
+              substr(alias.alias, 5) = ?
+              OR substr(alias.alias, 5) = ? || 's'
+            )
           )
         )
         AND versionBook.version_code = ?
@@ -260,6 +264,8 @@ export function searchBiblePassage(versionCode: string | undefined, reference: s
     `,
     )
     .get(
+      parsedReference.normalizedBookName,
+      parsedReference.normalizedBookName,
       parsedReference.normalizedBookName,
       parsedReference.normalizedBookName,
       effectiveVersionCode,
