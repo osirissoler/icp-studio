@@ -13,14 +13,12 @@ import {
   type MediaPlaybackCommand,
   type ProjectionState,
 } from '../src/shared/projection';
-import {
-  SONG_CHANNELS,
-  type DefaultSongCollection,
-} from '../src/shared/song';
+import { SONG_CHANNELS, type DefaultSongCollection } from '../src/shared/song';
 import { WINDOW_CHANNELS } from '../src/shared/window';
 import { DISPLAY_CHANNELS, type DisplayInfo } from '../src/shared/display';
 import {
   MEDIA_CHANNELS,
+  type MediaImportProgress,
   type MediaKind,
   type MediaLibraryItem,
 } from '../src/shared/media';
@@ -29,19 +27,12 @@ const displayApi = {
   list: (): Promise<DisplayInfo[]> => {
     return ipcRenderer.invoke(DISPLAY_CHANNELS.list) as Promise<DisplayInfo[]>;
   },
-  onChanged: (
-    listener: (displays: DisplayInfo[]) => void,
-  ): (() => void) => {
-    const subscription = (
-      _event: Electron.IpcRendererEvent,
-      displays: DisplayInfo[],
-    ) => listener(displays);
+  onChanged: (listener: (displays: DisplayInfo[]) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, displays: DisplayInfo[]) =>
+      listener(displays);
 
     ipcRenderer.on(DISPLAY_CHANNELS.changed, subscription);
-    return () => ipcRenderer.removeListener(
-      DISPLAY_CHANNELS.changed,
-      subscription,
-    );
+    return () => ipcRenderer.removeListener(DISPLAY_CHANNELS.changed, subscription);
   },
 };
 
@@ -58,19 +49,12 @@ const projectionApi = {
   controlMedia: (command: MediaPlaybackCommand): void => {
     ipcRenderer.send(PROJECTION_CHANNELS.controlMedia, command);
   },
-  onMediaControl: (
-    listener: (command: MediaPlaybackCommand) => void,
-  ): (() => void) => {
-    const subscription = (
-      _event: Electron.IpcRendererEvent,
-      command: MediaPlaybackCommand,
-    ) => listener(command);
+  onMediaControl: (listener: (command: MediaPlaybackCommand) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, command: MediaPlaybackCommand) =>
+      listener(command);
 
     ipcRenderer.on(PROJECTION_CHANNELS.mediaControl, subscription);
-    return () => ipcRenderer.removeListener(
-      PROJECTION_CHANNELS.mediaControl,
-      subscription,
-    );
+    return () => ipcRenderer.removeListener(PROJECTION_CHANNELS.mediaControl, subscription);
   },
   onState: (listener: (state: ProjectionState) => void): (() => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, state: ProjectionState) => {
@@ -87,9 +71,7 @@ const projectionApi = {
 
 const songApi = {
   getDefaultCollection: (): Promise<DefaultSongCollection> => {
-    return ipcRenderer.invoke(
-      SONG_CHANNELS.getDefaultCollection,
-    ) as Promise<DefaultSongCollection>;
+    return ipcRenderer.invoke(SONG_CHANNELS.getDefaultCollection) as Promise<DefaultSongCollection>;
   },
 };
 
@@ -99,6 +81,13 @@ const mediaApi = {
   },
   select: (kind: MediaKind): Promise<MediaLibraryItem[]> => {
     return ipcRenderer.invoke(MEDIA_CHANNELS.select, kind) as Promise<MediaLibraryItem[]>;
+  },
+  onImportProgress: (listener: (progress: MediaImportProgress) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, progress: MediaImportProgress) =>
+      listener(progress);
+
+    ipcRenderer.on(MEDIA_CHANNELS.importProgress, subscription);
+    return () => ipcRenderer.removeListener(MEDIA_CHANNELS.importProgress, subscription);
   },
   remove: (itemId: string): Promise<boolean> => {
     return ipcRenderer.invoke(MEDIA_CHANNELS.remove, itemId) as Promise<boolean>;

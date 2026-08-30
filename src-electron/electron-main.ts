@@ -71,6 +71,7 @@ function streamResponse(
   const contentLength = end - start + 1;
   const headers = new Headers({
     'Accept-Ranges': 'bytes',
+    'Access-Control-Allow-Origin': '*',
     'Content-Length': String(contentLength),
     'Content-Type': mediaMimeType(mediaPath),
   });

@@ -1,6 +1,7 @@
 export const MEDIA_CHANNELS = {
   list: 'media:list',
   select: 'media:select',
+  importProgress: 'media:import-progress',
   remove: 'media:remove',
   rename: 'media:rename',
 } as const;
@@ -18,4 +19,11 @@ export interface MediaLibraryItem {
   createdAt: string;
   url: string;
   documentFormat?: DocumentFormat;
+}
+
+export interface MediaImportProgress {
+  fileName: string;
+  completedBytes: number;
+  totalBytes: number;
+  percent: number;
 }

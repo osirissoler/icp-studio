@@ -1,15 +1,51 @@
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { Transform } from 'node:stream';
 import {
   MEDIA_CHANNELS,
   type MediaKind,
   type MediaLibraryItem,
   type DocumentFormat,
+  type MediaImportProgress,
 } from '../../src/shared/media';
 
 type StoredMediaItem = Omit<MediaLibraryItem, 'url'>;
+const MAX_DOCUMENT_SIZE = 80 * 1024 * 1024;
+
+async function copyWithProgress(
+  sourcePath: string,
+  destination: string,
+  initialCompletedBytes: number,
+  totalBytes: number,
+  notifyProgress: (progress: MediaImportProgress) => void,
+): Promise<number> {
+  let fileCopiedBytes = 0;
+  let lastPercent = -1;
+  const fileName = path.basename(sourcePath);
+  const progressStream = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      fileCopiedBytes += chunk.length;
+      const completedBytes = initialCompletedBytes + fileCopiedBytes;
+      const percent =
+        totalBytes > 0 ? Math.min(100, Math.round((completedBytes / totalBytes) * 100)) : 100;
+
+      if (percent !== lastPercent) {
+        lastPercent = percent;
+        notifyProgress({ fileName, completedBytes, totalBytes, percent });
+      }
+
+      callback(null, chunk);
+    },
+  });
+
+  await pipeline(createReadStream(sourcePath), progressStream, createWriteStream(destination));
+
+  return fileCopiedBytes;
+}
 
 function mediaRoot(): string {
   return path.join(app.getPath('userData'), 'media');
@@ -121,16 +157,44 @@ async function selectMedia(
 
   if (result.canceled) return [];
 
+  const selectedFiles = await Promise.all(
+    result.filePaths.map(async (sourcePath) => ({
+      sourcePath,
+      fileInfo: await stat(sourcePath),
+    })),
+  );
+
+  if (kind === 'document') {
+    const oversizedFile = selectedFiles.find(({ fileInfo }) => fileInfo.size > MAX_DOCUMENT_SIZE);
+
+    if (oversizedFile) {
+      throw new Error(
+        `El documento ${path.basename(oversizedFile.sourcePath)} supera el límite de 80 MB.`,
+      );
+    }
+  }
+
+  const totalBytes = selectedFiles.reduce((total, { fileInfo }) => total + fileInfo.size, 0);
+  let completedBytes = 0;
+
   const catalog = await readCatalog();
   const imported: MediaLibraryItem[] = [];
   await mkdir(mediaFolder(kind), { recursive: true });
 
-  for (const sourcePath of result.filePaths) {
+  for (const { sourcePath, fileInfo } of selectedFiles) {
     const extension = path.extname(sourcePath).toLowerCase();
     const documentFormat = documentFormatFor(extension);
     const storedName = `${randomUUID()}${extension}`;
     const destination = path.join(mediaFolder(kind), storedName);
-    await copyFile(sourcePath, destination);
+    completedBytes += await copyWithProgress(
+      sourcePath,
+      destination,
+      completedBytes,
+      totalBytes,
+      (progress) => {
+        mainWindow.webContents.send(MEDIA_CHANNELS.importProgress, progress);
+      },
+    );
 
     const item: StoredMediaItem = {
       id: randomUUID(),
@@ -138,7 +202,7 @@ async function selectMedia(
       name: path.basename(sourcePath, extension),
       storedName,
       mimeType: mimeTypeFor(extension, kind),
-      size: 0,
+      size: fileInfo.size,
       createdAt: new Date().toISOString(),
       ...(documentFormat ? { documentFormat } : {}),
     };

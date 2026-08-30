@@ -61,6 +61,33 @@
             </q-btn>
           </div>
 
+          <div v-if="importProgress" class="import-progress">
+            <div>
+              <span>{{ importProgress.fileName }}</span>
+              <strong>{{ importProgress.percent }}%</strong>
+            </div>
+            <q-linear-progress
+              rounded
+              size="7px"
+              color="primary"
+              track-color="blue-grey-9"
+              :value="importProgress.percent / 100"
+            />
+            <small>
+              {{ formatBytes(importProgress.completedBytes) }} de
+              {{ formatBytes(importProgress.totalBytes) }}
+            </small>
+          </div>
+
+          <q-banner
+            v-if="importMessage"
+            dense
+            rounded
+            :class="['import-message', { 'import-message--error': importFailed }]"
+          >
+            {{ importMessage }}
+          </q-banner>
+
           <div v-if="loading" class="empty-state">
             <q-spinner color="primary" size="34px" />
             <span>Cargando documentos...</span>
@@ -158,11 +185,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { inspectDocument, type DocumentInfo } from '../services/document-reader';
-import type { MediaLibraryItem } from '../shared/media';
+import type { MediaImportProgress, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
 
 const presentationStore = usePresentationStore();
@@ -171,10 +198,15 @@ const selectedItem = ref<MediaLibraryItem | null>(null);
 const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
+const importProgress = ref<MediaImportProgress | null>(null);
+const importMessage = ref('');
+const importFailed = ref(false);
 const previewPageIndex = ref(0);
 const pageCount = ref(1);
 const pageLabels = ref<string[]>([]);
 const documentInfo = new Map<string, DocumentInfo>();
+let unsubscribeImportProgress: (() => void) | undefined;
+let messageTimer: number | undefined;
 
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
@@ -189,6 +221,21 @@ function normalize(value: string): string {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .trim();
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function showImportMessage(message: string, failed = false): void {
+  if (messageTimer !== undefined) window.clearTimeout(messageTimer);
+  importMessage.value = message;
+  importFailed.value = failed;
+  messageTimer = window.setTimeout(() => {
+    importMessage.value = '';
+    messageTimer = undefined;
+  }, 4500);
 }
 
 function documentIcon(item: MediaLibraryItem): string {
@@ -275,22 +322,44 @@ async function presentSelected(): Promise<void> {
 
 async function importDocuments(): Promise<void> {
   importing.value = true;
+  importProgress.value = null;
+  importMessage.value = '';
   try {
     const imported = (await window.icpStudio?.media.select('document')) ?? [];
     items.value = [...items.value, ...imported];
     const lastItem = imported.at(-1);
     if (lastItem) selectItem(lastItem);
+    if (imported.length > 0) {
+      showImportMessage(
+        `${imported.length === 1 ? 'Documento importado' : 'Documentos importados'} correctamente.`,
+      );
+    }
+  } catch (error) {
+    showImportMessage(
+      error instanceof Error ? error.message : 'No fue posible importar el documento.',
+      true,
+    );
   } finally {
     importing.value = false;
+    importProgress.value = null;
   }
 }
 
 onMounted(async () => {
+  unsubscribeImportProgress = window.icpStudio?.media.onImportProgress((progress) => {
+    importProgress.value = progress;
+  });
+
   try {
     items.value = (await window.icpStudio?.media.list('document')) ?? [];
   } finally {
     loading.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  unsubscribeImportProgress?.();
+  if (messageTimer !== undefined) window.clearTimeout(messageTimer);
 });
 </script>
 
@@ -324,6 +393,42 @@ onMounted(async () => {
   gap: 5px;
   margin-top: 10px;
   overflow-y: auto;
+}
+
+.import-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 8px;
+  color: #aebdce;
+  background: #0d1928;
+  border: 1px solid #29415f;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.import-progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.import-progress span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-message {
+  margin-top: 8px;
+  color: #bbf7d0;
+  background: rgb(20 83 45 / 28%);
+}
+
+.import-message--error {
+  color: #fecaca;
+  background: rgb(127 29 29 / 30%);
 }
 
 .document-item {

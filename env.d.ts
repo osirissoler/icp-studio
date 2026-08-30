@@ -6,7 +6,7 @@ import type {
   BibleVersion,
 } from './src/shared/bible';
 import type { DisplayInfo } from './src/shared/display';
-import type { MediaKind, MediaLibraryItem } from './src/shared/media';
+import type { MediaImportProgress, MediaKind, MediaLibraryItem } from './src/shared/media';
 import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
 import type { DefaultSongCollection } from './src/shared/song';
 
@@ -27,6 +27,7 @@ interface IcpStudioApi {
   media: {
     list: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
     select: (kind: MediaKind) => Promise<MediaLibraryItem[]>;
+    onImportProgress: (listener: (progress: MediaImportProgress) => void) => () => void;
     remove: (itemId: string) => Promise<boolean>;
     rename: (itemId: string, name: string) => Promise<MediaLibraryItem | null>;
   };
