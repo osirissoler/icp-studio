@@ -24,7 +24,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'biblia',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/BiblePage.vue'),
         meta: {
           title: 'Biblia',
           description: 'Busca, previsualiza y agrega pasajes bíblicos al servicio.',
