@@ -117,8 +117,15 @@ function registerMediaProtocol(): void {
         });
       }
 
-      const requestedStart = match[1] ? Number(match[1]) : 0;
-      const requestedEnd = match[2] ? Number(match[2]) : fileSize - 1;
+      const suffixLength = !match[1] && match[2] ? Number(match[2]) : null;
+      const requestedStart =
+        suffixLength === null
+          ? Number(match[1])
+          : Math.max(0, fileSize - suffixLength);
+      const requestedEnd =
+        suffixLength === null && match[2]
+          ? Number(match[2])
+          : fileSize - 1;
       const start = Math.max(0, requestedStart);
       const end = Math.min(fileSize - 1, requestedEnd);
 
