@@ -62,6 +62,7 @@
               class="song-result"
               :class="{ 'song-result--active': selectedSong?.id === song.id }"
               @click="selectSong(song)"
+              @dblclick="addSongFromList(song)"
             >
               <q-icon name="music_note" color="primary" />
               <span class="song-result-copy">
@@ -80,6 +81,7 @@
                 aria-label="Editar alabanza"
                 class="song-edit-button"
                 @click.stop="editSong(song)"
+                @dblclick.stop
               >
                 <q-tooltip>Editar alabanza</q-tooltip>
               </q-btn>
@@ -409,6 +411,11 @@ function showMessage(message: string): void {
     actionMessage.value = '';
     messageTimer = null;
   }, 3500);
+}
+
+function addSongFromList(song: Song): void {
+  selectSong(song);
+  addSelectedSongToService();
 }
 
 function addSelectedSongToService(): void {
