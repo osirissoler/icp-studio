@@ -132,8 +132,10 @@
               color="primary"
               icon="playlist_add"
               label="Agregar al servicio"
-              :disable="!selectedVerse"
-            />
+              disable
+            >
+              <q-tooltip>Disponible cuando construyamos el servicio</q-tooltip>
+            </q-btn>
 
             <q-btn
               unelevated
