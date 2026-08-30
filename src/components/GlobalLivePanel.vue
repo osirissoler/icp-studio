@@ -200,6 +200,11 @@ let stopResizeListener: (() => void) | null = null;
 let wheelLockedUntil = 0;
 
 function handleLiveWheel(event: WheelEvent): void {
+  const eventTarget = event.target;
+  if (eventTarget instanceof Element && eventTarget.closest('.frame-list')) {
+    return;
+  }
+
   if (
     liveFrame.value?.mediaType !== 'document' ||
     liveFrame.value.documentFormat === 'spreadsheet'
