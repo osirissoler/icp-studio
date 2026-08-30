@@ -121,6 +121,22 @@ export function registerMediaIpc(
     return selectMedia(getMainWindow(), kind);
   });
 
+  ipcMain.handle(
+    MEDIA_CHANNELS.rename,
+    async (_event, itemId: string, nextName: string) => {
+      const cleanName = nextName.trim().slice(0, 200);
+      if (!cleanName) return null;
+
+      const catalog = await readCatalog();
+      const item = catalog.find((entry) => entry.id === itemId);
+      if (!item) return null;
+
+      item.name = cleanName;
+      await saveCatalog(catalog);
+      return withUrl(item);
+    },
+  );
+
   ipcMain.handle(MEDIA_CHANNELS.remove, async (_event, itemId: string) => {
     const catalog = await readCatalog();
     const item = catalog.find((entry) => entry.id === itemId);
@@ -136,4 +152,5 @@ export function unregisterMediaIpc(): void {
   ipcMain.removeHandler(MEDIA_CHANNELS.list);
   ipcMain.removeHandler(MEDIA_CHANNELS.select);
   ipcMain.removeHandler(MEDIA_CHANNELS.remove);
+  ipcMain.removeHandler(MEDIA_CHANNELS.rename);
 }
