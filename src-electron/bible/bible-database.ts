@@ -111,7 +111,13 @@ function parseBibleReference(reference: string): ParsedBibleReference {
 
   const verseStart = match[3] ? Number(match[3]) : null;
 
-  const verseEnd = match[4] ? Number(match[4]) : verseStart;
+  const requestedVerseEnd = match[4] ? Number(match[4]) : verseStart;
+  const verseEnd =
+    verseStart !== null &&
+    requestedVerseEnd !== null &&
+    requestedVerseEnd < verseStart
+      ? verseStart
+      : requestedVerseEnd;
 
   if (chapter <= 0) {
     throw new Error('El capítulo debe ser mayor que cero.');
@@ -119,10 +125,6 @@ function parseBibleReference(reference: string): ParsedBibleReference {
 
   if (verseStart !== null && verseStart <= 0) {
     throw new Error('El versículo debe ser mayor que cero.');
-  }
-
-  if (verseStart !== null && verseEnd !== null && verseEnd < verseStart) {
-    throw new Error('El versículo final no puede ser menor que el inicial.');
   }
 
   return {
