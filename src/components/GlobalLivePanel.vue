@@ -75,10 +75,11 @@
                   @click="togglePlayback"
                 />
                 <q-slider
-                  :model-value="mediaPlayback.time"
+                  v-model="seekPosition"
                   :min="0"
                   :max="Math.max(1, mediaPlayback.duration)"
                   color="primary"
+                  @pan="handleSeekPan"
                   @change="seekPlayback"
                 />
                 <small>
@@ -104,10 +105,11 @@
                   @click="togglePlayback"
                 />
                 <q-slider
-                  :model-value="mediaPlayback.time"
+                  v-model="seekPosition"
                   :min="0"
                   :max="Math.max(1, mediaPlayback.duration)"
                   color="primary"
+                  @pan="handleSeekPan"
                   @change="seekPlayback"
                 />
                 <small>
@@ -167,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from 'vue';
+import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import { usePresentationStore } from '../stores/presentation-store';
@@ -185,6 +187,8 @@ const {
 } = presentationStore;
 
 const panelElement = ref<HTMLElement | null>(null);
+const seekPosition = ref(0);
+const isSeeking = ref(false);
 const sections = ref<LiveSection[]>(['screen', 'content']);
 const sectionSizes = reactive<Record<LiveSection, number>>({
   screen: 1,
@@ -200,9 +204,15 @@ function togglePlayback(): void {
   });
 }
 
+function handleSeekPan(phase: 'start' | 'update' | 'end'): void {
+  isSeeking.value = phase !== 'end';
+}
+
 function seekPlayback(value: number | null): void {
   if (value === null) return;
+  seekPosition.value = value;
   controlLiveMedia({ action: 'seek', time: value });
+  isSeeking.value = false;
 }
 
 function formatTime(value: number): string {
@@ -268,6 +278,16 @@ function startResize(event: PointerEvent): void {
   window.addEventListener('pointerup', stop);
   event.preventDefault();
 }
+
+watch(
+  () => mediaPlayback.value.time,
+  (time) => {
+    if (!isSeeking.value) {
+      seekPosition.value = time;
+    }
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
   stopResizeListener?.();
