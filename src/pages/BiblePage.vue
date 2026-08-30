@@ -565,13 +565,15 @@ async function executeSearch(reference: string): Promise<void> {
     searchResult.value = result;
     selectedVerses.value = [...result.verses];
     selectedVerse.value = result.verses[0] ?? null;
-
-    await nextTick();
-    resultsElement.value?.focus();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
     searching.value = false;
+  }
+
+  if (searchResult.value) {
+    await nextTick();
+    resultsElement.value?.focus();
   }
 }
 
