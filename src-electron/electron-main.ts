@@ -5,27 +5,26 @@ import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electro
 import { PROJECTION_CHANNELS, type ProjectionState } from '../src/shared/projection';
 import { WINDOW_CHANNELS } from '../src/shared/window';
 import type { DisplayInfo } from '../src/shared/display';
+import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
+import { closeBibleDatabase } from './bible/bible-database';
 
-// needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
 
 function getConnectedDisplays(): DisplayInfo[] {
   const primaryDisplayId = screen.getPrimaryDisplay().id;
 
-  return screen.getAllDisplays().map((display, index) => {
-    return {
-      id: display.id,
-      label: display.label || `Pantalla ${index + 1}`,
-      isPrimary: display.id === primaryDisplayId,
-      bounds: {
-        x: display.bounds.x,
-        y: display.bounds.y,
-        width: display.bounds.width,
-        height: display.bounds.height,
-      },
-      scaleFactor: display.scaleFactor,
-    };
-  });
+  return screen.getAllDisplays().map((display, index) => ({
+    id: display.id,
+    label: display.label || `Pantalla ${index + 1}`,
+    isPrimary: display.id === primaryDisplayId,
+    bounds: {
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height,
+    },
+    scaleFactor: display.scaleFactor,
+  }));
 }
 
 const windows: {
@@ -35,8 +34,12 @@ const windows: {
 };
 
 const projectionWindows = new Map<number, BrowserWindow>();
+
 let songEditorWindow: BrowserWindow | null = null;
-let latestProjectionState: ProjectionState = { mode: 'blank' };
+
+let latestProjectionState: ProjectionState = {
+  mode: 'blank',
+};
 
 function parseProjectionState(value: unknown): ProjectionState | null {
   if (typeof value !== 'object' || value === null) {
@@ -98,11 +101,13 @@ async function loadAppWindow(targetWindow: BrowserWindow, route?: string): Promi
     }
 
     await targetWindow.loadURL(appUrl.toString());
+
     return;
   }
 
   if (route) {
     await targetWindow.loadFile('index.html', { hash: route });
+
     return;
   }
 
@@ -187,7 +192,7 @@ async function createProjectionWindow(display: Display | null, index: number): P
     title: display
       ? `ICP Studio - Proyector ${index + 1} - ${display.label}`
       : 'ICP Studio - Vista previa del proyector',
-    icon: resolveElectronAssetsPath('icons/icon.png'), // Windows and Linux
+    icon: resolveElectronAssetsPath('icons/icon.png'),
     ...displayWindowOptions,
     useContentSize: false,
     show: false,
@@ -201,6 +206,7 @@ async function createProjectionWindow(display: Display | null, index: number): P
   });
 
   const projectionId = display?.id ?? projectorWindow.id;
+
   projectionWindows.set(projectionId, projectorWindow);
 
   projectorWindow.once('ready-to-show', () => {
@@ -222,10 +228,10 @@ async function createProjectionWindow(display: Display | null, index: number): P
   await loadAppWindow(projectorWindow, '/projector');
 }
 
-async function createWindow() {
+async function createWindow(): Promise<void> {
   const mainWindow = new BrowserWindow({
     title: 'ICP Studio',
-    icon: resolveElectronAssetsPath('icons/icon.png'), // Windows and Linux
+    icon: resolveElectronAssetsPath('icons/icon.png'),
     width: 1200,
     height: 760,
     minWidth: 960,
@@ -233,7 +239,6 @@ async function createWindow() {
     useContentSize: true,
     webPreferences: {
       contextIsolation: true,
-      // https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/electron-preload-script
       preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
     },
   });
@@ -247,6 +252,7 @@ async function createWindow() {
   await loadAppWindow(mainWindow);
 
   const primaryDisplayId = screen.getPrimaryDisplay().id;
+
   const externalDisplays = screen
     .getAllDisplays()
     .filter((display) => display.id !== primaryDisplayId);
@@ -255,17 +261,13 @@ async function createWindow() {
     await createProjectionWindow(null, 0);
   } else {
     await Promise.all(
-      externalDisplays.map((display, index) => {
-        return createProjectionWindow(display, index);
-      }),
+      externalDisplays.map((display, index) => createProjectionWindow(display, index)),
     );
   }
 
   if (import.meta.env.QUASAR_DEBUG) {
-    // if on DEV or Production with debug enabled
     mainWindow.webContents.openDevTools();
   } else {
-    // we're on production; no access to devtools pls
     mainWindow.webContents.on('devtools-opened', () => {
       mainWindow.webContents.closeDevTools();
     });
@@ -276,10 +278,14 @@ void app.whenReady().then(() => {
   registerQuasarRuntime();
 
   const connectedDisplays = getConnectedDisplays();
+
   console.log('Pantallas detectadas:', connectedDisplays);
 
   registerProjectionIpc();
   registerWindowIpc();
+
+  registerBibleIpc(() => windows.main);
+
   void createWindow();
 
   app.on('activate', () => {
@@ -287,6 +293,11 @@ void app.whenReady().then(() => {
       void createWindow();
     }
   });
+});
+
+app.on('before-quit', () => {
+  unregisterBibleIpc();
+  closeBibleDatabase();
 });
 
 app.on('window-all-closed', () => {

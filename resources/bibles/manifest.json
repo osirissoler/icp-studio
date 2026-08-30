@@ -1,0 +1,28 @@
+{
+  "versions": [
+    {
+      "code": "RV1909",
+      "name": "Reina-Valera 1909",
+      "shortName": "RV1909",
+      "language": "es",
+      "status": "stable",
+      "isPublicDomain": true,
+      "isDefault": true,
+      "sourceFormat": "usfm",
+      "sourceDirectory": "sources/rv1909/usfm",
+      "sourceUrl": "https://ebible.org/find/details.php?id=spaRV1909"
+    },
+    {
+      "code": "BLL",
+      "name": "Biblia Libre Latinoamericana",
+      "shortName": "BLL",
+      "language": "es",
+      "status": "draft",
+      "isPublicDomain": true,
+      "isDefault": false,
+      "sourceFormat": "usfm",
+      "sourceDirectory": "sources/bll/usfm",
+      "sourceUrl": "https://ebible.org/find/details.php?id=spabll"
+    }
+  ]
+}
