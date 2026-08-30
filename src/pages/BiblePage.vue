@@ -386,7 +386,7 @@
                   dense
                   size="xs"
                   icon="delete_sweep"
-                  color="negative"
+                  color="red-4"
                   :disable="!liveServiceItem && !liveVerse"
                   @click.stop="clearLiveArea"
                 >
@@ -398,9 +398,10 @@
             <template v-if="section === 'screen'">
               <div class="bible-screen bible-screen--live">
                 <template v-if="liveVerse">
-                  <div class="screen-reference">{{ liveVerse.reference }}</div>
                   <div class="screen-text">{{ liveVerse.text }}</div>
-                  <div class="screen-version">{{ liveVerse.versionCode }}</div>
+                  <div v-if="liveServiceItem" class="screen-passage-reference">
+                    {{ liveServiceItem.projectionReference }}
+                  </div>
                 </template>
 
                 <template v-else>
@@ -483,6 +484,7 @@ interface BibleServiceItem {
   id: string;
   type: 'bible';
   title: string;
+  projectionReference: string;
   versionCode: string;
   verses: BibleVerse[];
 }
@@ -980,6 +982,48 @@ function buildServiceTitle(passage: BiblePassage): string {
     : `${passage.bookName} ${passage.chapter}`;
 }
 
+function buildProjectionReference(
+  passage: BiblePassage,
+  verses: BibleVerse[],
+): string {
+  const selectedNumbers = new Set<number>();
+
+  for (const verse of verses) {
+    for (let number = verse.verseStart; number <= verse.verseEnd; number += 1) {
+      selectedNumbers.add(number);
+    }
+  }
+
+  const numbers = [...selectedNumbers].sort((first, second) => first - second);
+  const ranges: string[] = [];
+  let rangeStart = numbers[0];
+  let previous = numbers[0];
+
+  for (const number of numbers.slice(1)) {
+    if (previous !== undefined && number === previous + 1) {
+      previous = number;
+      continue;
+    }
+
+    if (rangeStart !== undefined && previous !== undefined) {
+      ranges.push(
+        rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`,
+      );
+    }
+
+    rangeStart = number;
+    previous = number;
+  }
+
+  if (rangeStart !== undefined && previous !== undefined) {
+    ranges.push(
+      rangeStart === previous ? String(rangeStart) : `${rangeStart}-${previous}`,
+    );
+  }
+
+  return `${passage.bookName} ${passage.chapter}:${ranges.join(', ')}`;
+}
+
 function addSelectedToService(): void {
   const passage = searchResult.value;
 
@@ -1004,6 +1048,10 @@ function addSelectedToService(): void {
     id: `bible-${Date.now()}-${serviceItems.value.length}`,
     type: 'bible',
     title,
+    projectionReference: buildProjectionReference(
+      passage,
+      selectedVerses.value,
+    ),
     versionCode: passage.versionCode,
     verses: [...selectedVerses.value],
   };
@@ -1046,8 +1094,9 @@ function setLiveVerse(verse: BibleVerse): void {
 
   window.icpStudio?.projection.setState({
     mode: 'content',
-    title: verse.reference,
+    title: '',
     body: verse.text,
+    footer: liveServiceItem.value?.projectionReference ?? verse.reference,
   });
 }
 
@@ -1108,6 +1157,7 @@ function dropLiveSection(targetSection: LiveSectionId): void {
 
 function presentSelectedVerse(): void {
   if (selectedVerse.value) {
+    liveServiceItem.value = null;
     setLiveVerse(selectedVerse.value);
   }
 }
@@ -1616,6 +1666,7 @@ onMounted(() => {
 }
 
 .live-section .bible-screen {
+  position: relative;
   min-height: 0;
   flex: 1;
   aspect-ratio: auto;
@@ -1713,6 +1764,16 @@ onMounted(() => {
   color: #93c5fd;
   font-size: clamp(11px, 1.2vw, 15px);
   font-weight: 700;
+}
+
+.screen-passage-reference {
+  position: absolute;
+  bottom: 9px;
+  left: 11px;
+  color: rgb(147 197 253 / 72%);
+  font-size: 9px;
+  font-weight: 500;
+  text-align: left;
 }
 
 .screen-text {
