@@ -32,9 +32,16 @@ export function parseBibleReference(reference) {
     ? Number(match[3])
     : null;
 
-  const verseEnd = match[4]
+  const requestedVerseEnd = match[4]
     ? Number(match[4])
     : verseStart;
+
+  const verseEnd =
+    verseStart !== null &&
+    requestedVerseEnd !== null &&
+    requestedVerseEnd < verseStart
+      ? verseStart
+      : requestedVerseEnd;
 
   if (chapter <= 0) {
     throw new Error(
@@ -45,16 +52,6 @@ export function parseBibleReference(reference) {
   if (verseStart !== null && verseStart <= 0) {
     throw new Error(
       'El número del versículo debe ser mayor que cero.',
-    );
-  }
-
-  if (
-    verseStart !== null &&
-    verseEnd !== null &&
-    verseEnd < verseStart
-  ) {
-    throw new Error(
-      'El versículo final no puede ser menor que el inicial.',
     );
   }
 
