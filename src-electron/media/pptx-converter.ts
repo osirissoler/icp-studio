@@ -7,30 +7,32 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-function bundledConverterRoot(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'converter')
-    : path.join(app.getAppPath(), 'resources', 'converter');
-}
-
 function converterCandidates(): string[] {
-  const root = bundledConverterRoot();
   const configuredPath = process.env.ICP_STUDIO_SOFFICE_PATH;
   const candidates = configuredPath ? [configuredPath] : [];
+  const roots = app.isPackaged
+    ? [path.join(process.resourcesPath, 'converter')]
+    : [
+        path.join(process.cwd(), 'resources', 'converter'),
+        path.join(app.getAppPath(), 'resources', 'converter'),
+      ];
 
-  if (process.platform === 'darwin') {
-    candidates.push(path.join(root, 'LibreOffice.app', 'Contents', 'MacOS', 'soffice'));
-  } else if (process.platform === 'win32') {
-    candidates.push(path.join(root, 'program', 'soffice.exe'));
-  } else {
-    candidates.push(path.join(root, 'program', 'soffice'), path.join(root, 'bin', 'soffice'));
+  for (const root of new Set(roots)) {
+    if (process.platform === 'darwin') {
+      candidates.push(path.join(root, 'LibreOffice.app', 'Contents', 'MacOS', 'soffice'));
+    } else if (process.platform === 'win32') {
+      candidates.push(path.join(root, 'program', 'soffice.exe'));
+    } else {
+      candidates.push(path.join(root, 'program', 'soffice'), path.join(root, 'bin', 'soffice'));
+    }
   }
 
   return candidates;
 }
 
 async function findConverter(): Promise<string> {
-  for (const candidate of converterCandidates()) {
+  const candidates = converterCandidates();
+  for (const candidate of candidates) {
     try {
       await access(candidate);
       return candidate;
@@ -41,7 +43,7 @@ async function findConverter(): Promise<string> {
 
   throw new Error(
     'ICP Studio todavía no tiene incluido el motor para convertir PowerPoint. ' +
-      'Coloca LibreOffice dentro de resources/converter antes de importar archivos PPTX.',
+      `Rutas verificadas: ${candidates.join(', ')}`,
   );
 }
 
