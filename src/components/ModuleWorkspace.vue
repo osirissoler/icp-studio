@@ -88,6 +88,21 @@
               </div>
             </template>
 
+            <template v-else-if="panel.id === 'service'">
+              <div class="screen-label">
+                <span>Orden del servicio</span>
+                <q-icon name="playlist_play" />
+              </div>
+
+              <div class="empty-state">
+                <q-icon name="playlist_add" size="44px" />
+                <div class="empty-title">Servicio vacío</div>
+                <div class="empty-text">
+                  Los elementos agregados para el culto aparecerán aquí.
+                </div>
+              </div>
+            </template>
+
             <template v-else-if="panel.id === 'preview'">
               <div class="screen-label">
                 <span>Vista del operador</span>
@@ -164,7 +179,7 @@ interface Props {
   icon: string;
 }
 
-type PanelId = 'search' | 'preview' | 'live';
+type PanelId = 'search' | 'service' | 'preview' | 'live';
 
 interface WorkspacePanel {
   id: PanelId;
@@ -178,14 +193,16 @@ const workspaceElement = ref<HTMLElement | null>(null);
 
 const panels = ref<WorkspacePanel[]>([
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
+  { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
 ]);
 
 const panelSizes = reactive<Record<PanelId, number>>({
-  search: 36,
-  preview: 32,
-  live: 32,
+  search: 30,
+  service: 24,
+  preview: 23,
+  live: 23,
 });
 
 const props = defineProps<Props>();
