@@ -60,6 +60,6 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
 
 export function unregisterBibleIpc(): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getVersions);
-
+  ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
 }
