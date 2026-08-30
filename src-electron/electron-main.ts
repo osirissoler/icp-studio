@@ -1,6 +1,8 @@
-import { BrowserWindow, app, ipcMain, net, protocol, screen, type Display } from 'electron';
+import { BrowserWindow, app, ipcMain, protocol, screen, type Display } from 'electron';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { Readable } from 'node:stream';
 import os from 'node:os';
 import { registerQuasarRuntime, resolveElectronAssetsPath } from '#q-app/electron/main';
 import {
@@ -29,8 +31,54 @@ protocol.registerSchemesAsPrivileged([
 
 const platform = process.platform || os.platform();
 
+function mediaMimeType(mediaPath: string): string {
+  const extension = path.extname(mediaPath).toLowerCase();
+  const types: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.m4v': 'video/x-m4v',
+  };
+
+  return types[extension] ?? 'application/octet-stream';
+}
+
+function streamResponse(
+  mediaPath: string,
+  start: number,
+  end: number,
+  fileSize: number,
+  status: 200 | 206,
+  method: string,
+): Response {
+  const contentLength = end - start + 1;
+  const headers = new Headers({
+    'Accept-Ranges': 'bytes',
+    'Content-Length': String(contentLength),
+    'Content-Type': mediaMimeType(mediaPath),
+  });
+
+  if (status === 206) {
+    headers.set('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+  }
+
+  if (method === 'HEAD') {
+    return new Response(null, { status, headers });
+  }
+
+  const nodeStream = createReadStream(mediaPath, { start, end });
+  const body = Readable.toWeb(nodeStream) as unknown as BodyInit;
+  return new Response(body, { status, headers });
+}
+
 function registerMediaProtocol(): void {
-  protocol.handle('icp-media', (request) => {
+  protocol.handle('icp-media', async (request) => {
     const mediaUrl = new URL(request.url);
 
     if (mediaUrl.hostname !== 'library') {
@@ -45,10 +93,53 @@ function registerMediaProtocol(): void {
       return new Response('Ruta inválida', { status: 403 });
     }
 
-    return net.fetch(pathToFileURL(mediaPath).toString(), {
-      headers: request.headers,
-      bypassCustomProtocolHandlers: true,
-    });
+    try {
+      const fileInfo = await stat(mediaPath);
+      const fileSize = fileInfo.size;
+      const range = request.headers.get('range');
+
+      if (!range) {
+        return streamResponse(
+          mediaPath,
+          0,
+          Math.max(0, fileSize - 1),
+          fileSize,
+          200,
+          request.method,
+        );
+      }
+
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+      if (!match) {
+        return new Response(null, {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${fileSize}` },
+        });
+      }
+
+      const requestedStart = match[1] ? Number(match[1]) : 0;
+      const requestedEnd = match[2] ? Number(match[2]) : fileSize - 1;
+      const start = Math.max(0, requestedStart);
+      const end = Math.min(fileSize - 1, requestedEnd);
+
+      if (start > end || start >= fileSize) {
+        return new Response(null, {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${fileSize}` },
+        });
+      }
+
+      return streamResponse(
+        mediaPath,
+        start,
+        end,
+        fileSize,
+        206,
+        request.method,
+      );
+    } catch {
+      return new Response('Recurso no encontrado', { status: 404 });
+    }
   });
 }
 
