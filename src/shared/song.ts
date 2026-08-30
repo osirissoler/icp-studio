@@ -13,6 +13,12 @@ export interface SongDraft {
   parts: SongPart[];
 }
 
+export interface Song extends SongDraft {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const SONG_PART_TYPE_OPTIONS: ReadonlyArray<{
   label: string;
   value: SongPartType;
