@@ -87,6 +87,11 @@ function normalizeBibleBookName(value: string): string {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\b(?:primera|primero|primer|1ra|1ro)\b/g, '1')
+    .replace(/\b(?:segunda|segundo|2da|2do)\b/g, '2')
+    .replace(/\b(?:tercera|tercero|3ra|3ro)\b/g, '3')
+    .replace(/\bde\b/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
