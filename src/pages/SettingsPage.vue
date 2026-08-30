@@ -147,6 +147,12 @@ const panelOptions: PanelOption[] = [
     description: 'Contenido y controles de la proyección activa.',
     icon: 'sensors',
   },
+  {
+    id: 'monitors',
+    label: 'Monitores',
+    description: 'Pantallas detectadas y salidas de proyección activas.',
+    icon: 'display_settings',
+  },
 ];
 
 onMounted(async () => {
