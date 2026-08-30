@@ -30,10 +30,48 @@
 
         <q-space />
 
-        <div class="screen-status gt-sm">
+        <button type="button" class="screen-status gt-sm">
           <span class="status-dot"></span>
-          <span>2 pantallas activas</span>
-        </div>
+          <span>
+            {{ displays.length }}
+            {{ displays.length === 1 ? 'pantalla activa' : 'pantallas activas' }}
+          </span>
+          <q-icon name="expand_more" size="16px" />
+
+          <q-menu dark class="display-menu">
+            <q-list dense style="min-width: 290px">
+              <q-item-label header>Pantallas detectadas</q-item-label>
+              <q-item v-for="display in displays" :key="display.id">
+                <q-item-section avatar>
+                  <q-icon
+                    :name="display.isPrimary ? 'laptop_mac' : 'connected_tv'"
+                    :color="display.isPrimary ? 'blue-grey-4' : 'positive'"
+                  />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ display.label }}</q-item-label>
+                  <q-item-label caption>
+                    {{ display.bounds.width }} × {{ display.bounds.height }}
+                  </q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-badge
+                    :label="display.isPrimary ? 'Operador' : 'Proyección'"
+                    :color="display.isPrimary ? 'blue-grey-7' : 'positive'"
+                  />
+                </q-item-section>
+              </q-item>
+
+              <q-separator dark />
+              <q-item clickable v-close-popup to="/configuracion">
+                <q-item-section avatar>
+                  <q-icon name="settings" />
+                </q-item-section>
+                <q-item-section>Configurar pantallas</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </button>
 
         <q-btn
           outline
@@ -133,9 +171,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
+import type { DisplayInfo } from '../shared/display';
 
 interface NavigationItem {
   label: string;
@@ -146,6 +185,8 @@ interface NavigationItem {
 const $q = useQuasar();
 const leftDrawerOpen = ref(true);
 const miniState = ref(true);
+const displays = ref<DisplayInfo[]>([]);
+let unsubscribeDisplays: (() => void) | undefined;
 
 const mainNavigation: NavigationItem[] = [
   { label: 'Alabanzas', icon: 'music_note', to: '/alabanzas' },
@@ -168,6 +209,17 @@ const currentDate = computed(() => {
   }).format(new Date());
 
   return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+});
+
+onMounted(async () => {
+  displays.value = await window.icpStudio?.displays.list() ?? [];
+  unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
+    displays.value = nextDisplays;
+  });
+});
+
+onBeforeUnmount(() => {
+  unsubscribeDisplays?.();
 });
 
 function toggleMenu() {
@@ -232,11 +284,15 @@ function toggleMenu() {
 
 .screen-status {
   display: flex;
+  padding: 5px 7px;
+  background: transparent;
+  border: 0;
   align-items: center;
   gap: 8px;
   color: #c6d0dc;
   font-size: 12px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .status-dot {
