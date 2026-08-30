@@ -14,7 +14,7 @@
               outlined
               dense
               clearable
-              :placeholder="`Buscar ${kind === 'image' ? 'imagen' : 'video'} por nombre...`"
+              :placeholder="`Buscar ${kind === 'image' ? 'imagen' : kind === 'video' ? 'video' : 'canción'} por nombre...`"
               class="media-search"
             >
               <template #prepend><q-icon name="search" /></template>
@@ -29,11 +29,11 @@
               icon="add"
               class="media-action-button"
               :loading="importing"
-              :aria-label="`Importar ${kind === 'image' ? 'imágenes' : 'videos'}`"
+              :aria-label="`Importar ${kind === 'image' ? 'imágenes' : kind === 'video' ? 'videos' : 'canciones'}`"
               @click="importMedia"
             >
               <q-tooltip>
-                {{ kind === 'image' ? 'Seleccionar imágenes' : 'Seleccionar videos' }}
+                {{ kind === 'image' ? 'Seleccionar imágenes' : kind === 'video' ? 'Seleccionar videos' : 'Seleccionar canciones' }}
               </q-tooltip>
             </q-btn>
 
@@ -76,7 +76,15 @@
             >
               <span class="media-thumbnail">
                 <img v-if="kind === 'image'" :src="item.url" :alt="item.name" />
-                <video v-else :src="item.url" preload="metadata" muted />
+                <video
+                  v-else-if="kind === 'video'"
+                  :src="item.url"
+                  preload="metadata"
+                  muted
+                />
+                <span v-else class="audio-thumbnail">
+                  <q-icon name="audio_file" />
+                </span>
                 <q-icon v-if="kind === 'video'" name="play_circle" class="video-mark" />
               </span>
               <span class="media-card-footer">
@@ -123,12 +131,22 @@
               :alt="selectedItem.name"
             />
             <video
-              v-else-if="selectedItem"
+              v-else-if="selectedItem && kind === 'video'"
               :key="selectedItem.id"
               :src="selectedItem.url"
               controls
               preload="metadata"
             />
+            <div v-else-if="selectedItem" class="audio-preview">
+              <q-icon name="album" size="64px" />
+              <strong>{{ selectedItem.name }}</strong>
+              <audio
+                :key="selectedItem.id"
+                :src="selectedItem.url"
+                controls
+                preload="metadata"
+              />
+            </div>
             <template v-else>
               <q-icon name="preview" size="44px" />
               <span>Selecciona un elemento para previsualizarlo</span>
@@ -207,21 +225,39 @@ const renameName = ref('');
 const renaming = ref(false);
 let messageTimer: number | null = null;
 
-const moduleTitle = computed(() => props.kind === 'image' ? 'Imágenes' : 'Videos');
-const moduleIcon = computed(() => props.kind === 'image' ? 'image' : 'movie');
-const moduleDescription = computed(() =>
-  props.kind === 'image'
-    ? 'Importa, organiza y proyecta imágenes almacenadas en esta computadora.'
-    : 'Importa, previsualiza y proyecta videos almacenados en esta computadora.',
-);
-const emptyTitle = computed(() =>
-  props.kind === 'image' ? 'No hay imágenes guardadas' : 'No hay videos guardados',
-);
-const emptyDescription = computed(() =>
-  props.kind === 'image'
-    ? 'Selecciona imágenes de tu computadora para agregarlas a ICP Studio.'
-    : 'Selecciona videos de tu computadora para agregarlos a ICP Studio.',
-);
+const moduleTitle = computed(() => {
+  if (props.kind === 'image') return 'Imágenes';
+  if (props.kind === 'video') return 'Videos';
+  return 'Canciones MP3';
+});
+const moduleIcon = computed(() => {
+  if (props.kind === 'image') return 'image';
+  if (props.kind === 'video') return 'movie';
+  return 'audio_file';
+});
+const moduleDescription = computed(() => {
+  if (props.kind === 'image') {
+    return 'Importa, organiza y proyecta imágenes almacenadas en esta computadora.';
+  }
+  if (props.kind === 'video') {
+    return 'Importa, previsualiza y proyecta videos almacenados en esta computadora.';
+  }
+  return 'Importa, organiza y reproduce canciones guardadas en esta computadora.';
+});
+const emptyTitle = computed(() => {
+  if (props.kind === 'image') return 'No hay imágenes guardadas';
+  if (props.kind === 'video') return 'No hay videos guardados';
+  return 'No hay canciones guardadas';
+});
+const emptyDescription = computed(() => {
+  if (props.kind === 'image') {
+    return 'Selecciona imágenes de tu computadora para agregarlas a ICP Studio.';
+  }
+  if (props.kind === 'video') {
+    return 'Selecciona videos de tu computadora para agregarlos a ICP Studio.';
+  }
+  return 'Selecciona archivos de audio para agregarlos a ICP Studio.';
+});
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
   return term
@@ -458,10 +494,33 @@ onMounted(() => {
   object-fit: contain;
 }
 
+.audio-preview {
+  display: flex;
+  width: min(90%, 520px);
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  color: #c7d2e0;
+}
+
+.audio-preview audio {
+  width: 100%;
+}
+
 .video-mark {
   position: absolute;
   color: rgb(255 255 255 / 75%);
   font-size: 30px;
+}
+
+.audio-thumbnail {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  color: #93c5fd;
+  background: radial-gradient(circle, #1d3a5f, #08111d 70%);
+  font-size: 38px;
+  place-items: center;
 }
 
 .media-card-footer {
