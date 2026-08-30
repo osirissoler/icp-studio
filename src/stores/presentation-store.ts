@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { Notify } from 'quasar';
 import type { ServicePresentationItem } from '../shared/presentation';
+import type { MediaPlaybackCommand } from '../shared/projection';
 
 function showServiceNotification(
   message: string,
@@ -24,6 +25,7 @@ export const usePresentationStore = defineStore('presentation', () => {
   const selectedServiceItemId = ref<string | null>(null);
   const liveItem = ref<ServicePresentationItem | null>(null);
   const liveFrameIndex = ref(0);
+  const mediaPlayback = ref({ isPlaying: false, time: 0 });
 
   const liveFrame = computed(
     () => liveItem.value?.frames[liveFrameIndex.value] ?? null,
@@ -117,6 +119,29 @@ export const usePresentationStore = defineStore('presentation', () => {
     });
   }
 
+  function resetMediaPlayback(): void {
+    mediaPlayback.value = { isPlaying: false, time: 0 };
+  }
+
+  function updateLiveMediaTime(time: number): void {
+    if (!Number.isFinite(time)) return;
+    mediaPlayback.value.time = Math.max(0, time);
+  }
+
+  function controlLiveMedia(command: MediaPlaybackCommand): void {
+    if (typeof command.time === 'number') {
+      updateLiveMediaTime(command.time);
+    }
+
+    if (command.action === 'play') {
+      mediaPlayback.value.isPlaying = true;
+    } else if (command.action === 'pause') {
+      mediaPlayback.value.isPlaying = false;
+    }
+
+    window.icpStudio?.projection.controlMedia(command);
+  }
+
   function activateServiceItem(itemId: string): void {
     const item = serviceItems.value.find(
       (serviceItem) => serviceItem.id === itemId,
@@ -129,6 +154,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     selectedServiceItemId.value = item.id;
     liveItem.value = item;
     liveFrameIndex.value = 0;
+    resetMediaPlayback();
     projectCurrentFrame();
   }
 
@@ -140,6 +166,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     }
 
     liveFrameIndex.value = index;
+    resetMediaPlayback();
     projectCurrentFrame();
   }
 
@@ -160,12 +187,14 @@ export const usePresentationStore = defineStore('presentation', () => {
     }
 
     liveFrameIndex.value = nextIndex;
+    resetMediaPlayback();
     projectCurrentFrame();
   }
 
   function clearLive(): void {
     liveItem.value = null;
     liveFrameIndex.value = 0;
+    resetMediaPlayback();
     window.icpStudio?.projection.setState({ mode: 'blank' });
   }
 
@@ -175,6 +204,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     liveItem,
     liveFrameIndex,
     liveFrame,
+    mediaPlayback,
     addToService,
     updateServiceItem,
     selectServiceItem,
@@ -182,6 +212,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     activateServiceItem,
     setLiveFrame,
     moveLiveFrame,
+    controlLiveMedia,
+    updateLiveMediaTime,
     clearLive,
   };
 });
