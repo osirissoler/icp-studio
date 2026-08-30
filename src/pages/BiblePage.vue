@@ -8,19 +8,6 @@
       <template #search>
         <div class="bible-search-panel">
           <div class="bible-search-toolbar">
-            <q-select
-              v-model="selectedVersionCode"
-              :options="versionOptions"
-              outlined
-              dense
-              emit-value
-              map-options
-              options-dense
-              label="Versión"
-              class="version-select"
-              :disable="loadingVersions"
-            />
-
             <q-input
               v-model="referenceText"
               outlined
@@ -192,80 +179,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
-import type {
-  BiblePassage,
-  BibleVersion,
-  BibleVerse,
-} from '../shared/bible';
-
-interface VersionOption {
-  label: string;
-  value: string;
-}
-
-const versions = ref<BibleVersion[]>([]);
-const selectedVersionCode = ref('');
+import type { BiblePassage, BibleVerse } from '../shared/bible';
 const referenceText = ref('');
 const searchResult = ref<BiblePassage | null>(null);
 const selectedVerse = ref<BibleVerse | null>(null);
 const liveVerse = ref<BibleVerse | null>(null);
-const loadingVersions = ref(false);
 const searching = ref(false);
 const errorMessage = ref('');
 
-const versionOptions = computed<VersionOption[]>(() =>
-  versions.value.map((version) => ({
-    label:
-      version.status === 'draft'
-        ? `${version.shortName} · Borrador`
-        : version.shortName,
-    value: version.code,
-  })),
-);
-
 const canSearch = computed(
-  () =>
-    selectedVersionCode.value.length > 0 &&
-    referenceText.value.trim().length > 0 &&
-    !searching.value,
+  () => referenceText.value.trim().length > 0 && !searching.value,
 );
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
     : 'No fue posible completar la operación.';
-}
-
-async function loadVersions(): Promise<void> {
-  const bibleApi = window.icpStudio?.bible;
-
-  if (!bibleApi) {
-    errorMessage.value =
-      'El módulo Biblia solamente está disponible en la aplicación de escritorio.';
-    return;
-  }
-
-  loadingVersions.value = true;
-  errorMessage.value = '';
-
-  try {
-    versions.value = await bibleApi.getVersions();
-
-    const defaultVersion = versions.value.find(
-      (version) => version.isDefault,
-    );
-
-    selectedVersionCode.value =
-      defaultVersion?.code ??
-      versions.value[0]?.code ??
-      '';
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error);
-  } finally {
-    loadingVersions.value = false;
-  }
 }
 
 async function searchPassage(): Promise<void> {
@@ -282,7 +213,6 @@ async function searchPassage(): Promise<void> {
 
   try {
     searchResult.value = await bibleApi.searchPassage({
-      versionCode: selectedVersionCode.value,
       reference: referenceText.value,
     });
   } catch (error) {
@@ -318,9 +248,6 @@ function stopProjection(): void {
   });
 }
 
-onMounted(() => {
-  void loadVersions();
-});
 </script>
 
 <style scoped>
@@ -335,24 +262,19 @@ onMounted(() => {
 
 .bible-search-toolbar {
   display: grid;
-  grid-template-columns: minmax(110px, 0.45fr) minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 40px;
   gap: 8px;
 }
 
-.version-select,
 .reference-input {
   min-width: 0;
 }
 
-.version-select :deep(.q-field__control),
 .reference-input :deep(.q-field__control) {
   color: #e7edf5;
   background: #0d1621;
 }
 
-.version-select :deep(.q-field__native),
-.version-select :deep(.q-field__label),
-.version-select :deep(.q-field__append),
 .reference-input :deep(.q-field__native),
 .reference-input :deep(.q-field__prepend) {
   color: #b8c3d1;
@@ -549,13 +471,4 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
-@media (max-width: 1100px) {
-  .bible-search-toolbar {
-    grid-template-columns: 1fr 40px;
-  }
-
-  .version-select {
-    grid-column: 1 / -1;
-  }
-}
 </style>
