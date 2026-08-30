@@ -1,5 +1,10 @@
 export type SongPartType = 'verse' | 'chorus' | 'bridge' | 'intro' | 'ending' | 'other';
 
+export const SONG_CHANNELS = {
+  getDefaultCollection: 'song:get-default-collection',
+} as const;
+
+
 export interface SongPart {
   id: string;
   type: SongPartType;
@@ -17,6 +22,21 @@ export interface Song extends SongDraft {
   id: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DefaultSong extends SongDraft {
+  id: string;
+  number: number;
+  reference: string;
+  source: string;
+}
+
+export interface DefaultSongCollection {
+  schemaVersion: number;
+  collectionId: string;
+  collectionName: string;
+  language: string;
+  songs: DefaultSong[];
 }
 
 export const SONG_PART_TYPE_OPTIONS: ReadonlyArray<{
