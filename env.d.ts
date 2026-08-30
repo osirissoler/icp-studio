@@ -1,5 +1,6 @@
 import type {
   BibleBook,
+  BibleBookChaptersRequest,
   BiblePassage,
   BiblePassageSearch,
   BibleVersion,
@@ -10,6 +11,7 @@ interface IcpStudioApi {
   bible: {
     getVersions: () => Promise<BibleVersion[]>;
     getBooks: () => Promise<BibleBook[]>;
+    getBookChapters: (request: BibleBookChaptersRequest) => Promise<number[]>;
     searchPassage: (request: BiblePassageSearch) => Promise<BiblePassage>;
   };
   projection: {
