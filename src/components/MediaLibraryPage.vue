@@ -63,21 +63,40 @@
           </div>
 
           <div v-else-if="filteredItems.length" class="media-grid">
-            <button
+            <div
               v-for="item in filteredItems"
               :key="item.id"
-              type="button"
+              role="button"
+              tabindex="0"
               class="media-card"
               :class="{ 'media-card--active': selectedItem?.id === item.id }"
               @click="selectItem(item)"
+              @dblclick="addMediaFromList(item)"
+              @keydown.enter.prevent="selectItem(item)"
             >
               <span class="media-thumbnail">
                 <img v-if="kind === 'image'" :src="item.url" :alt="item.name" />
                 <video v-else :src="item.url" preload="metadata" muted />
                 <q-icon v-if="kind === 'video'" name="play_circle" class="video-mark" />
               </span>
-              <span class="media-name">{{ item.name }}</span>
-            </button>
+              <span class="media-card-footer">
+                <span class="media-name">{{ item.name }}</span>
+                <q-btn
+                  v-if="kind === 'image'"
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  icon="edit"
+                  color="blue-grey-4"
+                  aria-label="Cambiar nombre de la imagen"
+                  @click.stop="openRenameDialog(item)"
+                  @dblclick.stop
+                >
+                  <q-tooltip>Cambiar nombre</q-tooltip>
+                </q-btn>
+              </span>
+            </div>
           </div>
 
           <div v-else class="empty-state">
@@ -133,6 +152,37 @@
         </div>
       </template>
     </ModuleWorkspace>
+
+    <q-dialog v-model="renameDialogOpen">
+      <q-card dark class="rename-card">
+        <q-card-section>
+          <div class="text-subtitle1">Cambiar nombre de la imagen</div>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-input
+            v-model="renameName"
+            dark
+            outlined
+            autofocus
+            maxlength="200"
+            label="Nombre"
+            @keyup.enter="saveRename"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps label="Cancelar" v-close-popup />
+          <q-btn
+            unelevated
+            no-caps
+            color="primary"
+            label="Guardar"
+            :loading="renaming"
+            :disable="!renameName.trim()"
+            @click="saveRename"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -151,6 +201,10 @@ const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
 const actionMessage = ref('');
+const renameDialogOpen = ref(false);
+const renameItem = ref<MediaLibraryItem | null>(null);
+const renameName = ref('');
+const renaming = ref(false);
 let messageTimer: number | null = null;
 
 const moduleTitle = computed(() => props.kind === 'image' ? 'Imágenes' : 'Videos');
@@ -220,6 +274,63 @@ async function importMedia(): Promise<void> {
 
 function selectItem(item: MediaLibraryItem): void {
   selectedItem.value = item;
+}
+
+function addMediaFromList(item: MediaLibraryItem): void {
+  selectItem(item);
+  const added = addItemToService(item);
+  showMessage(
+    added
+      ? `${item.name} fue agregado al servicio.`
+      : 'Este elemento ya está agregado al servicio.',
+  );
+}
+
+function openRenameDialog(item: MediaLibraryItem): void {
+  renameItem.value = item;
+  renameName.value = item.name;
+  renameDialogOpen.value = true;
+}
+
+async function saveRename(): Promise<void> {
+  const item = renameItem.value;
+  const name = renameName.value.trim();
+  if (!item || !name) return;
+
+  renaming.value = true;
+  try {
+    const updated = await window.icpStudio?.media.rename(item.id, name);
+    if (!updated) {
+      showMessage('No fue posible cambiar el nombre de la imagen.');
+      return;
+    }
+
+    items.value = items.value.map((entry) =>
+      entry.id === updated.id ? updated : entry,
+    );
+    if (selectedItem.value?.id === updated.id) {
+      selectedItem.value = updated;
+    }
+
+    const serviceItem = presentationStore.serviceItems.find(
+      (entry) => entry.type === updated.kind && entry.sourceId === updated.id,
+    );
+    if (serviceItem) {
+      presentationStore.updateServiceItem({
+        ...serviceItem,
+        title: updated.name,
+        frames: serviceItem.frames.map((frame) => ({
+          ...frame,
+          label: updated.name,
+        })),
+      });
+    }
+
+    renameDialogOpen.value = false;
+    showMessage('Nombre actualizado correctamente.');
+  } finally {
+    renaming.value = false;
+  }
 }
 
 function serviceId(item: MediaLibraryItem): string {
@@ -363,13 +474,27 @@ onMounted(() => {
   font-size: 30px;
 }
 
+.media-card-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+
 .media-name {
   display: block;
-  margin-top: 5px;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rename-card {
+  width: min(92vw, 430px);
+  background: #111b28;
 }
 
 .panel-label {
