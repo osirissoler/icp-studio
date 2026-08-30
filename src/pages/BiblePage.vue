@@ -112,7 +112,7 @@
 
               <q-select
                 v-model="manualVerseStart"
-                :options="manualVerseOptions"
+                :options="manualVerseStartOptions"
                 outlined
                 dense
                 emit-value
@@ -120,12 +120,13 @@
                 options-dense
                 label="Desde"
                 class="dark-field"
-                :disable="manualVerseOptions.length === 0"
+                :disable="manualVerseStartOptions.length === 0"
+                @update:model-value="onManualVerseStartChange"
               />
 
               <q-select
                 v-model="manualVerseEnd"
-                :options="manualVerseOptions"
+                :options="manualVerseEndOptions"
                 outlined
                 dense
                 emit-value
@@ -133,7 +134,7 @@
                 options-dense
                 label="Hasta"
                 class="dark-field"
-                :disable="manualVerseOptions.length === 0"
+                :disable="manualVerseEndOptions.length === 0"
               />
             </div>
 
@@ -393,8 +394,8 @@ const manualBookCode = ref<string | null>(null);
 const manualChapter = ref<number | null>(null);
 const manualChapters = ref<number[]>([]);
 const manualChapterPassage = ref<BiblePassage | null>(null);
-const manualVerseStart = ref<string | null>(null);
-const manualVerseEnd = ref<string | null>(null);
+const manualVerseStart = ref<number | null>(null);
+const manualVerseEnd = ref<number | null>(null);
 
 const canSearchReference = computed(
   () => referenceText.value.trim().length > 0 && !searching.value,
@@ -417,11 +418,24 @@ const bookOptions = computed<SelectOption<string>[]>(() =>
   })),
 );
 
-const manualVerseOptions = computed<SelectOption<string>[]>(() =>
+const manualVerseStartOptions = computed<SelectOption<number>[]>(() =>
   (manualChapterPassage.value?.verses ?? []).map((verse) => ({
     label: verse.verseLabel,
-    value: verse.verseLabel,
+    value: verse.verseStart,
   })),
+);
+
+const manualVerseEndOptions = computed<SelectOption<number>[]>(() =>
+  (manualChapterPassage.value?.verses ?? [])
+    .filter(
+      (verse) =>
+        manualVerseStart.value === null ||
+        verse.verseEnd >= manualVerseStart.value,
+    )
+    .map((verse) => ({
+      label: verse.verseLabel,
+      value: verse.verseEnd,
+    })),
 );
 
 const normalizedBookTerm = computed(() => {
@@ -642,12 +656,24 @@ async function onManualChapterChange(chapter: number | null): Promise<void> {
     });
 
     manualChapterPassage.value = passage;
-    manualVerseStart.value = passage.verses[0]?.verseLabel ?? null;
-    manualVerseEnd.value = passage.verses.at(-1)?.verseLabel ?? null;
+    manualVerseStart.value = passage.verses[0]?.verseStart ?? null;
+    manualVerseEnd.value = passage.verses.at(-1)?.verseEnd ?? null;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
     loadingManualData.value = false;
+  }
+}
+
+function onManualVerseStartChange(value: number | null): void {
+  manualVerseStart.value = value;
+
+  if (
+    value !== null &&
+    (manualVerseEnd.value === null ||
+      manualVerseEnd.value < value)
+  ) {
+    manualVerseEnd.value = value;
   }
 }
 
@@ -672,7 +698,7 @@ function searchManualPassage(): void {
 
   const verseRange =
     manualVerseStart.value === manualVerseEnd.value
-      ? manualVerseStart.value
+      ? String(manualVerseStart.value)
       : `${manualVerseStart.value}-${manualVerseEnd.value}`;
 
   void executeSearch(
