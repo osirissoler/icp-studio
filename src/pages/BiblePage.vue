@@ -25,12 +25,14 @@
             <div class="reference-field">
               <q-input
                 ref="referenceInput"
-                v-model="referenceText"
+                :model-value="referenceText"
                 outlined
                 dense
                 clearable
                 placeholder="Ejemplo: Mateo 4:1-10"
                 class="dark-field"
+                @update:model-value="updateReferenceText"
+                @clear="clearReferenceSearch"
                 @focus="showBookSuggestions = true"
                 @blur="hideBookSuggestions"
                 @keyup.enter="searchReference"
@@ -257,6 +259,51 @@
             <span>
               Usa una referencia escrita o selecciona el libro, capítulo y versículos manualmente.
             </span>
+          </div>
+        </div>
+      </template>
+
+      <template #service>
+        <div class="bible-service-panel">
+          <div class="panel-label">
+            <span>Orden del servicio</span>
+            <q-chip dense color="blue-grey-9" text-color="blue-grey-2">
+              {{ serviceVerses.length }}
+            </q-chip>
+          </div>
+
+          <div v-if="serviceVerses.length" class="service-list">
+            <button
+              v-for="(verse, index) in serviceVerses"
+              :key="verseKey(verse)"
+              type="button"
+              class="service-item"
+              :class="{ 'service-item--active': selectedVerse && verseKey(selectedVerse) === verseKey(verse) }"
+              @click="selectServiceVerse(verse)"
+            >
+              <span class="service-position">{{ index + 1 }}</span>
+              <span class="service-item-content">
+                <strong>{{ verse.reference }}</strong>
+                <small>{{ verse.text }}</small>
+              </span>
+              <q-btn
+                flat
+                round
+                dense
+                size="sm"
+                icon="close"
+                aria-label="Quitar del servicio"
+                @click.stop="removeServiceVerse(verse)"
+              >
+                <q-tooltip>Quitar del servicio</q-tooltip>
+              </q-btn>
+            </button>
+          </div>
+
+          <div v-else class="panel-state service-empty">
+            <q-icon name="playlist_add" size="40px" />
+            <strong>Servicio vacío</strong>
+            <span>Agrega versículos con el botón + del buscador.</span>
           </div>
         </div>
       </template>
@@ -507,6 +554,12 @@ function normalizeText(value: string): string {
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\b(?:primera|primero|primer|1ra|1ro)\b/g, '1')
+    .replace(/\b(?:segunda|segundo|2da|2do)\b/g, '2')
+    .replace(/\b(?:tercera|tercero|3ra|3ro)\b/g, '3')
+    .replace(/\bde\b/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -543,6 +596,26 @@ async function loadBooks(): Promise<void> {
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   }
+}
+
+function updateReferenceText(value: string | number | null): void {
+  referenceText.value =
+    typeof value === 'string' || typeof value === 'number'
+      ? String(value)
+      : '';
+
+  showBookSuggestions.value = true;
+}
+
+function clearReferenceSearch(): void {
+  referenceText.value = '';
+  errorMessage.value = '';
+  serviceMessage.value = '';
+  showBookSuggestions.value = true;
+
+  void nextTick(() => {
+    referenceInput.value?.focus();
+  });
 }
 
 function hideBookSuggestions(): void {
@@ -814,6 +887,22 @@ function addSelectedToService(): void {
       : 'Los versículos seleccionados ya estaban agregados.';
 }
 
+function selectServiceVerse(verse: BibleVerse): void {
+  selectedVerse.value = verse;
+}
+
+function removeServiceVerse(verse: BibleVerse): void {
+  const key = verseKey(verse);
+
+  serviceVerses.value = serviceVerses.value.filter(
+    (serviceVerse) => verseKey(serviceVerse) !== key,
+  );
+
+  if (selectedVerse.value && verseKey(selectedVerse.value) === key) {
+    selectedVerse.value = serviceVerses.value[0] ?? null;
+  }
+}
+
 function presentSelectedVerse(): void {
   if (!selectedVerse.value) {
     return;
@@ -840,6 +929,7 @@ onMounted(() => {
 
 <style scoped>
 .bible-search-panel,
+.bible-service-panel,
 .bible-preview-panel,
 .bible-live-panel {
   container-type: inline-size;
@@ -1106,6 +1196,77 @@ onMounted(() => {
   font-size: 11px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.service-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+}
+
+.service-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 6px;
+  color: #bac6d4;
+  background: #0d1621;
+  border: 1px solid #26364b;
+  border-radius: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.service-item:hover,
+.service-item--active {
+  background: #12243a;
+  border-color: #3b82f6;
+}
+
+.service-position {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  color: #93c5fd;
+  background: #172d49;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.service-item-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.service-item-content strong {
+  color: #dce6f2;
+  font-size: 10px;
+}
+
+.service-item-content small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #8492a6;
+  font-size: 10px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.service-empty {
+  min-height: 180px;
 }
 
 .panel-label {
