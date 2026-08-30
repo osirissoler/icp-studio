@@ -1,4 +1,5 @@
 import type {
+  BibleBook,
   BiblePassage,
   BiblePassageSearch,
   BibleVersion,
@@ -8,6 +9,7 @@ import type { ProjectionState } from './src/shared/projection';
 interface IcpStudioApi {
   bible: {
     getVersions: () => Promise<BibleVersion[]>;
+    getBooks: () => Promise<BibleBook[]>;
     searchPassage: (request: BiblePassageSearch) => Promise<BiblePassage>;
   };
   projection: {
