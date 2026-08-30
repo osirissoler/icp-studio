@@ -126,6 +126,21 @@
                 >
                   <q-tooltip>Buscar pasaje seleccionado</q-tooltip>
                 </q-btn>
+
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  color="primary"
+                  icon="present_to_all"
+                  aria-label="Proyectar seleccionados ahora"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="projectSelectedNow"
+                >
+                  <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
+                </q-btn>
               </div>
             </div>
           </div>
@@ -985,11 +1000,11 @@ function addSingleVerseToService(verse: BibleVerse): void {
   selectedServiceItemId.value = item.id;
 }
 
-function addSelectedToService(): void {
+function addSelectedToService(): string | null {
   const passage = searchResult.value;
 
   if (!passage || selectedVerses.value.length === 0) {
-    return;
+    return null;
   }
 
   const title = buildServiceTitle(passage);
@@ -1003,9 +1018,11 @@ function addSelectedToService(): void {
     verses: [...selectedVerses.value],
   };
 
+  const presentationId = `service-${item.id}`;
+  const sourceId = `${item.versionCode}:${item.title}:${selectedKeys}`;
   const wasAdded = presentationStore.addToService({
-    id: `service-${item.id}`,
-    sourceId: `${item.versionCode}:${item.title}:${selectedKeys}`,
+    id: presentationId,
+    sourceId,
     type: 'bible',
     title: item.title,
     footer: item.projectionReference,
@@ -1017,11 +1034,33 @@ function addSelectedToService(): void {
   });
 
   if (!wasAdded) {
-    return;
+    return (
+      presentationStore.serviceItems.find(
+        (serviceItem) => serviceItem.sourceId === sourceId,
+      )?.id ?? null
+    );
   }
 
   serviceItems.value = [...serviceItems.value, item];
   selectedServiceItemId.value = item.id;
+  return presentationId;
+}
+
+function projectSelectedNow(): void {
+  const passage = searchResult.value;
+  if (!passage || selectedVerses.value.length === 0) return;
+
+  const title = buildServiceTitle(passage);
+  const selectedKeys = selectedVerses.value.map(verseKey).join('|');
+  const sourceId = `${passage.versionCode}:${title}:${selectedKeys}`;
+  const existingId = presentationStore.serviceItems.find(
+    (item) => item.sourceId === sourceId,
+  )?.id;
+  const presentationId = existingId ?? addSelectedToService();
+
+  if (presentationId) {
+    presentationStore.activateServiceItem(presentationId);
+  }
 }
 
 function selectServiceItem(item: BibleServiceItem): void {
