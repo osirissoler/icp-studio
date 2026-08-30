@@ -29,7 +29,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'imagenes',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ImagePage.vue'),
         meta: {
           title: 'Imágenes',
           description: 'Administra imágenes y fondos para la proyección.',
@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'videos',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/VideoPage.vue'),
         meta: {
           title: 'Videos',
           description: 'Organiza y reproduce videos durante el servicio.',
