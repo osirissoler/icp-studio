@@ -993,15 +993,6 @@ function addSelectedToService(): void {
 
   const title = buildServiceTitle(passage);
   const selectedKeys = selectedVerses.value.map(verseKey).join('|');
-  const alreadyExists = serviceItems.value.some(
-    (item) => item.title === title && item.verses.map(verseKey).join('|') === selectedKeys,
-  );
-
-  if (alreadyExists) {
-    showActionMessage('Este pasaje ya estaba agregado al servicio.');
-    return;
-  }
-
   const item: BibleServiceItem = {
     id: `bible-${Date.now()}-${serviceItems.value.length}`,
     type: 'bible',
@@ -1011,7 +1002,7 @@ function addSelectedToService(): void {
     verses: [...selectedVerses.value],
   };
 
-  presentationStore.addToService({
+  const wasAdded = presentationStore.addToService({
     id: `service-${item.id}`,
     sourceId: `${item.versionCode}:${item.title}:${selectedKeys}`,
     type: 'bible',
@@ -1024,9 +1015,12 @@ function addSelectedToService(): void {
     })),
   });
 
+  if (!wasAdded) {
+    return;
+  }
+
   serviceItems.value = [...serviceItems.value, item];
   selectedServiceItemId.value = item.id;
-  showActionMessage(`${title} fue agregado al servicio.`);
 }
 
 function selectServiceItem(item: BibleServiceItem): void {
