@@ -48,6 +48,21 @@
             >
               <q-tooltip>Agregar al servicio</q-tooltip>
             </q-btn>
+
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
+              icon="present_to_all"
+              color="primary"
+              aria-label="Proyectar alabanza seleccionada ahora"
+              class="song-toolbar-button"
+              :disable="!selectedSong"
+              @click="projectSelectedSong"
+            >
+              <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
+            </q-btn>
           </div>
 
           <q-banner v-if="actionMessage" dense rounded class="action-banner">
@@ -441,6 +456,22 @@ function addSelectedSongToService(): void {
 
   serviceSongs.value = [...serviceSongs.value, song];
   selectedServiceSongId.value = song.id;
+}
+
+function projectSelectedSong(): void {
+  const song = selectedSong.value;
+  if (!song) return;
+
+  const presentationId = `service-song-${song.id}`;
+  const alreadyInService = presentationStore.serviceItems.some(
+    (item) => item.id === presentationId,
+  );
+
+  if (!alreadyInService) {
+    addSelectedSongToService();
+  }
+
+  presentationStore.activateServiceItem(presentationId);
 }
 
 function selectServiceSong(song: Song): void {
