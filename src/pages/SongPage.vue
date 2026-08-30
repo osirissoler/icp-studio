@@ -65,10 +65,6 @@
             </q-btn>
           </div>
 
-          <q-banner v-if="actionMessage" dense rounded class="action-banner">
-            {{ actionMessage }}
-          </q-banner>
-
           <div v-if="filteredSongs.length" class="song-results">
             <button
               v-for="song in filteredSongs"
@@ -125,11 +121,7 @@
 
           <div class="song-screen">
             <template v-if="selectedPart">
-              <FittedTechnicalText
-                :text="selectedPart.content"
-                :min-size="10"
-                :max-size="26"
-              />
+              <FittedTechnicalText :text="selectedPart.content" :min-size="10" :max-size="26" />
               <div class="song-screen-footer">{{ selectedSong?.title }}</div>
             </template>
             <template v-else>
@@ -229,11 +221,7 @@
 
           <div class="song-screen song-screen--live">
             <template v-if="livePart">
-              <FittedTechnicalText
-                :text="livePart.content"
-                :min-size="10"
-                :max-size="26"
-              />
+              <FittedTechnicalText :text="livePart.content" :min-size="10" :max-size="26" />
               <div class="song-screen-footer">{{ liveSong?.title }}</div>
             </template>
             <template v-else>
@@ -280,6 +268,7 @@ import {
   type SongPart,
   type SongPartType,
 } from '../shared/song';
+import { showAppNotification } from '../services/app-notification';
 
 const presentationStore = usePresentationStore();
 
@@ -292,8 +281,6 @@ const selectedServiceSongId = ref<string | null>(null);
 const liveSong = ref<Song | null>(null);
 const livePart = ref<SongPart | null>(null);
 const livePanel = ref<HTMLElement | null>(null);
-const actionMessage = ref('');
-let messageTimer: number | null = null;
 
 const normalizedSearch = computed(() => normalize(searchText.value));
 const filteredSongs = computed(() => {
@@ -336,15 +323,11 @@ function applySongs(nextSongs: Song[]): void {
   songs.value = nextSongs;
 
   if (selectedSong.value) {
-    selectedSong.value =
-      songs.value.find((song) => song.id === selectedSong.value?.id) ??
-      null;
+    selectedSong.value = songs.value.find((song) => song.id === selectedSong.value?.id) ?? null;
   }
 
   serviceSongs.value = serviceSongs.value.map(
-    (serviceSong) =>
-      songs.value.find((song) => song.id === serviceSong.id) ??
-      serviceSong,
+    (serviceSong) => songs.value.find((song) => song.id === serviceSong.id) ?? serviceSong,
   );
 
   for (const serviceItem of presentationStore.serviceItems) {
@@ -352,9 +335,7 @@ function applySongs(nextSongs: Song[]): void {
       continue;
     }
 
-    const updatedSong = songs.value.find(
-      (song) => song.id === serviceItem.sourceId,
-    );
+    const updatedSong = songs.value.find((song) => song.id === serviceItem.sourceId);
 
     if (!updatedSong) {
       continue;
@@ -373,9 +354,7 @@ function applySongs(nextSongs: Song[]): void {
   }
 
   if (liveSong.value) {
-    const updatedLiveSong = songs.value.find(
-      (song) => song.id === liveSong.value?.id,
-    );
+    const updatedLiveSong = songs.value.find((song) => song.id === liveSong.value?.id);
 
     if (updatedLiveSong) {
       const currentPartId = livePart.value?.id;
@@ -397,11 +376,9 @@ async function initializeSongs(): Promise<void> {
     applySongs(await initializeSongLibrary());
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : 'No fue posible cargar las alabanzas predefinidas.';
+      error instanceof Error ? error.message : 'No fue posible cargar las alabanzas predefinidas.';
 
-    showMessage(message);
+    showAppNotification(message, 'negative', 'error_outline');
     loadSongs();
   }
 }
@@ -417,15 +394,6 @@ function editSong(song: Song): void {
 function selectSong(song: Song): void {
   selectedSong.value = song;
   selectedPartId.value = song.parts[0]?.id ?? null;
-}
-
-function showMessage(message: string): void {
-  if (messageTimer !== null) window.clearTimeout(messageTimer);
-  actionMessage.value = message;
-  messageTimer = window.setTimeout(() => {
-    actionMessage.value = '';
-    messageTimer = null;
-  }, 3500);
 }
 
 function addSongFromList(song: Song): void {
@@ -507,10 +475,7 @@ function moveLivePart(direction: -1 | 1): void {
   if (!parts.length) return;
 
   const index = livePart.value ? parts.findIndex((part) => part.id === livePart.value?.id) : -1;
-  const nextIndex =
-    index < 0
-      ? 0
-      : Math.min(parts.length - 1, Math.max(0, index + direction));
+  const nextIndex = index < 0 ? 0 : Math.min(parts.length - 1, Math.max(0, index + direction));
   const part = parts[nextIndex];
   if (part) setLivePart(part);
 }
@@ -532,7 +497,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (messageTimer !== null) window.clearTimeout(messageTimer);
   window.removeEventListener('focus', loadSongs);
   window.removeEventListener('storage', handleStorage);
 });
@@ -590,12 +554,6 @@ onBeforeUnmount(() => {
 .song-edit-button:hover {
   color: #bfdbfe;
   background: #1a2b40;
-}
-
-.action-banner {
-  margin-top: 8px;
-  color: #bbf7d0;
-  background: rgb(20 83 45 / 25%);
 }
 
 .song-results,

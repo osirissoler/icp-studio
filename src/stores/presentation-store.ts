@@ -1,20 +1,11 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { Notify } from 'quasar';
 import type { ServicePresentationItem } from '../shared/presentation';
 import type { MediaPlaybackCommand } from '../shared/projection';
+import { showAppNotification } from '../services/app-notification';
 
 function showServiceNotification(message: string, icon: string): void {
-  Notify.create({
-    message,
-    icon,
-    position: 'bottom-right',
-    color: 'blue-grey-9',
-    textColor: 'white',
-    timeout: 2600,
-    progress: true,
-    actions: [{ icon: 'close', color: 'white', round: true }],
-  });
+  showAppNotification(message, 'info', icon, { timeout: 2600 });
 }
 
 export const usePresentationStore = defineStore('presentation', () => {

@@ -1,10 +1,6 @@
 <template>
   <q-page>
-    <ModuleWorkspace
-      :title="moduleTitle"
-      :description="moduleDescription"
-      :icon="moduleIcon"
-    >
+    <ModuleWorkspace :title="moduleTitle" :description="moduleDescription" :icon="moduleIcon">
       <template #search>
         <div class="media-panel">
           <div class="media-toolbar">
@@ -33,7 +29,13 @@
               @click="importMedia"
             >
               <q-tooltip>
-                {{ kind === 'image' ? 'Seleccionar imágenes' : kind === 'video' ? 'Seleccionar videos' : 'Seleccionar canciones' }}
+                {{
+                  kind === 'image'
+                    ? 'Seleccionar imágenes'
+                    : kind === 'video'
+                      ? 'Seleccionar videos'
+                      : 'Seleccionar canciones'
+                }}
               </q-tooltip>
             </q-btn>
 
@@ -68,10 +70,6 @@
             </q-btn>
           </div>
 
-          <q-banner v-if="actionMessage" dense rounded class="action-banner">
-            {{ actionMessage }}
-          </q-banner>
-
           <div v-if="loading" class="empty-state">
             <q-spinner color="primary" size="34px" />
             <span>Cargando biblioteca local...</span>
@@ -91,12 +89,7 @@
             >
               <span class="media-thumbnail">
                 <img v-if="kind === 'image'" :src="item.url" :alt="item.name" />
-                <video
-                  v-else-if="kind === 'video'"
-                  :src="item.url"
-                  preload="metadata"
-                  muted
-                />
+                <video v-else-if="kind === 'video'" :src="item.url" preload="metadata" muted />
                 <span v-else class="audio-thumbnail">
                   <q-icon name="audio_file" />
                 </span>
@@ -155,12 +148,7 @@
             <div v-else-if="selectedItem" class="audio-preview">
               <q-icon name="album" size="64px" />
               <strong>{{ selectedItem.name }}</strong>
-              <audio
-                :key="selectedItem.id"
-                :src="selectedItem.url"
-                controls
-                preload="metadata"
-              />
+              <audio :key="selectedItem.id" :src="selectedItem.url" controls preload="metadata" />
             </div>
             <template v-else>
               <q-icon name="preview" size="44px" />
@@ -224,6 +212,7 @@ import { computed, onMounted, ref } from 'vue';
 import ModuleWorkspace from './ModuleWorkspace.vue';
 import type { MediaKind, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
+import { showAppNotification } from '../services/app-notification';
 
 const props = defineProps<{ kind: MediaKind }>();
 const presentationStore = usePresentationStore();
@@ -233,12 +222,10 @@ const selectedItem = ref<MediaLibraryItem | null>(null);
 const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
-const actionMessage = ref('');
 const renameDialogOpen = ref(false);
 const renameItem = ref<MediaLibraryItem | null>(null);
 const renameName = ref('');
 const renaming = ref(false);
-let messageTimer: number | null = null;
 
 const moduleTitle = computed(() => {
   if (props.kind === 'image') return 'Imágenes';
@@ -275,9 +262,7 @@ const emptyDescription = computed(() => {
 });
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
-  return term
-    ? items.value.filter((item) => normalize(item.name).includes(term))
-    : items.value;
+  return term ? items.value.filter((item) => normalize(item.name).includes(term)) : items.value;
 });
 
 function normalize(value: string): string {
@@ -288,19 +273,10 @@ function normalize(value: string): string {
     .trim();
 }
 
-function showMessage(message: string): void {
-  if (messageTimer !== null) window.clearTimeout(messageTimer);
-  actionMessage.value = message;
-  messageTimer = window.setTimeout(() => {
-    actionMessage.value = '';
-    messageTimer = null;
-  }, 3500);
-}
-
 async function loadItems(): Promise<void> {
   loading.value = true;
   try {
-    items.value = await window.icpStudio?.media.list(props.kind) ?? [];
+    items.value = (await window.icpStudio?.media.list(props.kind)) ?? [];
   } finally {
     loading.value = false;
   }
@@ -309,15 +285,21 @@ async function loadItems(): Promise<void> {
 async function importMedia(): Promise<void> {
   importing.value = true;
   try {
-    const imported = await window.icpStudio?.media.select(props.kind) ?? [];
+    const imported = (await window.icpStudio?.media.select(props.kind)) ?? [];
     if (imported.length === 0) return;
     items.value = [...items.value, ...imported];
     selectedItem.value = imported.at(-1) ?? null;
-    showMessage(
+    showAppNotification(
       `${imported.length} ${imported.length === 1 ? 'archivo importado' : 'archivos importados'}.`,
+      'positive',
+      'upload_file',
     );
   } catch (error) {
-    showMessage(error instanceof Error ? error.message : 'No fue posible importar el archivo.');
+    showAppNotification(
+      error instanceof Error ? error.message : 'No fue posible importar el archivo.',
+      'negative',
+      'error_outline',
+    );
   } finally {
     importing.value = false;
   }
@@ -347,13 +329,15 @@ async function saveRename(): Promise<void> {
   try {
     const updated = await window.icpStudio?.media.rename(item.id, name);
     if (!updated) {
-      showMessage('No fue posible cambiar el nombre de la imagen.');
+      showAppNotification(
+        'No fue posible cambiar el nombre de la imagen.',
+        'negative',
+        'error_outline',
+      );
       return;
     }
 
-    items.value = items.value.map((entry) =>
-      entry.id === updated.id ? updated : entry,
-    );
+    items.value = items.value.map((entry) => (entry.id === updated.id ? updated : entry));
     if (selectedItem.value?.id === updated.id) {
       selectedItem.value = updated;
     }
@@ -373,7 +357,7 @@ async function saveRename(): Promise<void> {
     }
 
     renameDialogOpen.value = false;
-    showMessage('Nombre actualizado correctamente.');
+    showAppNotification('Nombre actualizado correctamente.', 'positive', 'edit');
   } finally {
     renaming.value = false;
   }
@@ -390,14 +374,16 @@ function addItemToService(item: MediaLibraryItem): boolean {
     type: item.kind,
     title: item.name,
     footer: '',
-    frames: [{
-      id: item.id,
-      label: item.name,
-      text: '',
-      mediaType: item.kind,
-      mediaUrl: item.url,
-      mimeType: item.mimeType,
-    }],
+    frames: [
+      {
+        id: item.id,
+        label: item.name,
+        text: '',
+        mediaType: item.kind,
+        mediaUrl: item.url,
+        mimeType: item.mimeType,
+      },
+    ],
   });
 }
 
@@ -465,12 +451,6 @@ onMounted(() => {
 .media-action-button:hover {
   background: #193253;
   border-color: #4b83c5;
-}
-
-.action-banner {
-  margin-top: 8px;
-  color: #bbf7d0;
-  background: rgb(20 83 45 / 25%);
 }
 
 .media-grid {

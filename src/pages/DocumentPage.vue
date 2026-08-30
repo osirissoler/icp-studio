@@ -38,6 +38,19 @@
               round
               dense
               size="sm"
+              color="red-4"
+              icon="delete_sweep"
+              :disable="selectedDocumentIds.size === 0"
+              aria-label="Eliminar documentos seleccionados"
+              @click="void deleteSelectedDocuments()"
+            >
+              <q-tooltip>Eliminar documentos seleccionados</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
               color="primary"
               icon="playlist_add"
               :disable="!selectedItem"
@@ -79,15 +92,6 @@
             </small>
           </div>
 
-          <q-banner
-            v-if="importMessage"
-            dense
-            rounded
-            :class="['import-message', { 'import-message--error': importFailed }]"
-          >
-            {{ importMessage }}
-          </q-banner>
-
           <div v-if="loading" class="empty-state">
             <q-spinner color="primary" size="34px" />
             <span>Cargando documentos...</span>
@@ -104,6 +108,14 @@
               @click="selectItem(item)"
               @dblclick="void addItemToService(item)"
             >
+              <q-checkbox
+                :model-value="selectedDocumentIds.has(item.id)"
+                dense
+                size="xs"
+                color="primary"
+                @click.stop
+                @update:model-value="toggleDocumentSelection(item.id)"
+              />
               <span class="document-icon" :class="`document-icon--${item.documentFormat}`">
                 <q-icon :name="documentIcon(item)" />
               </span>
@@ -151,6 +163,7 @@
               :url="selectedItem.url"
               :format="selectedItem.documentFormat"
               :page-index="previewPageIndex"
+              :zoom="previewZoom"
               @loaded="handleDocumentLoaded"
             />
             <div v-else class="empty-state">
@@ -185,6 +198,32 @@
               round
               dense
               size="sm"
+              icon="zoom_out"
+              :disable="previewZoom <= 0.5"
+              @click="changePreviewZoom(-0.25)"
+            >
+              <q-tooltip>Alejar</q-tooltip>
+            </q-btn>
+            <q-btn flat dense no-caps size="sm" @click="previewZoom = 1">
+              {{ Math.round(previewZoom * 100) }}%
+              <q-tooltip>Ajustar página</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
+              icon="zoom_in"
+              :disable="previewZoom >= 3"
+              @click="changePreviewZoom(0.25)"
+            >
+              <q-tooltip>Ampliar</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              size="sm"
               color="primary"
               icon="present_to_all"
               @click="void presentSelected()"
@@ -205,22 +244,22 @@ import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { inspectDocument, type DocumentInfo } from '../services/document-reader';
 import type { MediaImportProgress, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
+import { showAppNotification } from '../services/app-notification';
 
 const presentationStore = usePresentationStore();
 const items = ref<MediaLibraryItem[]>([]);
 const selectedItem = ref<MediaLibraryItem | null>(null);
+const selectedDocumentIds = ref(new Set<string>());
 const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
 const importProgress = ref<MediaImportProgress | null>(null);
-const importMessage = ref('');
-const importFailed = ref(false);
 const previewPageIndex = ref(0);
+const previewZoom = ref(1);
 const pageCount = ref(1);
 const pageLabels = ref<string[]>([]);
 const documentInfo = new Map<string, DocumentInfo>();
 let unsubscribeImportProgress: (() => void) | undefined;
-let messageTimer: number | undefined;
 let progressVisibleSince = 0;
 let wheelLockedUntil = 0;
 
@@ -242,16 +281,6 @@ function normalize(value: string): string {
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function showImportMessage(message: string, failed = false): void {
-  if (messageTimer !== undefined) window.clearTimeout(messageTimer);
-  importMessage.value = message;
-  importFailed.value = failed;
-  messageTimer = window.setTimeout(() => {
-    importMessage.value = '';
-    messageTimer = undefined;
-  }, 4500);
 }
 
 function documentIcon(item: MediaLibraryItem): string {
@@ -277,9 +306,21 @@ function handleDocumentLoaded(count: number, labels: string[]): void {
 function selectItem(item: MediaLibraryItem): void {
   selectedItem.value = item;
   previewPageIndex.value = 0;
+  previewZoom.value = 1;
   const cached = documentInfo.get(item.id);
   pageCount.value = Math.max(1, cached?.pageCount ?? 1);
   pageLabels.value = cached?.labels ?? [];
+}
+
+function toggleDocumentSelection(itemId: string): void {
+  const nextSelection = new Set(selectedDocumentIds.value);
+  if (nextSelection.has(itemId)) nextSelection.delete(itemId);
+  else nextSelection.add(itemId);
+  selectedDocumentIds.value = nextSelection;
+}
+
+function changePreviewZoom(amount: number): void {
+  previewZoom.value = Math.min(3, Math.max(0.5, previewZoom.value + amount));
 }
 
 function movePreview(direction: -1 | 1): void {
@@ -291,6 +332,7 @@ function movePreview(direction: -1 | 1): void {
 
 function handlePreviewWheel(event: WheelEvent): void {
   if (!selectedItem.value || selectedItem.value.documentFormat === 'spreadsheet') return;
+  if (selectedItem.value.documentFormat === 'pdf' && previewZoom.value > 1) return;
   event.preventDefault();
   const now = Date.now();
   if (now < wheelLockedUntil || Math.abs(event.deltaY) < 4) return;
@@ -305,7 +347,7 @@ async function deleteDocument(item: MediaLibraryItem): Promise<void> {
   try {
     const removed = await window.icpStudio?.media.remove(item.id);
     if (!removed) {
-      showImportMessage('No fue posible eliminar el documento.', true);
+      showAppNotification('No fue posible eliminar el documento.', 'negative', 'error_outline');
       return;
     }
 
@@ -320,6 +362,9 @@ async function deleteDocument(item: MediaLibraryItem): Promise<void> {
       });
 
     items.value = items.value.filter((entry) => entry.id !== item.id);
+    const nextSelection = new Set(selectedDocumentIds.value);
+    nextSelection.delete(item.id);
+    selectedDocumentIds.value = nextSelection;
     documentInfo.delete(item.id);
     if (selectedItem.value?.id === item.id) {
       selectedItem.value = null;
@@ -327,13 +372,54 @@ async function deleteDocument(item: MediaLibraryItem): Promise<void> {
       pageCount.value = 1;
       pageLabels.value = [];
     }
-    showImportMessage('Documento eliminado correctamente.');
+    showAppNotification(`${item.name} fue eliminado.`, 'positive', 'delete_outline');
   } catch (error) {
-    showImportMessage(
+    showAppNotification(
       error instanceof Error ? error.message : 'No fue posible eliminar el documento.',
-      true,
+      'negative',
+      'error_outline',
     );
   }
+}
+
+async function deleteSelectedDocuments(): Promise<void> {
+  const selectedItems = items.value.filter((item) => selectedDocumentIds.value.has(item.id));
+  if (selectedItems.length === 0) return;
+  const confirmed = window.confirm(
+    `¿Quieres eliminar los ${selectedItems.length} documentos seleccionados de ICP Studio?`,
+  );
+  if (!confirmed) return;
+
+  let removedCount = 0;
+  for (const item of selectedItems) {
+    try {
+      const removed = await window.icpStudio?.media.remove(item.id);
+      if (!removed) continue;
+      if (presentationStore.liveItem?.sourceId === item.id) presentationStore.clearLive();
+      presentationStore.serviceItems
+        .filter((serviceItem) => serviceItem.sourceId === item.id)
+        .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+      items.value = items.value.filter((entry) => entry.id !== item.id);
+      documentInfo.delete(item.id);
+      if (selectedItem.value?.id === item.id) selectedItem.value = null;
+      removedCount += 1;
+    } catch {
+      // Continúa con los demás archivos y reporta el resultado al finalizar.
+    }
+  }
+
+  selectedDocumentIds.value = new Set();
+  previewPageIndex.value = 0;
+  previewZoom.value = 1;
+  pageCount.value = 1;
+  pageLabels.value = [];
+  showAppNotification(
+    removedCount === selectedItems.length
+      ? `${removedCount} documentos fueron eliminados.`
+      : `Se eliminaron ${removedCount} de ${selectedItems.length} documentos.`,
+    removedCount === selectedItems.length ? 'positive' : 'warning',
+    'delete_sweep',
+  );
 }
 
 async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo> {
@@ -368,11 +454,12 @@ async function addItemToService(item: MediaLibraryItem): Promise<boolean> {
       })),
     });
   } catch (error) {
-    showImportMessage(
+    showAppNotification(
       error instanceof Error
         ? error.message
         : 'No fue posible preparar el documento para el servicio.',
-      true,
+      'negative',
+      'error_outline',
     );
     return false;
   }
@@ -396,21 +483,23 @@ async function presentSelected(): Promise<void> {
 async function importDocuments(): Promise<void> {
   importing.value = true;
   importProgress.value = null;
-  importMessage.value = '';
   try {
     const imported = (await window.icpStudio?.media.select('document')) ?? [];
     items.value = [...items.value, ...imported];
     const lastItem = imported.at(-1);
     if (lastItem) selectItem(lastItem);
     if (imported.length > 0) {
-      showImportMessage(
+      showAppNotification(
         `${imported.length === 1 ? 'Documento importado' : 'Documentos importados'} correctamente.`,
+        'positive',
+        'upload_file',
       );
     }
   } catch (error) {
-    showImportMessage(
+    showAppNotification(
       error instanceof Error ? error.message : 'No fue posible importar el documento.',
-      true,
+      'negative',
+      'error_outline',
     );
   } finally {
     importing.value = false;
@@ -439,7 +528,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   unsubscribeImportProgress?.();
-  if (messageTimer !== undefined) window.clearTimeout(messageTimer);
 });
 </script>
 
@@ -498,17 +586,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.import-message {
-  margin-top: 8px;
-  color: #bbf7d0;
-  background: rgb(20 83 45 / 28%);
-}
-
-.import-message--error {
-  color: #fecaca;
-  background: rgb(127 29 29 / 30%);
 }
 
 .document-item {

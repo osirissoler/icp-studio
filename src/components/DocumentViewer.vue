@@ -11,12 +11,10 @@
     </div>
 
     <canvas v-show="!loading && !errorMessage && format === 'pdf'" ref="pdfCanvas" />
-
-    <div
+    <canvas
       v-show="!loading && !errorMessage && format === 'presentation'"
-      ref="presentationContainer"
-      class="presentation-container"
-    ></div>
+      ref="presentationCanvas"
+    />
 
     <div v-if="!loading && !errorMessage && format === 'spreadsheet'" class="spreadsheet-container">
       <table>
@@ -33,9 +31,9 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist';
-import { loadPresentation, renderSlideToElement, type Presentation } from 'pptx-viewer';
+import { loadPresentation, renderSlideToCanvas, type Presentation } from 'pptx-viewer';
 import * as XLSX from 'xlsx';
 import type { DocumentFormat } from '../shared/media';
 
@@ -48,6 +46,7 @@ const props = defineProps<{
   url: string;
   format: DocumentFormat;
   pageIndex: number;
+  zoom?: number;
 }>();
 
 const emit = defineEmits<{
@@ -58,7 +57,7 @@ type LoadedPresentation = Presentation & { cleanup: () => void };
 
 const container = ref<HTMLElement | null>(null);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
-const presentationContainer = ref<HTMLElement | null>(null);
+const presentationCanvas = ref<HTMLCanvasElement | null>(null);
 const spreadsheetRows = ref<string[][]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
@@ -66,6 +65,8 @@ let pdfDocument: PDFDocumentProxy | null = null;
 let presentation: LoadedPresentation | null = null;
 let workbook: XLSX.WorkBook | null = null;
 let loadSequence = 0;
+let renderSequence = 0;
+let resizeObserver: ResizeObserver | null = null;
 
 async function readBuffer(): Promise<ArrayBuffer> {
   const response = await fetch(props.url);
@@ -74,22 +75,52 @@ async function readBuffer(): Promise<ArrayBuffer> {
 }
 
 async function renderCurrentPage(): Promise<void> {
+  const sequence = ++renderSequence;
+
   if (props.format === 'pdf' && pdfDocument && pdfCanvas.value) {
     const safePage = Math.min(pdfDocument.numPages, Math.max(1, props.pageIndex + 1));
     const page = await pdfDocument.getPage(safePage);
-    const viewport = page.getViewport({ scale: 1.5 });
+    const baseViewport = page.getViewport({ scale: 1 });
+    const availableWidth = Math.max(1, container.value?.clientWidth ?? baseViewport.width);
+    const availableHeight = Math.max(1, container.value?.clientHeight ?? baseViewport.height);
+    const fitScale = Math.min(
+      availableWidth / baseViewport.width,
+      availableHeight / baseViewport.height,
+    );
+    const zoom = Math.max(0.5, props.zoom ?? 1);
+    const viewport = page.getViewport({ scale: fitScale * zoom });
     const context = pdfCanvas.value.getContext('2d');
     if (!context) return;
+    context.clearRect(0, 0, pdfCanvas.value.width, pdfCanvas.value.height);
     pdfCanvas.value.width = viewport.width;
     pdfCanvas.value.height = viewport.height;
     await page.render({ canvas: pdfCanvas.value, canvasContext: context, viewport }).promise;
+    if (sequence !== renderSequence) return;
     return;
   }
 
-  if (props.format === 'presentation' && presentation && presentationContainer.value) {
-    presentationContainer.value.replaceChildren();
+  if (props.format === 'presentation' && presentation && presentationCanvas.value) {
     const safeSlideIndex = Math.min(presentation.slides.length - 1, Math.max(0, props.pageIndex));
-    renderSlideToElement(presentation, safeSlideIndex, presentationContainer.value);
+    const canvas = presentationCanvas.value;
+    const availableWidth = Math.max(1, container.value?.clientWidth ?? 1280);
+    const availableHeight = Math.max(1, container.value?.clientHeight ?? 720);
+    const aspectRatio = presentation.slideSize.width / presentation.slideSize.height;
+    let width = availableWidth;
+    let height = width / aspectRatio;
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * aspectRatio;
+    }
+    const renderCanvas = document.createElement('canvas');
+    renderCanvas.width = Math.max(1, Math.floor(width));
+    renderCanvas.height = Math.max(1, Math.floor(height));
+    await renderSlideToCanvas(presentation, safeSlideIndex, renderCanvas);
+    if (sequence !== renderSequence) return;
+    canvas.width = renderCanvas.width;
+    canvas.height = renderCanvas.height;
+    const context = canvas.getContext('2d');
+    context?.clearRect(0, 0, canvas.width, canvas.height);
+    context?.drawImage(renderCanvas, 0, 0);
     return;
   }
 
@@ -127,8 +158,6 @@ async function loadDocument(): Promise<void> {
       workbook = XLSX.read(buffer, { type: 'array' });
       emit('loaded', workbook.SheetNames.length, [...workbook.SheetNames]);
     } else {
-      await nextTick();
-      if (!presentationContainer.value) return;
       presentation = await loadPresentation(buffer);
       emit(
         'loaded',
@@ -159,9 +188,21 @@ watch(
   () => props.pageIndex,
   () => void renderCurrentPage(),
 );
+watch(
+  () => props.zoom,
+  () => void renderCurrentPage(),
+);
+
+onMounted(() => {
+  if (!container.value) return;
+  resizeObserver = new ResizeObserver(() => void renderCurrentPage());
+  resizeObserver.observe(container.value);
+});
 
 onBeforeUnmount(() => {
   loadSequence += 1;
+  renderSequence += 1;
+  resizeObserver?.disconnect();
   void pdfDocument?.cleanup();
   presentation?.cleanup();
 });
@@ -174,21 +215,17 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   background: #05080d;
-  place-items: center;
+  place-items: start;
 }
 
 canvas {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.presentation-container {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  display: block;
+  max-width: none;
+  max-height: none;
+  flex: 0 0 auto;
+  margin: auto;
 }
 
 .spreadsheet-container {
