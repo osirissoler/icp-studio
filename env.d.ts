@@ -23,7 +23,7 @@ interface IcpStudioApi {
     onState: (listener: (state: ProjectionState) => void) => () => void;
   };
   windows: {
-    openSongEditor: () => void;
+    openSongEditor: (songId?: string) => void;
   };
 }
 
