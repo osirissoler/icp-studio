@@ -346,28 +346,6 @@
           @keydown.up.prevent="moveLiveVerse(-1)"
           @keydown.down.prevent="moveLiveVerse(1)"
         >
-          <div class="panel-label">
-            <div class="live-label">
-              <span class="live-dot"></span>
-              <span>Salida de proyección</span>
-            </div>
-            <div class="live-header-actions">
-              <q-btn
-                flat
-                round
-                dense
-                size="sm"
-                icon="delete_sweep"
-                color="blue-grey-4"
-                :disable="!liveServiceItem && !liveVerse"
-                @click="clearLiveArea"
-              >
-                <q-tooltip>Limpiar todo el contenido en vivo</q-tooltip>
-              </q-btn>
-              <q-icon name="connected_tv" />
-            </div>
-          </div>
-
           <template
             v-for="(section, sectionIndex) in liveSections"
             :key="section"
@@ -385,10 +363,36 @@
               @dragstart="startLiveSectionDrag($event, section)"
               @dragend="stopLiveSectionDrag"
             >
-              <q-icon name="drag_indicator" />
-              <span>
-                {{ section === 'screen' ? 'Pantalla en vivo' : 'Contenido del pasaje' }}
-              </span>
+              <div class="live-section-heading">
+                <q-icon name="drag_indicator" />
+                <span>
+                  {{ section === 'screen' ? 'Pantalla en vivo' : 'Contenido del pasaje' }}
+                </span>
+              </div>
+
+              <div v-if="section === 'screen'" class="live-output-label">
+                <span class="live-dot"></span>
+                <span>Salida de proyección</span>
+                <q-icon name="connected_tv" />
+              </div>
+
+              <div v-else class="live-content-actions">
+                <span v-if="liveServiceItem && liveVerse" class="live-position">
+                  {{ liveVersePosition }} de {{ liveServiceItem.verses.length }}
+                </span>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  icon="delete_sweep"
+                  color="blue-grey-4"
+                  :disable="!liveServiceItem && !liveVerse"
+                  @click.stop="clearLiveArea"
+                >
+                  <q-tooltip>Limpiar todo el contenido en vivo</q-tooltip>
+                </q-btn>
+              </div>
             </header>
 
             <template v-if="section === 'screen'">
@@ -441,21 +445,6 @@
             </div>
           </template>
 
-          <div class="live-actions">
-            <span v-if="liveServiceItem && liveVerse" class="live-position">
-              {{ liveVersePosition }} de {{ liveServiceItem.verses.length }}
-            </span>
-            <q-btn
-              flat
-              round
-              icon="stop_circle"
-              color="negative"
-              :disable="!liveVerse"
-              @click="stopProjection"
-            >
-              <q-tooltip>Detener proyección</q-tooltip>
-            </q-btn>
-          </div>
         </div>
       </template>
     </ModuleWorkspace>
@@ -1589,12 +1578,6 @@ onMounted(() => {
   background: #60a5fa;
 }
 
-.live-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .live-section--dragging {
   opacity: 0.5;
   border-color: #60a5fa;
@@ -1602,16 +1585,35 @@ onMounted(() => {
 
 .live-section-header {
   display: flex;
-  height: 30px;
+  min-height: 30px;
   align-items: center;
-  gap: 5px;
-  padding: 0 8px;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 6px 0 8px;
   color: #77869a;
   background: #121e2c;
   border-bottom: 1px solid #26364b;
   font-size: 10px;
   cursor: grab;
   user-select: none;
+}
+
+.live-section-heading,
+.live-output-label,
+.live-content-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.live-output-label {
+  color: #8d9bae;
+  white-space: nowrap;
+}
+
+.live-content-actions {
+  flex: 0 0 auto;
 }
 
 .live-section-header:active {
