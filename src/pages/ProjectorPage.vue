@@ -28,9 +28,24 @@
           :src="projectionState.url"
           preload="auto"
         />
-        <div v-else class="projector-audio">
+        <div
+          v-else
+          class="projector-audio"
+          :class="{ 'projector-audio--playing': audioIsPlaying }"
+        >
           <q-icon name="album" />
+          <div class="audio-wave" aria-hidden="true">
+            <span
+              v-for="bar in 36"
+              :key="bar"
+              :style="{
+                height: `${22 + ((bar * 29) % 72)}%`,
+                animationDelay: `${bar * -55}ms`,
+              }"
+            ></span>
+          </div>
           <strong>{{ projectionState.name }}</strong>
+          <small>{{ audioIsPlaying ? 'Reproduciendo' : 'Pausado' }}</small>
         </div>
       </section>
 
@@ -50,10 +65,19 @@ import type {
 
 const projectionState = ref<ProjectionState>({ mode: 'blank' });
 const projectedVideo = ref<HTMLVideoElement | null>(null);
+const audioIsPlaying = ref(false);
 let unsubscribeState: (() => void) | undefined;
 let unsubscribeMediaControl: (() => void) | undefined;
 
 function applyMediaCommand(command: MediaPlaybackCommand): void {
+  if (
+    projectionState.value.mode === 'media' &&
+    projectionState.value.mediaType === 'audio'
+  ) {
+    if (command.action === 'play') audioIsPlaying.value = true;
+    if (command.action === 'pause') audioIsPlaying.value = false;
+  }
+
   const video = projectedVideo.value;
   if (!video) return;
 
@@ -71,6 +95,9 @@ function applyMediaCommand(command: MediaPlaybackCommand): void {
 onMounted(() => {
   unsubscribeState = window.icpStudio?.projection.onState((state) => {
     projectionState.value = state;
+    if (state.mode !== 'media' || state.mediaType !== 'audio') {
+      audioIsPlaying.value = false;
+    }
     void nextTick(() => {
       if (state.mode === 'media' && state.mediaType === 'video') {
         projectedVideo.value?.pause();
@@ -142,9 +169,52 @@ onBeforeUnmount(() => {
   opacity: 0.5;
 }
 
+.audio-wave {
+  display: flex;
+  width: min(72vw, 980px);
+  height: clamp(90px, 18vh, 210px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, 0.55vw, 10px);
+}
+
+.audio-wave span {
+  width: clamp(3px, 0.55vw, 9px);
+  background: linear-gradient(180deg, #93c5fd, #3b82f6 55%, #1d4ed8);
+  border-radius: 999px;
+  animation: audio-wave-pulse 820ms ease-in-out infinite alternate;
+  animation-play-state: paused;
+  opacity: 0.82;
+  transform: scaleY(0.35);
+  transform-origin: center;
+}
+
+.projector-audio--playing .audio-wave span {
+  animation-play-state: running;
+}
+
 .projector-audio strong {
   max-width: 80vw;
   font-size: clamp(22px, 3vw, 48px);
+}
+
+.projector-audio small {
+  color: rgb(216 226 242 / 56%);
+  font-size: clamp(13px, 1.2vw, 20px);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+@keyframes audio-wave-pulse {
+  from {
+    filter: brightness(0.72);
+    transform: scaleY(0.28);
+  }
+
+  to {
+    filter: brightness(1.3);
+    transform: scaleY(1);
+  }
 }
 
 .projector-blank {
