@@ -60,10 +60,26 @@
               class="live-media"
               controls
               preload="metadata"
-              @play="controlVideo('play', $event)"
-              @pause="controlVideo('pause', $event)"
-              @seeked="controlVideo('seek', $event)"
+              @play="controlPlayback('play', $event)"
+              @pause="controlPlayback('pause', $event)"
+              @seeked="controlPlayback('seek', $event)"
             />
+            <div
+              v-else-if="liveFrame.mediaType === 'audio' && liveFrame.mediaUrl"
+              class="live-audio"
+            >
+              <q-icon name="album" size="52px" />
+              <strong>{{ liveItem?.title }}</strong>
+              <audio
+                :key="liveFrame.id"
+                :src="liveFrame.mediaUrl"
+                controls
+                preload="metadata"
+                @play="controlPlayback('play', $event)"
+                @pause="controlPlayback('pause', $event)"
+                @seeked="controlPlayback('seek', $event)"
+              />
+            </div>
             <FittedTechnicalText
               v-else
               :text="liveFrame.text"
@@ -93,7 +109,7 @@
             <span class="position">{{ frameIndex + 1 }}</span>
             <span>
               <strong>{{ frame.label }}</strong>
-              <small>{{ frame.text || (frame.mediaType === 'image' ? 'Imagen' : 'Video') }}</small>
+              <small>{{ frame.text || (frame.mediaType === 'image' ? 'Imagen' : frame.mediaType === 'video' ? 'Video' : 'Audio') }}</small>
             </span>
           </button>
         </div>
@@ -136,14 +152,14 @@ const sectionSizes = reactive<Record<LiveSection, number>>({
 const draggingSection = ref<LiveSection | null>(null);
 let stopResizeListener: (() => void) | null = null;
 
-function controlVideo(
+function controlPlayback(
   action: 'play' | 'pause' | 'seek',
   event: Event,
 ): void {
-  const video = event.currentTarget as HTMLVideoElement;
+  const media = event.currentTarget as HTMLMediaElement;
   window.icpStudio?.projection.controlMedia({
     action,
-    time: video.currentTime,
+    time: media.currentTime,
   });
 }
 
@@ -276,6 +292,19 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.live-audio {
+  display: flex;
+  width: min(90%, 440px);
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  color: #c7d2e0;
+}
+
+.live-audio audio {
+  width: 100%;
 }
 
 .screen-footer {
