@@ -170,22 +170,41 @@ function registerWindowIpc(): void {
 async function createProjectionWindow(display: Display | null, index: number): Promise<void> {
   const displayWindowOptions = display
     ? {
-        x: display.bounds.x,
-        y: display.bounds.y,
-        width: display.bounds.width,
-        height: display.bounds.height,
-        frame: false,
-        movable: false,
-        resizable: false,
+        width: Math.min(1280, Math.round(display.workArea.width * 0.78)),
+        height: Math.min(720, Math.round(display.workArea.height * 0.78)),
+        minWidth: 640,
+        minHeight: 360,
+        x:
+          display.workArea.x +
+          Math.round(
+            (display.workArea.width -
+              Math.min(1280, Math.round(display.workArea.width * 0.78))) /
+              2,
+          ),
+        y:
+          display.workArea.y +
+          Math.round(
+            (display.workArea.height -
+              Math.min(720, Math.round(display.workArea.height * 0.78))) /
+              2,
+          ),
+        frame: true,
+        movable: true,
+        resizable: true,
+        maximizable: true,
+        fullscreenable: true,
       }
     : {
         width: 1280,
         height: 720,
-        minWidth: 800,
-        minHeight: 450,
+        minWidth: 640,
+        minHeight: 360,
+        center: true,
         frame: true,
         movable: true,
         resizable: true,
+        maximizable: true,
+        fullscreenable: true,
       };
 
   const projectorWindow = new BrowserWindow({
@@ -197,7 +216,7 @@ async function createProjectionWindow(display: Display | null, index: number): P
     useContentSize: false,
     show: false,
     autoHideMenuBar: true,
-    skipTaskbar: true,
+    skipTaskbar: false,
     backgroundColor: '#05070d',
     webPreferences: {
       contextIsolation: true,
@@ -210,10 +229,6 @@ async function createProjectionWindow(display: Display | null, index: number): P
   projectionWindows.set(projectionId, projectorWindow);
 
   projectorWindow.once('ready-to-show', () => {
-    if (display) {
-      projectorWindow.setBounds(display.bounds);
-    }
-
     projectorWindow.show();
   });
 
