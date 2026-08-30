@@ -63,6 +63,17 @@
                   {{ song.author || 'Autor no especificado' }} · {{ song.parts.length }} partes
                 </small>
               </span>
+              <q-btn
+                flat
+                round
+                dense
+                size="sm"
+                icon="edit"
+                aria-label="Editar alabanza"
+                @click.stop="editSong(song)"
+              >
+                <q-tooltip>Editar alabanza</q-tooltip>
+              </q-btn>
               <q-icon name="chevron_right" />
             </button>
           </div>
@@ -88,12 +99,11 @@
 
           <div class="song-screen">
             <template v-if="selectedPart">
-              <div
-                class="song-screen-text"
-                :style="{ fontSize: technicalTextSize(selectedPart.content) }"
-              >
-                {{ selectedPart.content }}
-              </div>
+              <FittedTechnicalText
+                :text="selectedPart.content"
+                :min-size="10"
+                :max-size="26"
+              />
               <div class="song-screen-footer">{{ selectedSong?.title }}</div>
             </template>
             <template v-else>
@@ -193,12 +203,11 @@
 
           <div class="song-screen song-screen--live">
             <template v-if="livePart">
-              <div
-                class="song-screen-text"
-                :style="{ fontSize: technicalTextSize(livePart.content) }"
-              >
-                {{ livePart.content }}
-              </div>
+              <FittedTechnicalText
+                :text="livePart.content"
+                :min-size="10"
+                :max-size="26"
+              />
               <div class="song-screen-footer">{{ liveSong?.title }}</div>
             </template>
             <template v-else>
@@ -231,6 +240,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import {
   getSongs,
@@ -289,30 +299,6 @@ function normalize(value: string): string {
     .trim();
 }
 
-function technicalTextSize(content: string): string {
-  const lines = content.split(/\r?\n/).filter((line) => line.trim());
-  const longestLine = Math.max(0, ...lines.map((line) => line.length));
-  const characters = content.length;
-
-  if (characters > 520 || lines.length > 14 || longestLine > 95) {
-    return '8px';
-  }
-
-  if (characters > 380 || lines.length > 11 || longestLine > 78) {
-    return '9px';
-  }
-
-  if (characters > 260 || lines.length > 8 || longestLine > 62) {
-    return '10px';
-  }
-
-  if (characters > 170 || lines.length > 6 || longestLine > 48) {
-    return '12px';
-  }
-
-  return '14px';
-}
-
 function partLabel(type: SongPartType): string {
   return SONG_PART_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? 'Parte';
 }
@@ -347,6 +333,10 @@ async function initializeSongs(): Promise<void> {
 
 function openSongEditor(): void {
   window.icpStudio?.windows.openSongEditor();
+}
+
+function editSong(song: Song): void {
+  window.icpStudio?.windows.openSongEditor(song.id);
 }
 
 function selectSong(song: Song): void {
@@ -565,17 +555,6 @@ onBeforeUnmount(() => {
 
 .song-screen--live {
   flex: 0 1 48%;
-}
-
-.song-screen-text {
-  width: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  color: #f2f5f9;
-  font-weight: 600;
-  line-height: 1.18;
-  overflow-wrap: anywhere;
-  white-space: pre-line;
 }
 
 .song-screen-footer {
