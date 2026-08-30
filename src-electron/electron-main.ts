@@ -44,6 +44,12 @@ function mediaMimeType(mediaPath: string): string {
     '.webm': 'video/webm',
     '.mov': 'video/quicktime',
     '.m4v': 'video/x-m4v',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.ogg': 'audio/ogg',
+    '.flac': 'audio/flac',
   };
 
   return types[extension] ?? 'application/octet-stream';
@@ -194,7 +200,9 @@ function parseProjectionState(value: unknown): ProjectionState | null {
 
   if (
     state.mode === 'media' &&
-    (state.mediaType === 'image' || state.mediaType === 'video') &&
+    (state.mediaType === 'image' ||
+      state.mediaType === 'video' ||
+      state.mediaType === 'audio') &&
     typeof state.url === 'string' &&
     state.url.startsWith('icp-media://library/') &&
     typeof state.name === 'string'
