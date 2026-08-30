@@ -436,13 +436,11 @@ function addSelectedSongToService(): void {
   });
 
   if (!wasAdded) {
-    showMessage('Esta alabanza ya está agregada al servicio.');
     return;
   }
 
   serviceSongs.value = [...serviceSongs.value, song];
   selectedServiceSongId.value = song.id;
-  showMessage(`${song.title} fue agregada al servicio.`);
 }
 
 function selectServiceSong(song: Song): void {
