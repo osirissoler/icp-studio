@@ -335,7 +335,7 @@
             <q-icon name="visibility" />
           </div>
 
-          <div class="bible-screen">
+          <div class="bible-screen" :style="[surfaceStyle, contentLayoutStyle]">
             <template v-if="selectedVerse">
               <div class="screen-reference">{{ selectedVerse.reference }}</div>
               <div class="screen-text">{{ selectedVerse.text }}</div>
@@ -427,7 +427,10 @@
               </header>
 
               <template v-if="section === 'screen'">
-                <div class="bible-screen bible-screen--live">
+                <div
+                  class="bible-screen bible-screen--live"
+                  :style="[surfaceStyle, contentLayoutStyle]"
+                >
                   <template v-if="liveVerse">
                     <div class="screen-text">{{ liveVerse.text }}</div>
                     <div v-if="liveServiceItem" class="screen-passage-reference">
@@ -484,12 +487,16 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useProjectionSettingsStore } from '../stores/projection-settings';
 import type { BibleBook, BiblePassage, BibleVersion, BibleVerse } from '../shared/bible';
 import { getPreferredBibleVersion } from '../services/bible-settings';
 
 const presentationStore = usePresentationStore();
+const projectionSettings = useProjectionSettingsStore();
+const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 
 type SearchMode = 'reference' | 'manual';
 type LiveSectionId = 'screen' | 'content';
@@ -1840,20 +1847,18 @@ onMounted(() => {
   flex-direction: column;
   gap: 14px;
   padding: clamp(18px, 3vw, 36px);
-  color: #65748a;
-  background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
+  color: var(--projection-text-color);
   border: 1px solid #293649;
   border-radius: 8px;
   text-align: center;
 }
 
 .bible-screen--live {
-  background: #05070d;
   border-color: #3a2b34;
 }
 
 .screen-reference {
-  color: #93c5fd;
+  color: var(--projection-footer-color);
   font-size: clamp(11px, 1.2vw, 15px);
   font-weight: 700;
 }
@@ -1862,14 +1867,14 @@ onMounted(() => {
   position: absolute;
   bottom: 9px;
   left: 11px;
-  color: rgb(147 197 253 / 72%);
+  color: var(--projection-footer-color);
   font-size: 9px;
   font-weight: 500;
   text-align: left;
 }
 
 .screen-text {
-  color: #f2f5f9;
+  color: var(--projection-text-color);
   font-size: clamp(16px, 2vw, 29px);
   font-weight: 600;
   line-height: 1.3;

@@ -155,7 +155,7 @@
             >
           </div>
 
-          <div class="song-screen">
+          <div class="song-screen" :style="[surfaceStyle, contentLayoutStyle]">
             <template v-if="selectedPart">
               <FittedTechnicalText :text="selectedPart.content" :min-size="10" :max-size="26" />
               <div class="song-screen-footer">{{ selectedSong?.title }}</div>
@@ -255,7 +255,7 @@
             </div>
           </div>
 
-          <div class="song-screen song-screen--live">
+          <div class="song-screen song-screen--live" :style="[surfaceStyle, contentLayoutStyle]">
             <template v-if="livePart">
               <FittedTechnicalText :text="livePart.content" :min-size="10" :max-size="26" />
               <div class="song-screen-footer">{{ liveSong?.title }}</div>
@@ -290,10 +290,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import SelectionActionBar from '../components/SelectionActionBar.vue';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useProjectionSettingsStore } from '../stores/projection-settings';
 import {
   deleteSong,
   getSongs,
@@ -309,6 +311,8 @@ import {
 import { showAppNotification } from '../services/app-notification';
 
 const presentationStore = usePresentationStore();
+const projectionSettings = useProjectionSettingsStore();
+const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 
 const songs = ref<Song[]>([]);
 const searchText = ref('');
@@ -804,8 +808,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   flex: 1;
   padding: 18px 18px 28px;
-  color: #65748a;
-  background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
+  color: var(--projection-text-color);
   border: 1px solid #293649;
   border-radius: 8px;
   text-align: center;
@@ -819,7 +822,7 @@ onBeforeUnmount(() => {
   position: absolute;
   bottom: 9px;
   left: 11px;
-  color: rgb(216 226 242 / 68%);
+  color: var(--projection-footer-color);
   font-size: 8px;
 }
 

@@ -213,6 +213,338 @@
         </div>
       </section>
 
+      <section v-else-if="activeSection === 'projection'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="palette" />
+          <div>
+            <h2>Temas</h2>
+            <p>Configura el fondo, la tipografía y la distribución de la presentación final.</p>
+          </div>
+        </div>
+
+        <div class="theme-settings-layout">
+          <q-card flat class="settings-card theme-library-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Temas disponibles</strong>
+                <small>El tema seleccionado se aplica inmediatamente.</small>
+              </div>
+              <q-btn
+                flat
+                round
+                dense
+                color="light-blue-4"
+                icon="content_copy"
+                @click="projectionSettings.duplicateActiveTheme"
+              >
+                <q-tooltip>Duplicar el tema seleccionado</q-tooltip>
+              </q-btn>
+            </q-card-section>
+            <q-separator dark />
+            <div class="theme-list">
+              <button
+                v-for="theme in themes"
+                :key="theme.id"
+                type="button"
+                class="theme-option"
+                :class="{ 'theme-option--active': activeThemeId === theme.id }"
+                @click="projectionSettings.selectTheme(theme.id)"
+              >
+                <span class="theme-swatch" :style="themeSwatchStyle(theme)"></span>
+                <span>
+                  <strong>{{ theme.name }}</strong>
+                  <small>{{ theme.isBuiltin ? 'Incluido' : 'Personalizado' }}</small>
+                </span>
+                <q-icon v-if="activeThemeId === theme.id" name="check_circle" />
+              </button>
+            </div>
+            <q-separator dark />
+            <q-card-actions align="between">
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="blue-grey-4"
+                icon="restart_alt"
+                label="Restaurar incluidos"
+                @click="resetProjectionThemes"
+              />
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="red-4"
+                icon="delete_outline"
+                label="Eliminar tema"
+                :disable="activeTheme.isBuiltin"
+                @click="deleteProjectionTheme"
+              />
+            </q-card-actions>
+          </q-card>
+
+          <q-card flat class="settings-card theme-editor-card">
+            <q-card-section class="theme-editor-grid">
+              <q-input
+                :model-value="activeTheme.name"
+                dark
+                outlined
+                dense
+                label="Nombre del tema"
+                @update:model-value="projectionSettings.updateActiveTheme({ name: String($event) })"
+              />
+
+              <q-select
+                :model-value="activeTheme.backgroundType"
+                :options="backgroundTypeOptions"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Tipo de fondo"
+                @update:model-value="updateBackgroundType"
+              />
+
+              <label class="color-field">
+                <span>Color principal</span>
+                <input
+                  type="color"
+                  :value="activeTheme.backgroundColor"
+                  @input="updateThemeColor('backgroundColor', $event)"
+                />
+                <code>{{ activeTheme.backgroundColor }}</code>
+              </label>
+
+              <label v-if="activeTheme.backgroundType === 'gradient'" class="color-field">
+                <span>Color del degradado</span>
+                <input
+                  type="color"
+                  :value="activeTheme.gradientColor"
+                  @input="updateThemeColor('gradientColor', $event)"
+                />
+                <code>{{ activeTheme.gradientColor }}</code>
+              </label>
+
+              <div v-if="activeTheme.backgroundType === 'image'" class="image-background-field">
+                <q-btn
+                  outline
+                  dense
+                  no-caps
+                  color="light-blue-4"
+                  icon="image"
+                  label="Elegir imagen"
+                  @click="chooseThemeBackground"
+                />
+                <small>{{
+                  activeTheme.backgroundImageUrl
+                    ? 'Imagen guardada localmente'
+                    : 'Sin imagen seleccionada'
+                }}</small>
+              </div>
+
+              <label class="color-field">
+                <span>Color del texto</span>
+                <input
+                  type="color"
+                  :value="activeTheme.textColor"
+                  @input="updateThemeColor('textColor', $event)"
+                />
+                <code>{{ activeTheme.textColor }}</code>
+              </label>
+
+              <label class="color-field">
+                <span>Color de referencia</span>
+                <input
+                  type="color"
+                  :value="activeTheme.footerColor"
+                  @input="updateThemeColor('footerColor', $event)"
+                />
+                <code>{{ activeTheme.footerColor }}</code>
+              </label>
+
+              <q-select
+                :model-value="activeTheme.fontFamily"
+                :options="fontOptions"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Tipografía"
+                @update:model-value="updateFontFamily"
+              />
+
+              <q-select
+                :model-value="activeTheme.horizontalAlign"
+                :options="horizontalAlignOptions"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Alineación horizontal"
+                @update:model-value="updateHorizontalAlign"
+              />
+
+              <q-select
+                :model-value="activeTheme.verticalAlign"
+                :options="verticalAlignOptions"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Posición vertical"
+                @update:model-value="updateVerticalAlign"
+              />
+
+              <div class="slider-field">
+                <span>Tamaño del texto · {{ Math.round(activeTheme.fontScale * 100) }}%</span>
+                <q-slider
+                  :model-value="activeTheme.fontScale"
+                  :min="0.7"
+                  :max="1.5"
+                  :step="0.05"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveTheme({ fontScale: Number($event) })
+                  "
+                />
+              </div>
+
+              <div v-if="activeTheme.backgroundType === 'image'" class="slider-field">
+                <span>Oscurecer imagen · {{ Math.round(activeTheme.overlayOpacity * 100) }}%</span>
+                <q-slider
+                  :model-value="activeTheme.overlayOpacity"
+                  :min="0"
+                  :max="0.85"
+                  :step="0.05"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveTheme({ overlayOpacity: Number($event) })
+                  "
+                />
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <q-card flat class="settings-card theme-preview-card">
+          <div class="card-header theme-preview-heading">
+            <div>
+              <strong>Vista previa</strong><small>Los cambios se guardan automáticamente.</small>
+            </div>
+            <q-badge color="positive" label="Tema activo" />
+          </div>
+          <div class="theme-preview" :style="[surfaceStyle, contentLayoutStyle]">
+            <div class="theme-preview-text">Todo lo puedo en Cristo que me fortalece.</div>
+            <small>Filipenses 4:13</small>
+          </div>
+        </q-card>
+      </section>
+
+      <section v-else-if="activeSection === 'music'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="graphic_eq" />
+          <div>
+            <h2>Música</h2>
+            <p>Elige la animación que se mostrará mientras se reproduce una canción.</p>
+          </div>
+        </div>
+
+        <div class="settings-columns music-settings-columns">
+          <q-card flat class="settings-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Visualizador</strong><small>Selecciona un estilo de animación.</small>
+              </div>
+            </q-card-section>
+            <div class="visualizer-options">
+              <button
+                v-for="option in visualizerOptions"
+                :key="option.value"
+                type="button"
+                class="visualizer-option"
+                :class="{ 'visualizer-option--active': audioVisualizer.type === option.value }"
+                @click="projectionSettings.updateAudioVisualizer({ type: option.value })"
+              >
+                <q-icon :name="option.icon" />
+                <span
+                  ><strong>{{ option.label }}</strong
+                  ><small>{{ option.description }}</small></span
+                >
+                <q-icon v-if="audioVisualizer.type === option.value" name="check_circle" />
+              </button>
+            </div>
+
+            <q-separator dark />
+            <q-card-section class="music-controls">
+              <q-toggle
+                :model-value="audioVisualizer.inheritThemeColors"
+                color="primary"
+                label="Usar los colores del tema activo"
+                @update:model-value="
+                  projectionSettings.updateAudioVisualizer({ inheritThemeColors: Boolean($event) })
+                "
+              />
+              <q-toggle
+                :model-value="audioVisualizer.showTitle"
+                color="primary"
+                label="Mostrar título de la canción"
+                @update:model-value="
+                  projectionSettings.updateAudioVisualizer({ showTitle: Boolean($event) })
+                "
+              />
+              <div class="slider-field">
+                <span>Sensibilidad · {{ Math.round(audioVisualizer.sensitivity * 100) }}%</span>
+                <q-slider
+                  :model-value="audioVisualizer.sensitivity"
+                  :min="0.5"
+                  :max="1.8"
+                  :step="0.1"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateAudioVisualizer({ sensitivity: Number($event) })
+                  "
+                />
+              </div>
+              <div v-if="!audioVisualizer.inheritThemeColors" class="visualizer-color-row">
+                <label class="color-field">
+                  <span>Color principal</span>
+                  <input
+                    type="color"
+                    :value="audioVisualizer.primaryColor"
+                    @input="updateVisualizerColor('primaryColor', $event)"
+                  />
+                </label>
+                <label class="color-field">
+                  <span>Color secundario</span>
+                  <input
+                    type="color"
+                    :value="audioVisualizer.secondaryColor"
+                    @input="updateVisualizerColor('secondaryColor', $event)"
+                  />
+                </label>
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="settings-card visualizer-preview-card" :style="surfaceStyle">
+            <q-icon name="album" size="48px" />
+            <AudioVisualizer
+              :type="audioVisualizer.type"
+              playing
+              compact
+              :primary-color="visualizerColors.primary"
+              :secondary-color="visualizerColors.secondary"
+              :sensitivity="audioVisualizer.sensitivity"
+            />
+            <strong v-if="audioVisualizer.showTitle">Canción de ejemplo</strong>
+            <small>Vista previa del visualizador</small>
+          </q-card>
+        </div>
+      </section>
+
       <section v-else class="settings-section">
         <div class="section-heading">
           <q-icon :name="activeNavigationItem.icon" />
@@ -236,6 +568,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import AudioVisualizer from '../components/AudioVisualizer.vue';
 import { showAppNotification } from '../services/app-notification';
 import {
   clearPreferredBibleVersion,
@@ -244,7 +578,15 @@ import {
 } from '../services/bible-settings';
 import type { BibleTransferResult, BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
+import type {
+  AudioVisualizerType,
+  ProjectionTheme,
+  ThemeBackgroundType,
+  ThemeHorizontalAlign,
+  ThemeVerticalAlign,
+} from '../shared/theme';
 import type { WorkspacePanelId } from '../shared/workspace';
+import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
 type SettingsSectionId =
@@ -290,9 +632,9 @@ const navigationItems: NavigationItem[] = [
   },
   {
     id: 'projection',
-    label: 'Proyección',
-    icon: 'present_to_all',
-    description: 'Temas, tipografía y salida final.',
+    label: 'Temas',
+    icon: 'palette',
+    description: 'Fondos, tipografía y apariencia de la presentación.',
   },
   {
     id: 'remote',
@@ -336,6 +678,16 @@ const panelOptions: PanelOption[] = [
 ];
 
 const workspaceSettings = useWorkspaceSettingsStore();
+const projectionSettings = useProjectionSettingsStore();
+const {
+  themes,
+  activeThemeId,
+  activeTheme,
+  audioVisualizer,
+  visualizerColors,
+  surfaceStyle,
+  contentLayoutStyle,
+} = storeToRefs(projectionSettings);
 const activeSection = ref<SettingsSectionId>('general');
 const displays = ref<DisplayInfo[]>([]);
 const bibleVersions = ref<BibleVersion[]>([]);
@@ -347,9 +699,130 @@ const exportingBibleCode = ref<string | null>(null);
 const removingBibleCode = ref<string | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
 
+const backgroundTypeOptions: Array<{ label: string; value: ThemeBackgroundType }> = [
+  { label: 'Color sólido', value: 'solid' },
+  { label: 'Degradado', value: 'gradient' },
+  { label: 'Imagen', value: 'image' },
+];
+const fontOptions = [
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, Times New Roman, serif' },
+  { label: 'Trebuchet', value: 'Trebuchet MS, Arial, sans-serif' },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+];
+const horizontalAlignOptions: Array<{ label: string; value: ThemeHorizontalAlign }> = [
+  { label: 'Izquierda', value: 'left' },
+  { label: 'Centro', value: 'center' },
+  { label: 'Derecha', value: 'right' },
+];
+const verticalAlignOptions: Array<{ label: string; value: ThemeVerticalAlign }> = [
+  { label: 'Arriba', value: 'top' },
+  { label: 'Centro', value: 'center' },
+  { label: 'Abajo', value: 'bottom' },
+];
+const visualizerOptions: Array<{
+  label: string;
+  value: AudioVisualizerType;
+  icon: string;
+  description: string;
+}> = [
+  { label: 'Barras', value: 'bars', icon: 'equalizer', description: 'Barras verticales clásicas.' },
+  { label: 'Ondas', value: 'wave', icon: 'waves', description: 'Movimiento suave y continuo.' },
+  {
+    label: 'Círculos',
+    value: 'circle',
+    icon: 'motion_photos_on',
+    description: 'Anillos que pulsan con la música.',
+  },
+  {
+    label: 'Espectro',
+    value: 'spectrum',
+    icon: 'graphic_eq',
+    description: 'Barras con variaciones de color.',
+  },
+];
+
 const activeNavigationItem = computed(
   () => navigationItems.find((item) => item.id === activeSection.value) ?? navigationItems[0]!,
 );
+
+function themeSwatchStyle(theme: ProjectionTheme): Record<string, string> {
+  if (theme.backgroundType === 'image' && theme.backgroundImageUrl) {
+    return {
+      backgroundColor: theme.backgroundColor,
+      backgroundImage: `linear-gradient(rgb(0 0 0 / ${theme.overlayOpacity}), rgb(0 0 0 / ${theme.overlayOpacity})), url("${theme.backgroundImageUrl}")`,
+      backgroundPosition: 'center',
+      backgroundSize: 'cover',
+    };
+  }
+  return {
+    background:
+      theme.backgroundType === 'gradient'
+        ? `linear-gradient(135deg, ${theme.backgroundColor}, ${theme.gradientColor})`
+        : theme.backgroundColor,
+  };
+}
+
+function colorFromEvent(event: Event): string {
+  return (event.target as HTMLInputElement).value;
+}
+
+function updateThemeColor(
+  field: 'backgroundColor' | 'gradientColor' | 'textColor' | 'footerColor',
+  event: Event,
+): void {
+  projectionSettings.updateActiveTheme({ [field]: colorFromEvent(event) });
+}
+
+function updateVisualizerColor(field: 'primaryColor' | 'secondaryColor', event: Event): void {
+  projectionSettings.updateAudioVisualizer({ [field]: colorFromEvent(event) });
+}
+
+function updateBackgroundType(value: unknown): void {
+  projectionSettings.updateActiveTheme({ backgroundType: value as ThemeBackgroundType });
+}
+
+function updateFontFamily(value: unknown): void {
+  projectionSettings.updateActiveTheme({ fontFamily: String(value) });
+}
+
+function updateHorizontalAlign(value: unknown): void {
+  projectionSettings.updateActiveTheme({ horizontalAlign: value as ThemeHorizontalAlign });
+}
+
+function updateVerticalAlign(value: unknown): void {
+  projectionSettings.updateActiveTheme({ verticalAlign: value as ThemeVerticalAlign });
+}
+
+async function chooseThemeBackground(): Promise<void> {
+  try {
+    const imported = (await window.icpStudio?.media.select('image')) ?? [];
+    const image = imported[0];
+    if (!image) return;
+    projectionSettings.updateActiveTheme({
+      backgroundType: 'image',
+      backgroundImageUrl: image.url,
+    });
+    showAppNotification('La imagen de fondo fue guardada en ICP Studio.', 'positive', 'image');
+  } catch (error) {
+    showAppNotification(
+      error instanceof Error ? error.message : 'No fue posible guardar la imagen de fondo.',
+      'negative',
+      'error_outline',
+    );
+  }
+}
+
+function deleteProjectionTheme(): void {
+  if (!window.confirm(`¿Quieres eliminar el tema “${activeTheme.value.name}”?`)) return;
+  projectionSettings.deleteActiveTheme();
+}
+
+function resetProjectionThemes(): void {
+  if (!window.confirm('¿Quieres restaurar los temas incluidos y eliminar los personalizados?'))
+    return;
+  projectionSettings.resetThemes();
+}
 
 function selectBibleVersion(versionCode: string): void {
   preferredBibleVersionCode.value = versionCode;
@@ -581,8 +1054,205 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 code {
   color: #93c5fd;
 }
+
+.theme-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.72fr) minmax(430px, 1.5fr);
+  gap: 16px;
+}
+
+.theme-library-card,
+.theme-editor-card {
+  min-width: 0;
+}
+
+.theme-list,
+.visualizer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+}
+
+.theme-option,
+.visualizer-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  color: #b9c6d5;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-option:hover,
+.theme-option--active,
+.visualizer-option:hover,
+.visualizer-option--active {
+  background: #15263b;
+  border-color: #3b6ea8;
+}
+
+.theme-option > span:nth-child(2),
+.visualizer-option > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.theme-option small,
+.visualizer-option small,
+.image-background-field small,
+.visualizer-preview-card small {
+  color: #8492a6;
+}
+
+.theme-option > .q-icon:last-child,
+.visualizer-option > .q-icon:last-child {
+  color: #60a5fa;
+}
+
+.theme-swatch {
+  width: 44px;
+  height: 30px;
+  flex: 0 0 44px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 6px;
+}
+
+.theme-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.color-field,
+.slider-field,
+.image-background-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  color: #9cabbc;
+  background: #0d1723;
+  border: 1px solid #314055;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.color-field span,
+.slider-field span {
+  flex: 1;
+}
+
+.color-field input {
+  width: 30px;
+  height: 25px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.color-field code {
+  font-size: 9px;
+}
+
+.slider-field {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.image-background-field {
+  justify-content: space-between;
+}
+
+.theme-preview-card {
+  padding: 10px;
+}
+
+.theme-preview-heading {
+  padding: 3px 2px 10px;
+}
+
+.theme-preview {
+  position: relative;
+  display: flex;
+  aspect-ratio: 16 / 7;
+  min-height: 210px;
+  flex-direction: column;
+  padding: clamp(22px, 5vw, 58px);
+  overflow: hidden;
+  border: 1px solid #34465d;
+  border-radius: 9px;
+}
+
+.theme-preview-text {
+  max-width: 90%;
+  color: var(--projection-text-color);
+  font-size: calc(clamp(22px, 3.2vw, 46px) * var(--projection-font-scale));
+  font-weight: var(--projection-font-weight);
+  line-height: 1.2;
+}
+
+.theme-preview small {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  color: var(--projection-footer-color);
+}
+
+.music-settings-columns {
+  grid-template-columns: minmax(390px, 1fr) minmax(300px, 0.8fr);
+}
+
+.visualizer-option > .q-icon:first-child {
+  color: #93c5fd;
+  font-size: 24px;
+}
+
+.music-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.visualizer-color-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.visualizer-preview-card {
+  display: flex;
+  min-height: 330px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.visualizer-preview-card > .q-icon {
+  color: var(--projection-text-color);
+  opacity: 0.65;
+}
+
 @media (max-width: 850px) {
-  .settings-columns {
+  .settings-columns,
+  .theme-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-editor-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -46,7 +46,11 @@
           </span>
         </header>
 
-        <div v-if="section === 'screen'" class="technical-screen">
+        <div
+          v-if="section === 'screen'"
+          class="technical-screen"
+          :style="[surfaceStyle, contentLayoutStyle]"
+        >
           <template v-if="liveFrame">
             <img
               v-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
@@ -94,7 +98,15 @@
               class="live-audio"
             >
               <q-icon name="album" size="52px" />
-              <strong>{{ liveItem?.title }}</strong>
+              <AudioVisualizer
+                :type="audioVisualizer.type"
+                :playing="mediaPlayback.isPlaying"
+                compact
+                :primary-color="visualizerColors.primary"
+                :secondary-color="visualizerColors.secondary"
+                :sensitivity="audioVisualizer.sensitivity"
+              />
+              <strong v-if="audioVisualizer.showTitle">{{ liveItem?.title }}</strong>
               <div class="media-playback-controls">
                 <q-btn
                   flat
@@ -175,16 +187,21 @@
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import AudioVisualizer from './AudioVisualizer.vue';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import DocumentViewer from './DocumentViewer.vue';
 import DocumentThumbnail from './DocumentThumbnail.vue';
 import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useProjectionSettingsStore } from '../stores/projection-settings';
 
 type LiveSection = 'screen' | 'content';
 
 const presentationStore = usePresentationStore();
+const projectionSettings = useProjectionSettingsStore();
 const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
+const { audioVisualizer, visualizerColors, surfaceStyle, contentLayoutStyle } =
+  storeToRefs(projectionSettings);
 const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame } = presentationStore;
 
 const panelElement = ref<HTMLElement | null>(null);
@@ -382,8 +399,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 14px 14px 24px;
   overflow: hidden;
-  color: #65748a;
-  background: radial-gradient(circle at center, rgb(35 55 79 / 55%), transparent 62%), #05080d;
+  color: var(--projection-text-color);
   text-align: center;
 }
 
@@ -412,7 +428,7 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-direction: column;
   gap: 10px;
-  color: #c7d2e0;
+  color: var(--projection-text-color);
 }
 
 .media-playback-controls {

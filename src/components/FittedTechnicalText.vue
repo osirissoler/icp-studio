@@ -1,23 +1,13 @@
 <template>
   <div ref="containerElement" class="fitted-text">
-    <div
-      ref="textElement"
-      class="fitted-text__content"
-      :style="{ fontSize: `${fontSize}px` }"
-    >
+    <div ref="textElement" class="fitted-text__content" :style="{ fontSize: `${fontSize}px` }">
       {{ text }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 interface Props {
   text: string;
@@ -46,10 +36,7 @@ function textFits(size: number): boolean {
 
   text.style.fontSize = `${size}px`;
 
-  return (
-    text.scrollHeight <= container.clientHeight &&
-    text.scrollWidth <= container.clientWidth
-  );
+  return text.scrollHeight <= container.clientHeight && text.scrollWidth <= container.clientWidth;
 }
 
 function fitText(): void {
@@ -131,11 +118,12 @@ onBeforeUnmount(() => {
   width: 100%;
   max-height: 100%;
   overflow: hidden;
-  color: #f2f5f9;
-  font-weight: 600;
+  color: inherit;
+  font-family: inherit;
+  font-weight: var(--projection-font-weight, 600);
   line-height: 1.18;
   overflow-wrap: anywhere;
-  text-align: center;
+  text-align: inherit;
   white-space: pre-line;
 }
 </style>
