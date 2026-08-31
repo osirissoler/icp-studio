@@ -228,7 +228,10 @@ function bibleTitle(passage: BiblePassage): string {
   return `${passage.bookName} ${passage.chapter}:${range}`;
 }
 
-async function bibleItem(reference: string): Promise<ServicePresentationItem> {
+async function bibleItem(
+  reference: string,
+  selectedFrameIndexes?: number[],
+): Promise<ServicePresentationItem> {
   const bibleApi = window.icpStudio?.bible;
   if (!bibleApi) throw new Error('La Biblia no está disponible.');
   const versions = await bibleApi.getVersions();
@@ -238,17 +241,19 @@ async function bibleItem(reference: string): Promise<ServicePresentationItem> {
     ...(versionCode ? { versionCode } : {}),
   });
   const title = bibleTitle(passage);
+  const frames = passage.verses.map((verse) => ({
+    id: verseKey(verse),
+    label: verse.reference,
+    text: verse.text,
+  }));
+  const selected = new Set(selectedFrameIndexes ?? frames.map((_, index) => index));
   return {
     id: `remote-bible-${passage.versionCode}-${reference}`,
     sourceId: `remote:${passage.versionCode}:${reference}`,
     type: 'bible',
     title,
     footer: title,
-    frames: passage.verses.map((verse) => ({
-      id: verseKey(verse),
-      label: verse.reference,
-      text: verse.text,
-    })),
+    frames: frames.filter((_, index) => selected.has(index)),
   };
 }
 
@@ -327,8 +332,9 @@ async function presentationItem(
   module: RemoteModule,
   itemId: string,
   groupReference: string,
+  selectedFrameIndexes?: number[],
 ): Promise<ServicePresentationItem> {
-  if (module === 'bible') return bibleItem(groupReference);
+  if (module === 'bible') return bibleItem(groupReference, selectedFrameIndexes);
   if (module === 'song') return songItem(itemId);
   return mediaItem(module, itemId);
 }
@@ -374,7 +380,10 @@ function remoteItemState(
     frameIndex,
     frameCount: item.frames.length,
     frame: serializedFrame,
-    frames: item.frames.map((itemFrame) => ({ label: itemFrame.label })),
+    frames: item.frames.map((itemFrame) => ({
+      label: itemFrame.label,
+      text: String(itemFrame.text ?? ''),
+    })),
   };
 }
 
@@ -407,12 +416,32 @@ async function handleRemoteRequest(request: RemoteBridgeRequest): Promise<void> 
         module,
         itemId,
         stringPayload(request.payload.groupReference),
+        Array.isArray(request.payload.selectedFrameIndexes)
+          ? request.payload.selectedFrameIndexes.filter(
+              (index): index is number => typeof index === 'number',
+            )
+          : undefined,
       );
       if (request.action === 'preview') {
         presentationStore.setPreviewItem(item, frameIndex);
       } else {
         projectItem(item, frameIndex);
       }
+      data = state();
+    } else if (request.action === 'service-item') {
+      const module = stringPayload(request.payload.module) as RemoteModule;
+      const item = await presentationItem(
+        module,
+        stringPayload(request.payload.itemId),
+        stringPayload(request.payload.groupReference),
+        Array.isArray(request.payload.selectedFrameIndexes)
+          ? request.payload.selectedFrameIndexes.filter(
+              (index): index is number => typeof index === 'number',
+            )
+          : undefined,
+      );
+      const added = presentationStore.addToService(item);
+      if (!added) presentationStore.updateServiceItem(item);
       data = state();
     } else if (request.action === 'project-preview') {
       if (!previewItem.value)
