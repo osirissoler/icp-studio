@@ -31,6 +31,7 @@
             <small v-if="liveItem && liveFrame">
               {{ liveFrameIndex + 1 }} de {{ liveItem.frames.length }}
             </small>
+            <q-badge v-if="liveFrame" color="primary" label="Seleccionado" />
             <q-btn
               flat
               round
@@ -140,6 +141,10 @@
               :page-index="liveFrame.pageIndex ?? 0"
             />
             <FittedTechnicalText v-else :text="liveFrame.text" :min-size="10" :max-size="26" />
+            <span v-if="liveFrame" class="technical-selection">
+              <q-icon name="check_circle" />
+              {{ liveFrame.label }} · Seleccionado
+            </span>
             <span v-if="!liveFrame.mediaType" class="screen-footer">
               {{ liveItem?.footer }}
             </span>
@@ -171,6 +176,13 @@
               :format="frame.documentFormat"
               :page-index="frame.pageIndex ?? 0"
             />
+            <q-icon
+              v-if="liveFrameIndex === frameIndex"
+              name="check_circle"
+              color="primary"
+              size="18px"
+              aria-label="Parte seleccionada"
+            />
           </button>
         </div>
 
@@ -185,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import AudioVisualizer from './AudioVisualizer.vue';
 import FittedTechnicalText from './FittedTechnicalText.vue';
@@ -335,6 +347,14 @@ watch(
   { immediate: true },
 );
 
+watch(liveFrameIndex, async () => {
+  await nextTick();
+  panelElement.value?.querySelector('.frame-item--active')?.scrollIntoView({
+    block: 'nearest',
+    behavior: 'smooth',
+  });
+});
+
 onBeforeUnmount(() => {
   stopResizeListener?.();
 });
@@ -401,6 +421,25 @@ onBeforeUnmount(() => {
   overflow: hidden;
   color: var(--projection-text-color);
   text-align: center;
+}
+
+.technical-selection {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 18px);
+  overflow: hidden;
+  padding: 4px 7px;
+  color: #dbeafe;
+  background: rgb(24 105 170 / 85%);
+  border: 1px solid #56a8e8;
+  border-radius: 5px;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .live-media {
@@ -490,8 +529,20 @@ onBeforeUnmount(() => {
 
 .frame-item:hover,
 .frame-item--active {
-  background: #12243a;
-  border-color: #3b82f6;
+  color: #f8fbff;
+  background: linear-gradient(90deg, #1d4f7d, #163653);
+  border-color: #60a5fa;
+  box-shadow:
+    inset 3px 0 #60a5fa,
+    0 0 0 1px rgb(96 165 250 / 20%);
+}
+
+.frame-item--active strong {
+  color: #ffffff;
+}
+
+.frame-item--active small {
+  color: #d5e8ff;
 }
 
 .frame-details {
@@ -520,6 +571,13 @@ onBeforeUnmount(() => {
   background: #172d49;
   border-radius: 5px;
   font-size: 10px;
+}
+
+.frame-item--active .position {
+  color: #ffffff;
+  background: #2563eb;
+  box-shadow: 0 0 0 2px rgb(147 197 253 / 35%);
+  font-weight: 700;
 }
 
 .empty-content {
