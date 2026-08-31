@@ -926,6 +926,7 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 
 <style scoped>
 .settings-page {
+  width: 100%;
   min-height: 100%;
   padding: 22px;
   color: #e8eef6;
@@ -973,7 +974,8 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   background: #173252;
 }
 .settings-content {
-  max-width: 1150px;
+  width: 100%;
+  max-width: none;
 }
 .settings-header {
   margin: 0 0 16px;
@@ -1007,7 +1009,8 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   border-radius: 10px;
 }
 .general-panels-card {
-  width: min(100%, 520px);
+  width: clamp(480px, 46%, 720px);
+  max-width: 100%;
 }
 .card-header {
   display: flex;
@@ -1060,7 +1063,7 @@ code {
 
 .theme-settings-layout {
   display: grid;
-  grid-template-columns: minmax(205px, 0.55fr) minmax(390px, 1.08fr) minmax(315px, 0.9fr);
+  grid-template-columns: minmax(220px, 0.6fr) minmax(420px, 1.15fr) minmax(340px, 0.95fr);
   gap: 16px;
   align-items: start;
 }
@@ -1201,7 +1204,7 @@ code {
   border-radius: 9px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .theme-settings-layout {
     grid-template-columns: minmax(210px, 0.65fr) minmax(390px, 1.35fr);
   }
@@ -1276,6 +1279,10 @@ code {
 
   .theme-preview-card {
     grid-column: auto;
+  }
+
+  .general-panels-card {
+    width: 100%;
   }
 }
 </style>

@@ -255,10 +255,10 @@ function toggleMenu() {
 
 .settings-dialog-card {
   display: flex;
-  width: 80vw;
-  max-width: 80vw;
-  height: 80vh;
-  max-height: 80vh;
+  width: min(90vw, 1800px);
+  max-width: 90vw;
+  height: 86vh;
+  max-height: 86vh;
   flex-direction: column;
   overflow: hidden;
   color: #e8eef6;
@@ -291,10 +291,10 @@ function toggleMenu() {
 
 @media (max-width: 900px) {
   .settings-dialog-card {
-    width: 92vw;
-    max-width: 92vw;
-    height: 88vh;
-    max-height: 88vh;
+    width: 96vw;
+    max-width: 96vw;
+    height: 92vh;
+    max-height: 92vh;
   }
 }
 
