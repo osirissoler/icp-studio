@@ -13,14 +13,21 @@ import {
 } from './bible-database';
 import { exportBibleVersion, importBibleVersion, removeBibleVersion } from './bible-transfer';
 
-type MainWindowProvider = () => BrowserWindow | null;
+type AuthorizedWindowsProvider = () => BrowserWindow[];
 
-function validateSender(event: IpcMainInvokeEvent, getMainWindow: MainWindowProvider): void {
-  const mainWindow = getMainWindow();
+function validateSender(
+  event: Pick<IpcMainInvokeEvent, 'sender'>,
+  getAuthorizedWindows: AuthorizedWindowsProvider,
+): BrowserWindow {
+  const sourceWindow = getAuthorizedWindows().find(
+    (window) => !window.isDestroyed() && event.sender === window.webContents,
+  );
 
-  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
-    throw new Error('La solicitud bíblica no proviene de la ventana principal.');
+  if (!sourceWindow) {
+    throw new Error('La solicitud bíblica no proviene de una ventana autorizada.');
   }
+
+  return sourceWindow;
 }
 
 function parsePassageSearch(value: unknown): BiblePassageSearch {
@@ -75,7 +82,7 @@ function parseBooksRequest(value: unknown): BibleBooksRequest {
     : {};
 }
 
-export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
+export function registerBibleIpc(getAuthorizedWindows: AuthorizedWindowsProvider): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getVersions);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBookChapters);
@@ -83,27 +90,28 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.importVersion);
   ipcMain.removeHandler(BIBLE_CHANNELS.exportVersion);
   ipcMain.removeHandler(BIBLE_CHANNELS.removeVersion);
+  ipcMain.removeAllListeners(BIBLE_CHANNELS.preferredVersionChanged);
 
   ipcMain.handle(BIBLE_CHANNELS.getVersions, (event) => {
-    validateSender(event, getMainWindow);
+    validateSender(event, getAuthorizedWindows);
     return getBibleVersions();
   });
 
   ipcMain.handle(BIBLE_CHANNELS.getBooks, (event, value: unknown) => {
-    validateSender(event, getMainWindow);
+    validateSender(event, getAuthorizedWindows);
     const request = parseBooksRequest(value);
     return getBibleBooks(request.versionCode);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.getBookChapters, (event, value: unknown) => {
-    validateSender(event, getMainWindow);
+    validateSender(event, getAuthorizedWindows);
 
     const request = parseBookChaptersRequest(value);
     return getBibleBookChapters(request.bookCode, request.versionCode);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.searchPassage, (event, value: unknown) => {
-    validateSender(event, getMainWindow);
+    validateSender(event, getAuthorizedWindows);
 
     const request = parsePassageSearch(value);
 
@@ -111,24 +119,31 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   });
 
   ipcMain.handle(BIBLE_CHANNELS.importVersion, async (event) => {
-    validateSender(event, getMainWindow);
-    const mainWindow = getMainWindow();
-    if (!mainWindow) throw new Error('No se encontró la ventana principal.');
-    return importBibleVersion(mainWindow);
+    const sourceWindow = validateSender(event, getAuthorizedWindows);
+    return importBibleVersion(sourceWindow);
   });
 
   ipcMain.handle(BIBLE_CHANNELS.exportVersion, async (event, value: unknown) => {
-    validateSender(event, getMainWindow);
+    const sourceWindow = validateSender(event, getAuthorizedWindows);
     if (typeof value !== 'string' || !value.trim()) throw new Error('Versión inválida.');
-    const mainWindow = getMainWindow();
-    if (!mainWindow) throw new Error('No se encontró la ventana principal.');
-    return exportBibleVersion(mainWindow, value.trim());
+    return exportBibleVersion(sourceWindow, value.trim());
   });
 
   ipcMain.handle(BIBLE_CHANNELS.removeVersion, (event, value: unknown) => {
-    validateSender(event, getMainWindow);
+    validateSender(event, getAuthorizedWindows);
     if (typeof value !== 'string' || !value.trim()) throw new Error('Versión inválida.');
     return removeBibleVersion(value.trim());
+  });
+
+  ipcMain.on(BIBLE_CHANNELS.preferredVersionChanged, (event, value: unknown) => {
+    validateSender(event, getAuthorizedWindows);
+    if (typeof value !== 'string' || !value.trim()) return;
+    const versionCode = value.trim().slice(0, 30);
+    for (const targetWindow of getAuthorizedWindows()) {
+      if (!targetWindow.isDestroyed()) {
+        targetWindow.webContents.send(BIBLE_CHANNELS.preferredVersionChanged, versionCode);
+      }
+    }
   });
 }
 
@@ -140,4 +155,5 @@ export function unregisterBibleIpc(): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.importVersion);
   ipcMain.removeHandler(BIBLE_CHANNELS.exportVersion);
   ipcMain.removeHandler(BIBLE_CHANNELS.removeVersion);
+  ipcMain.removeAllListeners(BIBLE_CHANNELS.preferredVersionChanged);
 }

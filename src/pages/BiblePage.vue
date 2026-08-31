@@ -527,6 +527,7 @@ const showBookSuggestions = ref(false);
 const searching = ref(false);
 const loadingManualData = ref(false);
 const errorMessage = ref('');
+let unsubscribePreferredVersion: (() => void) | undefined;
 
 const manualBookCode = ref<string | null>(null);
 const manualChapter = ref<number | null>(null);
@@ -676,7 +677,7 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'No fue posible completar la operación.';
 }
 
-async function loadBooks(): Promise<void> {
+async function loadBooks(requestedVersionCode?: string): Promise<void> {
   const bibleApi = window.icpStudio?.bible;
 
   if (!bibleApi) {
@@ -687,13 +688,40 @@ async function loadBooks(): Promise<void> {
 
   try {
     bibleVersions.value = await bibleApi.getVersions();
-    preferredVersionCode.value = getPreferredBibleVersion(bibleVersions.value);
+    preferredVersionCode.value =
+      requestedVersionCode &&
+      bibleVersions.value.some((version) => version.code === requestedVersionCode)
+        ? requestedVersionCode
+        : getPreferredBibleVersion(bibleVersions.value);
     books.value = await bibleApi.getBooks({
       ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
     });
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   }
+}
+
+async function applyPreferredVersion(versionCode: string): Promise<void> {
+  const currentPassage = searchResult.value;
+  await loadBooks(versionCode);
+
+  manualBookCode.value = null;
+  manualChapter.value = null;
+  manualChapters.value = [];
+  manualChapterPassage.value = null;
+  manualVerseStart.value = null;
+  manualVerseEnd.value = null;
+
+  if (!currentPassage) return;
+
+  const verseRange =
+    currentPassage.verseStart === null
+      ? ''
+      : currentPassage.verseStart === currentPassage.verseEnd
+        ? `:${currentPassage.verseStart}`
+        : `:${currentPassage.verseStart}-${currentPassage.verseEnd}`;
+
+  await executeSearch(`${currentPassage.bookName} ${currentPassage.chapter}${verseRange}`);
 }
 
 function updateReferenceText(value: string | number | null): void {
@@ -1251,9 +1279,13 @@ function startLiveSectionResize(event: PointerEvent): void {
 
 onBeforeUnmount(() => {
   stopLiveResize?.();
+  unsubscribePreferredVersion?.();
 });
 
 onMounted(() => {
+  unsubscribePreferredVersion = window.icpStudio?.bible.onPreferredVersionChanged((versionCode) => {
+    void applyPreferredVersion(versionCode);
+  });
   void loadBooks();
 });
 </script>

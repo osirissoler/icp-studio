@@ -25,6 +25,8 @@ interface IcpStudioApi {
     importVersion: () => Promise<BibleTransferResult>;
     exportVersion: (versionCode: string) => Promise<BibleTransferResult>;
     removeVersion: (versionCode: string) => Promise<boolean>;
+    setPreferredVersion: (versionCode: string) => void;
+    onPreferredVersionChanged: (listener: (versionCode: string) => void) => () => void;
   };
   songs: {
     getDefaultCollection: () => Promise<DefaultSongCollection>;
@@ -44,6 +46,7 @@ interface IcpStudioApi {
   };
   windows: {
     openSongEditor: (songId?: string) => void;
+    openSettings: () => void;
   };
 }
 

@@ -6,6 +6,7 @@ export const BIBLE_CHANNELS = {
   importVersion: 'bible:import-version',
   exportVersion: 'bible:export-version',
   removeVersion: 'bible:remove-version',
+  preferredVersionChanged: 'bible:preferred-version-changed',
 } as const;
 
 export type BibleVersionStatus = 'stable' | 'draft';

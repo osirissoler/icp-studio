@@ -42,6 +42,9 @@ const windowApi = {
   openSongEditor: (songId?: string): void => {
     ipcRenderer.send(WINDOW_CHANNELS.openSongEditor, songId);
   },
+  openSettings: (): void => {
+    ipcRenderer.send(WINDOW_CHANNELS.openSettings);
+  },
 };
 
 const projectionApi = {
@@ -127,6 +130,15 @@ const bibleApi = {
   },
   removeVersion: (versionCode: string): Promise<boolean> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.removeVersion, versionCode) as Promise<boolean>;
+  },
+  setPreferredVersion: (versionCode: string): void => {
+    ipcRenderer.send(BIBLE_CHANNELS.preferredVersionChanged, versionCode);
+  },
+  onPreferredVersionChanged: (listener: (versionCode: string) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, versionCode: string) =>
+      listener(versionCode);
+    ipcRenderer.on(BIBLE_CHANNELS.preferredVersionChanged, subscription);
+    return () => ipcRenderer.removeListener(BIBLE_CHANNELS.preferredVersionChanged, subscription);
   },
 };
 

@@ -354,6 +354,7 @@ const activeNavigationItem = computed(
 function selectBibleVersion(versionCode: string): void {
   preferredBibleVersionCode.value = versionCode;
   setPreferredBibleVersion(versionCode);
+  window.icpStudio?.bible.setPreferredVersion(versionCode);
   const version = bibleVersions.value.find((item) => item.code === versionCode);
   showAppNotification(
     `${version?.name ?? versionCode} es ahora la versión bíblica predeterminada.`,

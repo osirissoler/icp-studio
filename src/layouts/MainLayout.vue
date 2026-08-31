@@ -63,7 +63,7 @@
               </q-item>
 
               <q-separator dark />
-              <q-item clickable v-close-popup to="/configuracion">
+              <q-item clickable v-close-popup @click="openSettings">
                 <q-item-section avatar>
                   <q-icon name="settings" />
                 </q-item-section>
@@ -87,8 +87,8 @@
           dense
           icon="settings"
           aria-label="Configuración"
-          to="/configuracion"
           class="q-ml-sm"
+          @click="openSettings"
         />
       </q-toolbar>
     </q-header>
@@ -135,13 +135,7 @@
 
           <q-separator dark class="navigation-separator" />
 
-          <q-item
-            clickable
-            v-ripple
-            to="/configuracion"
-            active-class="navigation-item--active"
-            class="navigation-item"
-          >
+          <q-item clickable v-ripple class="navigation-item" @click="openSettings">
             <q-item-section avatar>
               <q-icon name="settings" size="23px" />
             </q-item-section>
@@ -209,6 +203,10 @@ const currentDate = computed(() => {
 
   return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 });
+
+function openSettings(): void {
+  window.icpStudio?.windows.openSettings();
+}
 
 onMounted(async () => {
   displays.value = (await window.icpStudio?.displays.list()) ?? [];
