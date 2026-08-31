@@ -123,19 +123,6 @@
                 <strong>{{ item.name }}</strong>
                 <small>{{ formatLabel(item) }}</small>
               </span>
-              <q-btn
-                flat
-                round
-                dense
-                size="xs"
-                color="red-4"
-                icon="delete_outline"
-                aria-label="Eliminar documento"
-                @click.stop="void deleteDocument(item)"
-                @dblclick.stop
-              >
-                <q-tooltip>Eliminar documento</q-tooltip>
-              </q-btn>
             </div>
           </div>
 
@@ -344,57 +331,17 @@ function handlePreviewWheel(event: WheelEvent): void {
   movePreview(event.deltaY > 0 ? 1 : -1);
 }
 
-async function deleteDocument(item: MediaLibraryItem): Promise<void> {
-  const confirmed = window.confirm(`¿Quieres eliminar “${item.name}” de ICP Studio?`);
-  if (!confirmed) return;
-
-  try {
-    const removed = await window.icpStudio?.media.remove(item.id);
-    if (!removed) {
-      showAppNotification('No fue posible eliminar el documento.', 'negative', 'error_outline');
-      return;
-    }
-
-    if (presentationStore.liveItem?.sourceId === item.id) {
-      presentationStore.clearLive();
-    }
-
-    presentationStore.serviceItems
-      .filter((serviceItem) => serviceItem.sourceId === item.id)
-      .forEach((serviceItem) => {
-        presentationStore.removeFromService(serviceItem.id);
-      });
-
-    items.value = items.value.filter((entry) => entry.id !== item.id);
-    const nextSelection = new Set(selectedDocumentIds.value);
-    nextSelection.delete(item.id);
-    selectedDocumentIds.value = nextSelection;
-    documentInfo.delete(item.id);
-    if (selectedItem.value?.id === item.id) {
-      selectedItem.value = null;
-      previewPageIndex.value = 0;
-      pageCount.value = 1;
-      pageLabels.value = [];
-    }
-    showAppNotification(`${item.name} fue eliminado.`, 'positive', 'delete_outline');
-  } catch (error) {
-    showAppNotification(
-      error instanceof Error ? error.message : 'No fue posible eliminar el documento.',
-      'negative',
-      'error_outline',
-    );
-  }
-}
-
 async function deleteSelectedDocuments(): Promise<void> {
   const selectedItems = items.value.filter((item) => selectedDocumentIds.value.has(item.id));
   if (selectedItems.length === 0) return;
   const confirmed = window.confirm(
-    `¿Quieres eliminar los ${selectedItems.length} documentos seleccionados de ICP Studio?`,
+    selectedItems.length === 1
+      ? `¿Quieres eliminar “${selectedItems[0]?.name}” de ICP Studio?`
+      : `¿Quieres eliminar los ${selectedItems.length} documentos seleccionados de ICP Studio?`,
   );
   if (!confirmed) return;
 
-  let removedCount = 0;
+  const removedIds = new Set<string>();
   for (const item of selectedItems) {
     try {
       const removed = await window.icpStudio?.media.remove(item.id);
@@ -403,23 +350,32 @@ async function deleteSelectedDocuments(): Promise<void> {
       presentationStore.serviceItems
         .filter((serviceItem) => serviceItem.sourceId === item.id)
         .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
-      items.value = items.value.filter((entry) => entry.id !== item.id);
       documentInfo.delete(item.id);
-      if (selectedItem.value?.id === item.id) selectedItem.value = null;
-      removedCount += 1;
+      removedIds.add(item.id);
     } catch {
       // Continúa con los demás archivos y reporta el resultado al finalizar.
     }
   }
 
-  selectedDocumentIds.value = new Set();
-  previewPageIndex.value = 0;
-  previewZoom.value = 1;
-  pageCount.value = 1;
-  pageLabels.value = [];
+  items.value = items.value.filter((item) => !removedIds.has(item.id));
+  selectedDocumentIds.value = new Set(
+    selectedItems.filter((item) => !removedIds.has(item.id)).map((item) => item.id),
+  );
+
+  if (selectedItem.value && removedIds.has(selectedItem.value.id)) {
+    selectedItem.value = null;
+    previewPageIndex.value = 0;
+    previewZoom.value = 1;
+    pageCount.value = 1;
+    pageLabels.value = [];
+  }
+
+  const removedCount = removedIds.size;
   showAppNotification(
     removedCount === selectedItems.length
-      ? `${removedCount} documentos fueron eliminados.`
+      ? removedCount === 1
+        ? 'El documento fue eliminado.'
+        : `${removedCount} documentos fueron eliminados.`
       : `Se eliminaron ${removedCount} de ${selectedItems.length} documentos.`,
     removedCount === selectedItems.length ? 'positive' : 'warning',
     'delete_sweep',
