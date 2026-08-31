@@ -1,11 +1,5 @@
 <template>
   <q-page class="settings-page">
-    <header class="settings-header">
-      <div class="text-overline text-primary">ICP Studio</div>
-      <h1>Configuración</h1>
-      <p>Organiza cada área del sistema desde un solo lugar.</p>
-    </header>
-
     <nav class="settings-navigation" aria-label="Categorías de configuración">
       <button
         v-for="item in navigationItems"
@@ -19,6 +13,10 @@
         <span>{{ item.label }}</span>
       </button>
     </nav>
+
+    <header class="settings-header">
+      <p>Organiza cada área del sistema desde un solo lugar.</p>
+    </header>
 
     <main class="settings-content">
       <section v-if="activeSection === 'general'" class="settings-section">
@@ -155,10 +153,34 @@
                   >
                 </q-item-section>
                 <q-item-section side>
-                  <q-badge
-                    :color="version.status === 'stable' ? 'positive' : 'warning'"
-                    :label="version.status === 'stable' ? 'Estable' : 'Borrador'"
-                  />
+                  <div class="version-actions">
+                    <q-badge v-if="version.isBuiltin" color="blue-grey-8" label="Incluida" />
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      color="primary"
+                      icon="download"
+                      :loading="exportingBibleCode === version.code"
+                      :aria-label="`Descargar ${version.name} en formato ICP Bible`"
+                      @click.stop="downloadBibleVersion(version)"
+                    >
+                      <q-tooltip>Descargar como .icpbible</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      v-if="!version.isBuiltin"
+                      flat
+                      round
+                      dense
+                      color="red-4"
+                      icon="delete_outline"
+                      :loading="removingBibleCode === version.code"
+                      :aria-label="`Eliminar ${version.name}`"
+                      @click.stop="deleteBibleVersion(version)"
+                    >
+                      <q-tooltip>Eliminar versión importada</q-tooltip>
+                    </q-btn>
+                  </div>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -170,9 +192,23 @@
           <q-card flat class="settings-card import-card">
             <q-icon name="upload_file" />
             <strong>Importar una versión</strong>
-            <p>ICP Studio aceptará paquetes <code>.icpbible</code> y archivos JSON validados.</p>
-            <q-btn outline no-caps color="primary" icon="add" label="Importar versión" disable />
-            <small>El importador de archivos será el próximo paso de este módulo.</small>
+            <p>Podrás instalar paquetes de ICP Studio y Biblias provenientes del formato XMM.</p>
+            <div class="format-list" aria-label="Formatos de importación admitidos">
+              <q-chip dense outline color="primary" icon="inventory_2">.icpbible</q-chip>
+              <q-chip dense outline color="primary" icon="code">.xmm</q-chip>
+            </div>
+            <q-btn
+              outline
+              no-caps
+              color="primary"
+              icon="add"
+              label="Elegir archivo"
+              :loading="importingBible"
+              @click="chooseBibleFile"
+            />
+            <small>
+              El nombre y el código se obtienen automáticamente del archivo seleccionado.
+            </small>
           </q-card>
         </div>
       </section>
@@ -201,8 +237,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { showAppNotification } from '../services/app-notification';
-import { getPreferredBibleVersion, setPreferredBibleVersion } from '../services/bible-settings';
-import type { BibleVersion } from '../shared/bible';
+import {
+  clearPreferredBibleVersion,
+  getPreferredBibleVersion,
+  setPreferredBibleVersion,
+} from '../services/bible-settings';
+import type { BibleTransferResult, BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
 import type { WorkspacePanelId } from '../shared/workspace';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
@@ -302,6 +342,9 @@ const bibleVersions = ref<BibleVersion[]>([]);
 const preferredBibleVersionCode = ref<string | null>(null);
 const loadingBibleVersions = ref(true);
 const bibleError = ref('');
+const importingBible = ref(false);
+const exportingBibleCode = ref<string | null>(null);
+const removingBibleCode = ref<string | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
 
 const activeNavigationItem = computed(
@@ -333,6 +376,69 @@ async function loadBibleVersions(): Promise<void> {
   }
 }
 
+function transferMessage(result: BibleTransferResult): string {
+  const details = [`${result.books ?? 0} libros`, `${result.verses ?? 0} versículos`];
+  if (result.omittedVerses) details.push(`${result.omittedVerses} omitidos por el archivo`);
+  return `${result.version?.name ?? 'La Biblia'} fue importada: ${details.join(', ')}.`;
+}
+
+async function chooseBibleFile(): Promise<void> {
+  importingBible.value = true;
+  bibleError.value = '';
+  try {
+    const result = await window.icpStudio?.bible.importVersion();
+    if (!result || result.canceled) return;
+    await loadBibleVersions();
+    showAppNotification(transferMessage(result), 'positive', 'library_add_check');
+  } catch (error) {
+    bibleError.value =
+      error instanceof Error ? error.message : 'No fue posible importar la Biblia.';
+    showAppNotification(bibleError.value, 'negative', 'error_outline');
+  } finally {
+    importingBible.value = false;
+  }
+}
+
+async function downloadBibleVersion(version: BibleVersion): Promise<void> {
+  exportingBibleCode.value = version.code;
+  bibleError.value = '';
+  try {
+    const result = await window.icpStudio?.bible.exportVersion(version.code);
+    if (!result || result.canceled) return;
+    showAppNotification(
+      `${version.name} fue guardada como archivo ICP Bible.`,
+      'positive',
+      'download_done',
+    );
+  } catch (error) {
+    bibleError.value =
+      error instanceof Error ? error.message : 'No fue posible descargar la Biblia.';
+    showAppNotification(bibleError.value, 'negative', 'error_outline');
+  } finally {
+    exportingBibleCode.value = null;
+  }
+}
+
+async function deleteBibleVersion(version: BibleVersion): Promise<void> {
+  if (!window.confirm(`¿Quieres eliminar la versión "${version.name}" de ICP Studio?`)) return;
+  removingBibleCode.value = version.code;
+  bibleError.value = '';
+  try {
+    await window.icpStudio?.bible.removeVersion(version.code);
+    if (preferredBibleVersionCode.value === version.code) {
+      clearPreferredBibleVersion();
+    }
+    await loadBibleVersions();
+    showAppNotification(`${version.name} fue eliminada.`, 'positive', 'delete_outline');
+  } catch (error) {
+    bibleError.value =
+      error instanceof Error ? error.message : 'No fue posible eliminar la Biblia.';
+    showAppNotification(bibleError.value, 'negative', 'error_outline');
+  } finally {
+    removingBibleCode.value = null;
+  }
+}
+
 onMounted(async () => {
   displays.value = (await window.icpStudio?.displays.list()) ?? [];
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
@@ -351,12 +457,8 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   color: #e8eef6;
   background: #0c131d;
 }
-.settings-header h1,
 .section-heading h2 {
   margin: 0;
-}
-.settings-header h1 {
-  font-size: 28px;
 }
 .settings-header p,
 .section-heading p,
@@ -368,8 +470,8 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 .settings-navigation {
   display: flex;
   gap: 5px;
-  margin: 20px 0;
-  padding: 5px;
+  margin: 0 0 12px;
+  padding: 4px;
   overflow-x: auto;
   background: #101a27;
   border: 1px solid #263448;
@@ -379,8 +481,9 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   display: flex;
   min-width: max-content;
   align-items: center;
-  gap: 7px;
-  padding: 9px 13px;
+  gap: 6px;
+  padding: 7px 11px;
+  font-size: 13px;
   color: #8492a6;
   background: transparent;
   border: 0;
@@ -397,6 +500,9 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 }
 .settings-content {
   max-width: 1150px;
+}
+.settings-header {
+  margin: 0 0 16px;
 }
 .settings-section {
   display: flex;
@@ -440,6 +546,12 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 .import-card small,
 :deep(.q-item__label--caption) {
   color: #8492a6;
+}
+.version-actions,
+.format-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .loading-state,
 .settings-error,

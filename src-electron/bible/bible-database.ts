@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { app } from 'electron';
@@ -17,6 +17,7 @@ interface BibleVersionRow {
   language: string;
   status: BibleVersionStatus;
   isDefault: number;
+  isBuiltin: number;
 }
 
 interface BibleBookRow {
@@ -55,12 +56,37 @@ interface ParsedBibleReference {
 
 let bibleDatabase: DatabaseSync | null = null;
 
-function getBibleDatabasePath(): string {
+function getBundledBibleDatabasePath(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'icp-bibles.sqlite');
   }
 
   return path.join(process.cwd(), 'resources', 'bibles', 'database', 'icp-bibles.sqlite');
+}
+
+function getBibleDatabasePath(): string {
+  const databaseDirectory = path.join(app.getPath('userData'), 'bibles');
+  const databasePath = path.join(databaseDirectory, 'icp-bibles.sqlite');
+
+  if (!existsSync(databasePath)) {
+    const bundledPath = getBundledBibleDatabasePath();
+    if (!existsSync(bundledPath)) {
+      throw new Error(`No se encontró la base bíblica incluida en: ${bundledPath}`);
+    }
+    mkdirSync(databaseDirectory, { recursive: true });
+    copyFileSync(bundledPath, databasePath);
+  }
+
+  return databasePath;
+}
+
+function migrateBibleDatabase(database: DatabaseSync): void {
+  const columns = database.prepare('PRAGMA table_info(bible_versions)').all() as unknown as Array<{
+    name: string;
+  }>;
+  if (!columns.some((column) => column.name === 'is_builtin')) {
+    database.exec('ALTER TABLE bible_versions ADD COLUMN is_builtin INTEGER NOT NULL DEFAULT 1');
+  }
 }
 
 function getBibleDatabase(): DatabaseSync {
@@ -74,9 +100,9 @@ function getBibleDatabase(): DatabaseSync {
     throw new Error(`No se encontró la base bíblica en: ${databasePath}`);
   }
 
-  bibleDatabase = new DatabaseSync(databasePath, {
-    readOnly: true,
-  });
+  bibleDatabase = new DatabaseSync(databasePath);
+  bibleDatabase.exec('PRAGMA foreign_keys = ON');
+  migrateBibleDatabase(bibleDatabase);
 
   return bibleDatabase;
 }
@@ -151,6 +177,7 @@ export function getBibleVersions(): BibleVersion[] {
         language,
         status,
         is_default AS isDefault
+        , is_builtin AS isBuiltin
       FROM bible_versions
       ORDER BY is_default DESC, name
     `,
@@ -164,7 +191,12 @@ export function getBibleVersions(): BibleVersion[] {
     language: row.language,
     status: row.status,
     isDefault: row.isDefault === 1,
+    isBuiltin: row.isBuiltin === 1,
   }));
+}
+
+export function getWritableBibleDatabase(): DatabaseSync {
+  return getBibleDatabase();
 }
 
 function getDefaultBibleVersionCode(database: DatabaseSync): string {

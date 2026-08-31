@@ -7,6 +7,7 @@ import {
   type BibleBooksRequest,
   type BiblePassage,
   type BiblePassageSearch,
+  type BibleTransferResult,
   type BibleVersion,
 } from '../src/shared/bible';
 import {
@@ -114,6 +115,18 @@ const bibleApi = {
   },
   searchPassage: (request: BiblePassageSearch): Promise<BiblePassage> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.searchPassage, request) as Promise<BiblePassage>;
+  },
+  importVersion: (): Promise<BibleTransferResult> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.importVersion) as Promise<BibleTransferResult>;
+  },
+  exportVersion: (versionCode: string): Promise<BibleTransferResult> => {
+    return ipcRenderer.invoke(
+      BIBLE_CHANNELS.exportVersion,
+      versionCode,
+    ) as Promise<BibleTransferResult>;
+  },
+  removeVersion: (versionCode: string): Promise<boolean> => {
+    return ipcRenderer.invoke(BIBLE_CHANNELS.removeVersion, versionCode) as Promise<boolean>;
   },
 };
 

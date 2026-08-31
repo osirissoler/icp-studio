@@ -3,6 +3,9 @@ export const BIBLE_CHANNELS = {
   getBooks: 'bible:get-books',
   getBookChapters: 'bible:get-book-chapters',
   searchPassage: 'bible:search-passage',
+  importVersion: 'bible:import-version',
+  exportVersion: 'bible:export-version',
+  removeVersion: 'bible:remove-version',
 } as const;
 
 export type BibleVersionStatus = 'stable' | 'draft';
@@ -14,6 +17,16 @@ export interface BibleVersion {
   language: string;
   status: BibleVersionStatus;
   isDefault: boolean;
+  isBuiltin: boolean;
+}
+
+export interface BibleTransferResult {
+  canceled: boolean;
+  version?: BibleVersion;
+  filePath?: string;
+  books?: number;
+  verses?: number;
+  omittedVerses?: number;
 }
 
 export interface BibleBook {

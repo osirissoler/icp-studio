@@ -4,6 +4,7 @@ import type {
   BibleBooksRequest,
   BiblePassage,
   BiblePassageSearch,
+  BibleTransferResult,
   BibleVersion,
 } from './src/shared/bible';
 import type { DisplayInfo } from './src/shared/display';
@@ -21,6 +22,9 @@ interface IcpStudioApi {
     getBooks: (request?: BibleBooksRequest) => Promise<BibleBook[]>;
     getBookChapters: (request: BibleBookChaptersRequest) => Promise<number[]>;
     searchPassage: (request: BiblePassageSearch) => Promise<BiblePassage>;
+    importVersion: () => Promise<BibleTransferResult>;
+    exportVersion: (versionCode: string) => Promise<BibleTransferResult>;
+    removeVersion: (versionCode: string) => Promise<boolean>;
   };
   songs: {
     getDefaultCollection: () => Promise<DefaultSongCollection>;
@@ -47,7 +51,7 @@ declare global {
   /**
    * Add types for custom environment variables configured through Quasar.
    */
-  interface ImportMetaEnv {}
+  type ImportMetaEnv = Readonly<Record<string, string | boolean | undefined>>;
 
   /**
    * APIs exposed securely by Electron's preload script.

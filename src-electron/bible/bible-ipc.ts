@@ -11,6 +11,7 @@ import {
   getBibleVersions,
   searchBiblePassage,
 } from './bible-database';
+import { exportBibleVersion, importBibleVersion, removeBibleVersion } from './bible-transfer';
 
 type MainWindowProvider = () => BrowserWindow | null;
 
@@ -79,6 +80,9 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBookChapters);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
+  ipcMain.removeHandler(BIBLE_CHANNELS.importVersion);
+  ipcMain.removeHandler(BIBLE_CHANNELS.exportVersion);
+  ipcMain.removeHandler(BIBLE_CHANNELS.removeVersion);
 
   ipcMain.handle(BIBLE_CHANNELS.getVersions, (event) => {
     validateSender(event, getMainWindow);
@@ -105,6 +109,27 @@ export function registerBibleIpc(getMainWindow: MainWindowProvider): void {
 
     return searchBiblePassage(request.versionCode, request.reference);
   });
+
+  ipcMain.handle(BIBLE_CHANNELS.importVersion, async (event) => {
+    validateSender(event, getMainWindow);
+    const mainWindow = getMainWindow();
+    if (!mainWindow) throw new Error('No se encontró la ventana principal.');
+    return importBibleVersion(mainWindow);
+  });
+
+  ipcMain.handle(BIBLE_CHANNELS.exportVersion, async (event, value: unknown) => {
+    validateSender(event, getMainWindow);
+    if (typeof value !== 'string' || !value.trim()) throw new Error('Versión inválida.');
+    const mainWindow = getMainWindow();
+    if (!mainWindow) throw new Error('No se encontró la ventana principal.');
+    return exportBibleVersion(mainWindow, value.trim());
+  });
+
+  ipcMain.handle(BIBLE_CHANNELS.removeVersion, (event, value: unknown) => {
+    validateSender(event, getMainWindow);
+    if (typeof value !== 'string' || !value.trim()) throw new Error('Versión inválida.');
+    return removeBibleVersion(value.trim());
+  });
 }
 
 export function unregisterBibleIpc(): void {
@@ -112,4 +137,7 @@ export function unregisterBibleIpc(): void {
   ipcMain.removeHandler(BIBLE_CHANNELS.getBooks);
   ipcMain.removeHandler(BIBLE_CHANNELS.getBookChapters);
   ipcMain.removeHandler(BIBLE_CHANNELS.searchPassage);
+  ipcMain.removeHandler(BIBLE_CHANNELS.importVersion);
+  ipcMain.removeHandler(BIBLE_CHANNELS.exportVersion);
+  ipcMain.removeHandler(BIBLE_CHANNELS.removeVersion);
 }

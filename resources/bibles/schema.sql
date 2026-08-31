@@ -8,6 +8,7 @@ CREATE TABLE bible_versions (
   status TEXT NOT NULL DEFAULT 'stable',
   is_public_domain INTEGER NOT NULL DEFAULT 0,
   is_default INTEGER NOT NULL DEFAULT 0,
+  is_builtin INTEGER NOT NULL DEFAULT 1,
   source_url TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

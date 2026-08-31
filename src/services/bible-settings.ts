@@ -18,3 +18,7 @@ export function getPreferredBibleVersion(versions: BibleVersion[] = []): string 
 export function setPreferredBibleVersion(versionCode: string): void {
   window.localStorage.setItem(DEFAULT_BIBLE_VERSION_KEY, versionCode);
 }
+
+export function clearPreferredBibleVersion(): void {
+  window.localStorage.removeItem(DEFAULT_BIBLE_VERSION_KEY);
+}
