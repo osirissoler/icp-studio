@@ -14,7 +14,6 @@ export type RemoteModule =
 export type RemoteRequestAction =
   | 'catalog'
   | 'preview'
-  | 'service-item'
   | 'move-preview'
   | 'set-preview-frame'
   | 'project-preview'
@@ -78,7 +77,6 @@ export interface RemotePreviewState {
   frame: RemotePreviewFrame;
   frames: Array<{
     label: string;
-    text?: string;
   }>;
 }
 
