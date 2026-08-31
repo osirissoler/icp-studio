@@ -282,164 +282,171 @@
             </q-card-actions>
           </q-card>
 
-          <q-card flat class="settings-card theme-editor-card">
-            <q-card-section class="theme-editor-grid">
-              <q-input
-                :model-value="activeTheme.name"
-                dark
-                outlined
-                dense
-                label="Nombre del tema"
-                @update:model-value="projectionSettings.updateActiveTheme({ name: String($event) })"
-              />
-
-              <q-select
-                :model-value="activeTheme.backgroundType"
-                :options="backgroundTypeOptions"
-                dark
-                outlined
-                dense
-                emit-value
-                map-options
-                label="Tipo de fondo"
-                @update:model-value="updateBackgroundType"
-              />
-
-              <label class="color-field">
-                <span>Color principal</span>
-                <input
-                  type="color"
-                  :value="activeTheme.backgroundColor"
-                  @input="updateThemeColor('backgroundColor', $event)"
-                />
-                <code>{{ activeTheme.backgroundColor }}</code>
-              </label>
-
-              <label v-if="activeTheme.backgroundType === 'gradient'" class="color-field">
-                <span>Color del degradado</span>
-                <input
-                  type="color"
-                  :value="activeTheme.gradientColor"
-                  @input="updateThemeColor('gradientColor', $event)"
-                />
-                <code>{{ activeTheme.gradientColor }}</code>
-              </label>
-
-              <div v-if="activeTheme.backgroundType === 'image'" class="image-background-field">
-                <q-btn
-                  outline
+          <div class="theme-customization-layout">
+            <q-card flat class="settings-card theme-editor-card">
+              <q-card-section class="theme-editor-grid">
+                <q-input
+                  :model-value="activeTheme.name"
+                  dark
+                  outlined
                   dense
-                  no-caps
-                  color="light-blue-4"
-                  icon="image"
-                  label="Elegir imagen"
-                  @click="chooseThemeBackground"
-                />
-                <small>{{
-                  activeTheme.backgroundImageUrl
-                    ? 'Imagen guardada localmente'
-                    : 'Sin imagen seleccionada'
-                }}</small>
-              </div>
-
-              <label class="color-field">
-                <span>Color del texto</span>
-                <input
-                  type="color"
-                  :value="activeTheme.textColor"
-                  @input="updateThemeColor('textColor', $event)"
-                />
-                <code>{{ activeTheme.textColor }}</code>
-              </label>
-
-              <label class="color-field">
-                <span>Color de referencia</span>
-                <input
-                  type="color"
-                  :value="activeTheme.footerColor"
-                  @input="updateThemeColor('footerColor', $event)"
-                />
-                <code>{{ activeTheme.footerColor }}</code>
-              </label>
-
-              <q-select
-                :model-value="activeTheme.fontFamily"
-                :options="fontOptions"
-                dark
-                outlined
-                dense
-                emit-value
-                map-options
-                label="Tipografía"
-                @update:model-value="updateFontFamily"
-              />
-
-              <q-select
-                :model-value="activeTheme.horizontalAlign"
-                :options="horizontalAlignOptions"
-                dark
-                outlined
-                dense
-                emit-value
-                map-options
-                label="Alineación horizontal"
-                @update:model-value="updateHorizontalAlign"
-              />
-
-              <q-select
-                :model-value="activeTheme.verticalAlign"
-                :options="verticalAlignOptions"
-                dark
-                outlined
-                dense
-                emit-value
-                map-options
-                label="Posición vertical"
-                @update:model-value="updateVerticalAlign"
-              />
-
-              <div class="slider-field">
-                <span>Tamaño del texto · {{ Math.round(activeTheme.fontScale * 100) }}%</span>
-                <q-slider
-                  :model-value="activeTheme.fontScale"
-                  :min="0.7"
-                  :max="1.5"
-                  :step="0.05"
-                  color="primary"
+                  label="Nombre del tema"
                   @update:model-value="
-                    projectionSettings.updateActiveTheme({ fontScale: Number($event) })
+                    projectionSettings.updateActiveTheme({ name: String($event) })
                   "
                 />
-              </div>
 
-              <div v-if="activeTheme.backgroundType === 'image'" class="slider-field">
-                <span>Oscurecer imagen · {{ Math.round(activeTheme.overlayOpacity * 100) }}%</span>
-                <q-slider
-                  :model-value="activeTheme.overlayOpacity"
-                  :min="0"
-                  :max="0.85"
-                  :step="0.05"
-                  color="primary"
-                  @update:model-value="
-                    projectionSettings.updateActiveTheme({ overlayOpacity: Number($event) })
-                  "
+                <q-select
+                  :model-value="activeTheme.backgroundType"
+                  :options="backgroundTypeOptions"
+                  dark
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  label="Tipo de fondo"
+                  @update:model-value="updateBackgroundType"
                 />
-              </div>
-            </q-card-section>
-          </q-card>
 
-          <q-card flat class="settings-card theme-preview-card">
-            <div class="card-header theme-preview-heading">
-              <div>
-                <strong>Vista previa</strong><small>Los cambios se guardan automáticamente.</small>
+                <label class="color-field">
+                  <span>Color principal</span>
+                  <input
+                    type="color"
+                    :value="activeTheme.backgroundColor"
+                    @input="updateThemeColor('backgroundColor', $event)"
+                  />
+                  <code>{{ activeTheme.backgroundColor }}</code>
+                </label>
+
+                <label v-if="activeTheme.backgroundType === 'gradient'" class="color-field">
+                  <span>Color del degradado</span>
+                  <input
+                    type="color"
+                    :value="activeTheme.gradientColor"
+                    @input="updateThemeColor('gradientColor', $event)"
+                  />
+                  <code>{{ activeTheme.gradientColor }}</code>
+                </label>
+
+                <div v-if="activeTheme.backgroundType === 'image'" class="image-background-field">
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    color="light-blue-4"
+                    icon="image"
+                    label="Elegir imagen"
+                    @click="chooseThemeBackground"
+                  />
+                  <small>{{
+                    activeTheme.backgroundImageUrl
+                      ? 'Imagen guardada localmente'
+                      : 'Sin imagen seleccionada'
+                  }}</small>
+                </div>
+
+                <label class="color-field">
+                  <span>Color del texto</span>
+                  <input
+                    type="color"
+                    :value="activeTheme.textColor"
+                    @input="updateThemeColor('textColor', $event)"
+                  />
+                  <code>{{ activeTheme.textColor }}</code>
+                </label>
+
+                <label class="color-field">
+                  <span>Color de referencia</span>
+                  <input
+                    type="color"
+                    :value="activeTheme.footerColor"
+                    @input="updateThemeColor('footerColor', $event)"
+                  />
+                  <code>{{ activeTheme.footerColor }}</code>
+                </label>
+
+                <q-select
+                  :model-value="activeTheme.fontFamily"
+                  :options="fontOptions"
+                  dark
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  label="Tipografía"
+                  @update:model-value="updateFontFamily"
+                />
+
+                <q-select
+                  :model-value="activeTheme.horizontalAlign"
+                  :options="horizontalAlignOptions"
+                  dark
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  label="Alineación horizontal"
+                  @update:model-value="updateHorizontalAlign"
+                />
+
+                <q-select
+                  :model-value="activeTheme.verticalAlign"
+                  :options="verticalAlignOptions"
+                  dark
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  label="Posición vertical"
+                  @update:model-value="updateVerticalAlign"
+                />
+
+                <div class="slider-field">
+                  <span>Tamaño del texto · {{ Math.round(activeTheme.fontScale * 100) }}%</span>
+                  <q-slider
+                    :model-value="activeTheme.fontScale"
+                    :min="0.7"
+                    :max="1.5"
+                    :step="0.05"
+                    color="primary"
+                    @update:model-value="
+                      projectionSettings.updateActiveTheme({ fontScale: Number($event) })
+                    "
+                  />
+                </div>
+
+                <div v-if="activeTheme.backgroundType === 'image'" class="slider-field">
+                  <span
+                    >Oscurecer imagen · {{ Math.round(activeTheme.overlayOpacity * 100) }}%</span
+                  >
+                  <q-slider
+                    :model-value="activeTheme.overlayOpacity"
+                    :min="0"
+                    :max="0.85"
+                    :step="0.05"
+                    color="primary"
+                    @update:model-value="
+                      projectionSettings.updateActiveTheme({ overlayOpacity: Number($event) })
+                    "
+                  />
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <q-card flat class="settings-card theme-preview-card">
+              <div class="card-header theme-preview-heading">
+                <div>
+                  <strong>Vista previa</strong
+                  ><small>Los cambios se guardan automáticamente.</small>
+                </div>
+                <q-badge color="positive" label="Tema activo" />
               </div>
-              <q-badge color="positive" label="Tema activo" />
-            </div>
-            <div class="theme-preview" :style="[surfaceStyle, contentLayoutStyle]">
-              <div class="theme-preview-text">Todo lo puedo en Cristo que me fortalece.</div>
-              <small>Filipenses 4:13</small>
-            </div>
-          </q-card>
+              <div class="theme-preview" :style="[surfaceStyle, contentLayoutStyle]">
+                <div class="theme-preview-text">Todo lo puedo en Cristo que me fortalece.</div>
+                <small>Filipenses 4:13</small>
+              </div>
+            </q-card>
+          </div>
         </div>
       </section>
 
@@ -1062,8 +1069,16 @@ code {
 }
 
 .theme-settings-layout {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.theme-customization-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.6fr) minmax(420px, 1.15fr) minmax(340px, 0.95fr);
+  min-width: 0;
+  grid-template-columns: minmax(520px, 1.45fr) minmax(300px, 0.78fr);
   gap: 16px;
   align-items: start;
 }
@@ -1074,11 +1089,17 @@ code {
   min-width: 0;
 }
 
-.theme-list,
 .visualizer-options {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  padding: 8px;
+}
+
+.theme-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 7px;
   padding: 8px;
 }
 
@@ -1205,13 +1226,12 @@ code {
 }
 
 @media (max-width: 1180px) {
-  .theme-settings-layout {
-    grid-template-columns: minmax(210px, 0.65fr) minmax(390px, 1.35fr);
+  .theme-customization-layout {
+    grid-template-columns: minmax(440px, 1.35fr) minmax(280px, 0.75fr);
   }
 
   .theme-preview-card {
-    position: static;
-    grid-column: 1 / -1;
+    position: sticky;
   }
 }
 
@@ -1269,7 +1289,7 @@ code {
 
 @media (max-width: 850px) {
   .settings-columns,
-  .theme-settings-layout {
+  .theme-customization-layout {
     grid-template-columns: 1fr;
   }
 

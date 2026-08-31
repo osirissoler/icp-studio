@@ -338,7 +338,12 @@
           <div class="bible-screen" :style="[surfaceStyle, contentLayoutStyle]">
             <template v-if="selectedVerse">
               <div class="screen-reference">{{ selectedVerse.reference }}</div>
-              <div class="screen-text">{{ selectedVerse.text }}</div>
+              <FittedTechnicalText
+                class="screen-fitted-text"
+                :text="selectedVerse.text"
+                :min-size="9"
+                :max-size="29"
+              />
               <div class="screen-version">{{ selectedVerse.versionCode }}</div>
             </template>
 
@@ -432,7 +437,12 @@
                   :style="[surfaceStyle, contentLayoutStyle]"
                 >
                   <template v-if="liveVerse">
-                    <div class="screen-text">{{ liveVerse.text }}</div>
+                    <FittedTechnicalText
+                      class="screen-fitted-text"
+                      :text="liveVerse.text"
+                      :min-size="9"
+                      :max-size="29"
+                    />
                     <div v-if="liveServiceItem" class="screen-passage-reference">
                       {{ liveServiceItem.projectionReference }}
                     </div>
@@ -488,6 +498,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { usePresentationStore } from '../stores/presentation-store';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
@@ -1878,6 +1889,15 @@ onMounted(() => {
   font-size: clamp(16px, 2vw, 29px);
   font-weight: 600;
   line-height: 1.3;
+}
+
+.screen-fitted-text {
+  min-height: 0;
+  flex: 1;
+}
+
+.bible-screen--live .screen-fitted-text {
+  padding-bottom: 18px;
 }
 
 .screen-version {
