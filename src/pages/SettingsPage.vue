@@ -28,7 +28,7 @@
           </div>
         </div>
 
-        <q-card flat class="settings-card">
+        <q-card flat class="settings-card general-panels-card">
           <q-list>
             <q-item v-for="panel in panelOptions" :key="panel.id">
               <q-item-section avatar
@@ -427,20 +427,20 @@
               </div>
             </q-card-section>
           </q-card>
-        </div>
 
-        <q-card flat class="settings-card theme-preview-card">
-          <div class="card-header theme-preview-heading">
-            <div>
-              <strong>Vista previa</strong><small>Los cambios se guardan automáticamente.</small>
+          <q-card flat class="settings-card theme-preview-card">
+            <div class="card-header theme-preview-heading">
+              <div>
+                <strong>Vista previa</strong><small>Los cambios se guardan automáticamente.</small>
+              </div>
+              <q-badge color="positive" label="Tema activo" />
             </div>
-            <q-badge color="positive" label="Tema activo" />
-          </div>
-          <div class="theme-preview" :style="[surfaceStyle, contentLayoutStyle]">
-            <div class="theme-preview-text">Todo lo puedo en Cristo que me fortalece.</div>
-            <small>Filipenses 4:13</small>
-          </div>
-        </q-card>
+            <div class="theme-preview" :style="[surfaceStyle, contentLayoutStyle]">
+              <div class="theme-preview-text">Todo lo puedo en Cristo que me fortalece.</div>
+              <small>Filipenses 4:13</small>
+            </div>
+          </q-card>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'music'" class="settings-section">
@@ -1006,6 +1006,9 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   border: 1px solid #263448;
   border-radius: 10px;
 }
+.general-panels-card {
+  width: min(100%, 520px);
+}
 .card-header {
   display: flex;
   align-items: center;
@@ -1057,12 +1060,14 @@ code {
 
 .theme-settings-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 0.72fr) minmax(430px, 1.5fr);
+  grid-template-columns: minmax(205px, 0.55fr) minmax(390px, 1.08fr) minmax(315px, 0.9fr);
   gap: 16px;
+  align-items: start;
 }
 
 .theme-library-card,
-.theme-editor-card {
+.theme-editor-card,
+.theme-preview-card {
   min-width: 0;
 }
 
@@ -1175,6 +1180,8 @@ code {
 }
 
 .theme-preview-card {
+  position: sticky;
+  top: 0;
   padding: 10px;
 }
 
@@ -1185,13 +1192,24 @@ code {
 .theme-preview {
   position: relative;
   display: flex;
-  aspect-ratio: 16 / 7;
-  min-height: 210px;
+  aspect-ratio: 16 / 9;
+  min-height: 190px;
   flex-direction: column;
   padding: clamp(22px, 5vw, 58px);
   overflow: hidden;
   border: 1px solid #34465d;
   border-radius: 9px;
+}
+
+@media (max-width: 1080px) {
+  .theme-settings-layout {
+    grid-template-columns: minmax(210px, 0.65fr) minmax(390px, 1.35fr);
+  }
+
+  .theme-preview-card {
+    position: static;
+    grid-column: 1 / -1;
+  }
 }
 
 .theme-preview-text {
@@ -1254,6 +1272,10 @@ code {
 
   .theme-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .theme-preview-card {
+    grid-column: auto;
   }
 }
 </style>
