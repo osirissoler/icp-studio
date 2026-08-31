@@ -214,15 +214,12 @@
                 size="xs"
                 color="red-4"
                 icon="delete_sweep"
-                aria-label="Quitar versículos no seleccionados"
+                aria-label="Eliminar versículos seleccionados"
                 class="result-action-button"
-                :disable="
-                  selectedVerses.length === 0 ||
-                  selectedVerses.length === searchResult.verses.length
-                "
-                @click="removeUnselectedResults"
+                :disable="selectedVerses.length === 0"
+                @click="removeSelectedResults"
               >
-                <q-tooltip>Quitar de la lista los versículos no seleccionados</q-tooltip>
+                <q-tooltip>Eliminar de la lista los versículos seleccionados</q-tooltip>
               </q-btn>
             </div>
 
@@ -912,17 +909,15 @@ function toggleAllResults(selected: boolean): void {
   selectedVerse.value = selected ? (verses[0] ?? null) : null;
 }
 
-function removeUnselectedResults(): void {
+function removeSelectedResults(): void {
   const passage = searchResult.value;
   if (!passage || selectedVerses.value.length === 0) return;
 
   const selectedKeys = new Set(selectedVerses.value.map(verseKey));
-  const remainingVerses = passage.verses.filter((verse) => selectedKeys.has(verseKey(verse)));
+  const remainingVerses = passage.verses.filter((verse) => !selectedKeys.has(verseKey(verse)));
   searchResult.value = { ...passage, verses: remainingVerses };
-
-  if (!selectedVerse.value || !selectedKeys.has(verseKey(selectedVerse.value))) {
-    selectedVerse.value = remainingVerses[0] ?? null;
-  }
+  selectedVerses.value = [];
+  selectedVerse.value = remainingVerses[0] ?? null;
 }
 
 function moveResultSelection(direction: -1 | 1): void {
@@ -1441,10 +1436,10 @@ onMounted(() => {
 }
 
 .results-heading {
-  display: flex;
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, auto);
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -1463,7 +1458,7 @@ onMounted(() => {
 
 .active-version-summary {
   display: flex;
-  min-width: 130px;
+  min-width: 0;
   align-items: flex-end;
   flex-direction: column;
   text-align: right;
@@ -1487,7 +1482,7 @@ onMounted(() => {
   display: flex;
   min-height: 28px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 9px;
