@@ -140,7 +140,7 @@
               :format="liveFrame.documentFormat"
               :page-index="liveFrame.pageIndex ?? 0"
             />
-            <FittedTechnicalText v-else :text="liveFrame.text" :min-size="10" :max-size="26" />
+            <FittedTechnicalText v-else :text="liveDisplayText" :min-size="10" :max-size="26" />
             <span v-if="liveFrame" class="technical-selection">
               <q-icon name="check_circle" />
               {{ liveFrame.label }} · Seleccionado
@@ -167,7 +167,7 @@
           >
             <span class="position">{{ frameIndex + 1 }}</span>
             <span class="frame-details">
-              <strong>{{ frame.label }}</strong>
+              <strong>{{ displayFrameLabel(frame) }}</strong>
               <small>{{ frame.text || mediaFrameLabel(frame.mediaType) }}</small>
             </span>
             <DocumentThumbnail
@@ -197,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import AudioVisualizer from './AudioVisualizer.vue';
 import FittedTechnicalText from './FittedTechnicalText.vue';
@@ -215,6 +215,18 @@ const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(prese
 const { audioVisualizer, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
 const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame } = presentationStore;
+
+const liveDisplayText = computed(() => {
+  if (!liveFrame.value) return '';
+  if (liveItem.value?.type !== 'bible') return liveFrame.value.text;
+  const verseNumber = liveFrame.value.label.match(/(\d+:\d+)$/)?.[1] ?? liveFrame.value.label;
+  return `${verseNumber}. ${liveFrame.value.text}`;
+});
+
+function displayFrameLabel(frame: PresentationFrame): string {
+  if (liveItem.value?.type !== 'bible') return frame.label;
+  return frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label;
+}
 
 const panelElement = ref<HTMLElement | null>(null);
 const seekPosition = ref(0);
