@@ -425,6 +425,21 @@ async function handleRemoteRequest(request: RemoteBridgeRequest): Promise<void> 
         projectItem(item, frameIndex);
       }
       data = state();
+    } else if (request.action === 'service-item') {
+      const module = stringPayload(request.payload.module) as RemoteModule;
+      const item = await presentationItem(
+        module,
+        stringPayload(request.payload.itemId),
+        stringPayload(request.payload.groupReference),
+        Array.isArray(request.payload.selectedFrameIndexes)
+          ? request.payload.selectedFrameIndexes.filter(
+              (index): index is number => typeof index === 'number',
+            )
+          : undefined,
+      );
+      const added = presentationStore.addToService(item);
+      if (!added) presentationStore.updateServiceItem(item);
+      data = state();
     } else if (request.action === 'project-preview') {
       if (!previewItem.value)
         throw new Error('Primero selecciona un contenido para previsualizar.');

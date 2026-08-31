@@ -14,6 +14,7 @@ export type RemoteModule =
 export type RemoteRequestAction =
   | 'catalog'
   | 'preview'
+  | 'service-item'
   | 'move-preview'
   | 'set-preview-frame'
   | 'project-preview'
