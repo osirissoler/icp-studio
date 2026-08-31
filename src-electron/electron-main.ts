@@ -456,7 +456,7 @@ function requestRemoteRenderer(
     const timeout = setTimeout(() => {
       pendingRemoteRequests.delete(id);
       reject(new Error('ICP Studio tardó demasiado en responder.'));
-    }, 12_000);
+    }, 45_000);
     pendingRemoteRequests.set(id, { resolve, reject, timeout });
     mainWindow.webContents.send(REMOTE_CHANNELS.request, { id, action, payload });
   });

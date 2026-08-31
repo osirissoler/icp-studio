@@ -8,9 +8,9 @@ import { storeToRefs } from 'pinia';
 import { getPreferredBibleVersion } from '../services/bible-settings';
 import { inspectDocument } from '../services/document-reader';
 import { getSongs, initializeSongLibrary } from '../services/song-library';
-import type { BiblePassage, BibleVerse } from '../shared/bible';
+import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
 import type { DocumentFormat, MediaKind, MediaLibraryItem } from '../shared/media';
-import type { ServicePresentationItem } from '../shared/presentation';
+import type { PresentationFrame, ServicePresentationItem } from '../shared/presentation';
 import type {
   RemoteBridgeRequest,
   RemoteCatalogItem,
@@ -23,8 +23,16 @@ import type { Song, SongPartType } from '../shared/song';
 import { usePresentationStore } from '../stores/presentation-store';
 
 const presentationStore = usePresentationStore();
-const { previewFrame, previewFrameIndex, previewItem, serviceItems } =
-  storeToRefs(presentationStore);
+const {
+  liveFrame,
+  liveFrameIndex,
+  liveItem,
+  mediaPlayback,
+  previewFrame,
+  previewFrameIndex,
+  previewItem,
+  serviceItems,
+} = storeToRefs(presentationStore);
 let unsubscribeRemoteRequests: (() => void) | undefined;
 let songsInitialized = false;
 
@@ -33,7 +41,20 @@ function normalize(value: string): string {
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+function shortBookName(value: string): string {
+  return value.replace(/^San\s+/i, '');
+}
+
+function normalizeBibleReference(value: string): string {
+  return value
+    .trim()
+    .replace(/([\p{L}])(\d)/gu, '$1 $2')
+    .replace(/\s+/g, ' ');
 }
 
 function matches(value: string, query: string): boolean {
@@ -106,21 +127,52 @@ async function bibleCatalog(query: string): Promise<RemoteCatalogResponse> {
     ...(version ? { bibleVersion: { code: version.code, name: version.name } } : {}),
   };
 
-  if (!query.trim()) return response;
+  const reference = normalizeBibleReference(query);
+  if (!reference) return response;
 
-  const passage = await bibleApi.searchPassage({
-    reference: query,
-    ...(version?.code ? { versionCode: version.code } : {}),
-  });
-  response.items = passage.verses.map((verse, index) => ({
-    id: `${verse.versionCode}:${verse.bookCode}:${verse.chapter}:${verse.verseLabel}`,
-    module: 'bible',
-    title: verse.reference,
-    subtitle: verse.text,
-    badge: verse.versionCode,
-    groupReference: query,
-    frameIndex: index,
-  }));
+  if (!/\d/.test(reference)) {
+    const books: BibleBook[] = await bibleApi.getBooks({
+      ...(version?.code ? { versionCode: version.code } : {}),
+    });
+    const term = normalize(reference);
+    response.items = books
+      .filter((book) =>
+        [book.displayName, shortBookName(book.displayName), book.abbreviation].some((value) =>
+          normalize(value).includes(term),
+        ),
+      )
+      .slice(0, 12)
+      .map((book) => {
+        const name = shortBookName(book.displayName);
+        return {
+          id: `book:${book.code}`,
+          module: 'bible',
+          title: name,
+          subtitle: 'Selecciona el libro y completa el capítulo y los versículos.',
+          badge: version?.code ?? '',
+          suggestionQuery: `${name} `,
+        };
+      });
+    return response;
+  }
+
+  try {
+    const passage = await bibleApi.searchPassage({
+      reference,
+      ...(version?.code ? { versionCode: version.code } : {}),
+    });
+    response.items = passage.verses.map((verse, index) => ({
+      id: `${verse.versionCode}:${verse.bookCode}:${verse.chapter}:${verse.verseLabel}`,
+      module: 'bible',
+      title: verse.reference,
+      subtitle: verse.text,
+      badge: version?.name ?? verse.versionCode,
+      groupReference: reference,
+      frameIndex: index,
+    }));
+  } catch {
+    response.items = [];
+  }
   return response;
 }
 
@@ -176,7 +228,7 @@ function bibleTitle(passage: BiblePassage): string {
   return `${passage.bookName} ${passage.chapter}:${range}`;
 }
 
-async function biblePreview(reference: string, frameIndex: number): Promise<void> {
+async function bibleItem(reference: string): Promise<ServicePresentationItem> {
   const bibleApi = window.icpStudio?.bible;
   if (!bibleApi) throw new Error('La Biblia no está disponible.');
   const versions = await bibleApi.getVersions();
@@ -186,27 +238,24 @@ async function biblePreview(reference: string, frameIndex: number): Promise<void
     ...(versionCode ? { versionCode } : {}),
   });
   const title = bibleTitle(passage);
-  presentationStore.setPreviewItem(
-    {
-      id: `remote-bible-${passage.versionCode}-${reference}`,
-      sourceId: `remote:${passage.versionCode}:${reference}`,
-      type: 'bible',
-      title,
-      footer: title,
-      frames: passage.verses.map((verse) => ({
-        id: verseKey(verse),
-        label: verse.reference,
-        text: verse.text,
-      })),
-    },
-    frameIndex,
-  );
+  return {
+    id: `remote-bible-${passage.versionCode}-${reference}`,
+    sourceId: `remote:${passage.versionCode}:${reference}`,
+    type: 'bible',
+    title,
+    footer: title,
+    frames: passage.verses.map((verse) => ({
+      id: verseKey(verse),
+      label: verse.reference,
+      text: verse.text,
+    })),
+  };
 }
 
-async function songPreview(songId: string): Promise<void> {
+async function songItem(songId: string): Promise<ServicePresentationItem> {
   const song = (await songs()).find((item) => item.id === songId);
   if (!song) throw new Error('No se encontró la alabanza seleccionada.');
-  presentationStore.setPreviewItem({
+  return {
     id: `remote-song-${song.id}`,
     sourceId: song.id,
     type: 'song',
@@ -217,14 +266,14 @@ async function songPreview(songId: string): Promise<void> {
       label: `${index + 1} · ${partLabel(part.type)}`,
       text: part.content,
     })),
-  });
+  };
 }
 
 function viewerFormat(item: MediaLibraryItem): DocumentFormat {
   return item.renderFormat ?? item.documentFormat ?? 'pdf';
 }
 
-async function mediaPreview(module: RemoteModule, itemId: string): Promise<void> {
+async function mediaItem(module: RemoteModule, itemId: string): Promise<ServicePresentationItem> {
   const kind = mediaKind(module);
   if (!kind) throw new Error('Módulo remoto no compatible.');
   const item = ((await window.icpStudio?.media.list(kind)) ?? []).find(
@@ -232,12 +281,11 @@ async function mediaPreview(module: RemoteModule, itemId: string): Promise<void>
   );
   if (!item) throw new Error('No se encontró el archivo seleccionado.');
 
-  let previewItem: ServicePresentationItem;
   if (item.kind === 'document') {
     if (!item.documentFormat) throw new Error('Formato de documento no reconocido.');
     const format = viewerFormat(item);
     const info = await inspectDocument(item.url, format);
-    previewItem = {
+    return {
       id: `remote-document-${item.id}`,
       sourceId: item.id,
       type: item.documentFormat === 'presentation' ? 'presentation' : 'document',
@@ -254,26 +302,42 @@ async function mediaPreview(module: RemoteModule, itemId: string): Promise<void>
         pageIndex: index,
       })),
     };
-  } else {
-    previewItem = {
-      id: `remote-${item.kind}-${item.id}`,
-      sourceId: item.id,
-      type: item.kind,
-      title: item.name,
-      footer: item.name,
-      frames: [
-        {
-          id: item.id,
-          label: mediaBadge(item),
-          text: '',
-          mediaType: item.kind,
-          mediaUrl: item.url,
-          mimeType: item.mimeType,
-        },
-      ],
-    };
   }
-  presentationStore.setPreviewItem(previewItem);
+
+  return {
+    id: `remote-${item.kind}-${item.id}`,
+    sourceId: item.id,
+    type: item.kind,
+    title: item.name,
+    footer: item.name,
+    frames: [
+      {
+        id: item.id,
+        label: mediaBadge(item),
+        text: '',
+        mediaType: item.kind,
+        mediaUrl: item.url,
+        mimeType: item.mimeType,
+      },
+    ],
+  };
+}
+
+async function presentationItem(
+  module: RemoteModule,
+  itemId: string,
+  groupReference: string,
+): Promise<ServicePresentationItem> {
+  if (module === 'bible') return bibleItem(groupReference);
+  if (module === 'song') return songItem(itemId);
+  return mediaItem(module, itemId);
+}
+
+function projectItem(item: ServicePresentationItem, frameIndex = 0): void {
+  const added = presentationStore.addToService(item);
+  if (!added) presentationStore.updateServiceItem(item);
+  presentationStore.activateServiceItem(item.id);
+  if (frameIndex > 0) presentationStore.setLiveFrame(frameIndex);
 }
 
 function moduleFromItem(item: ServicePresentationItem): RemoteModule {
@@ -283,8 +347,7 @@ function moduleFromItem(item: ServicePresentationItem): RemoteModule {
   return 'document';
 }
 
-function remoteFrame(): RemotePreviewFrame | null {
-  const frame = previewFrame.value;
+function remoteFrame(frame: PresentationFrame | null | undefined): RemotePreviewFrame | null {
   if (!frame) return null;
   return {
     label: frame.label,
@@ -296,24 +359,35 @@ function remoteFrame(): RemotePreviewFrame | null {
   };
 }
 
-function state(): RemoteControlState {
-  const item = previewItem.value;
-  const frame = remoteFrame();
+function remoteItemState(
+  item: ServicePresentationItem | null,
+  frame: PresentationFrame | null | undefined,
+  frameIndex: number,
+) {
+  const serializedFrame = remoteFrame(frame);
+  if (!item || !serializedFrame) return null;
   return {
-    preview:
-      item && frame
-        ? {
-            itemId: item.id,
-            module: moduleFromItem(item),
-            title: item.title,
-            footer: item.footer,
-            frameIndex: previewFrameIndex.value,
-            frameCount: item.frames.length,
-            frame,
-            frames: item.frames.map((itemFrame) => ({ label: itemFrame.label })),
-          }
-        : null,
+    itemId: item.id,
+    module: moduleFromItem(item),
+    title: item.title,
+    footer: item.footer,
+    frameIndex,
+    frameCount: item.frames.length,
+    frame: serializedFrame,
+    frames: item.frames.map((itemFrame) => ({ label: itemFrame.label })),
+  };
+}
+
+function state(): RemoteControlState {
+  return {
+    preview: remoteItemState(previewItem.value, previewFrame.value, previewFrameIndex.value),
+    live: remoteItemState(liveItem.value, liveFrame.value, liveFrameIndex.value),
     serviceCount: serviceItems.value.length,
+    mediaPlayback: {
+      isPlaying: mediaPlayback.value.isPlaying,
+      time: mediaPlayback.value.time,
+      duration: mediaPlayback.value.duration,
+    },
   };
 }
 
@@ -325,25 +399,47 @@ async function handleRemoteRequest(request: RemoteBridgeRequest): Promise<void> 
         stringPayload(request.payload.module) as RemoteModule,
         stringPayload(request.payload.query),
       );
-    } else if (request.action === 'preview') {
+    } else if (request.action === 'preview' || request.action === 'project-item') {
       const module = stringPayload(request.payload.module) as RemoteModule;
+      const frameIndex = Number(request.payload.frameIndex ?? 0);
       const itemId = stringPayload(request.payload.itemId);
-      if (module === 'bible') {
-        await biblePreview(
-          stringPayload(request.payload.groupReference),
-          Number(request.payload.frameIndex ?? 0),
-        );
-      } else if (module === 'song') {
-        await songPreview(itemId);
+      const item = await presentationItem(
+        module,
+        itemId,
+        stringPayload(request.payload.groupReference),
+      );
+      if (request.action === 'preview') {
+        presentationStore.setPreviewItem(item, frameIndex);
       } else {
-        await mediaPreview(module, itemId);
+        projectItem(item, frameIndex);
       }
+      data = state();
+    } else if (request.action === 'project-preview') {
+      if (!previewItem.value)
+        throw new Error('Primero selecciona un contenido para previsualizar.');
+      projectItem(previewItem.value, previewFrameIndex.value);
       data = state();
     } else if (request.action === 'move-preview') {
       presentationStore.movePreviewFrame(Number(request.payload.direction) < 0 ? -1 : 1);
       data = state();
     } else if (request.action === 'set-preview-frame') {
       presentationStore.setPreviewFrame(Number(request.payload.frameIndex));
+      data = state();
+    } else if (request.action === 'move-live') {
+      presentationStore.moveLiveFrame(Number(request.payload.direction) < 0 ? -1 : 1);
+      data = state();
+    } else if (request.action === 'set-live-frame') {
+      presentationStore.setLiveFrame(Number(request.payload.frameIndex));
+      data = state();
+    } else if (request.action === 'control-media') {
+      const action = stringPayload(request.payload.action);
+      if (action !== 'play' && action !== 'pause' && action !== 'seek') {
+        throw new Error('Control de reproducción inválido.');
+      }
+      presentationStore.controlLiveMedia({
+        action,
+        ...(typeof request.payload.time === 'number' ? { time: request.payload.time } : {}),
+      });
       data = state();
     } else {
       data = state();
@@ -362,7 +458,11 @@ function publishState(): void {
   window.icpStudio?.remote.publishState(state());
 }
 
-watch([previewItem, previewFrameIndex, serviceItems], publishState, { deep: true });
+watch(
+  [previewItem, previewFrameIndex, liveItem, liveFrameIndex, mediaPlayback, serviceItems],
+  publishState,
+  { deep: true },
+);
 
 onMounted(() => {
   unsubscribeRemoteRequests = window.icpStudio?.remote.onRequest((request) => {

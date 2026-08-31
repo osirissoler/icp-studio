@@ -232,28 +232,30 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
-  if (
-    (url.pathname === '/api/preview' ||
-      url.pathname === '/api/preview/move' ||
-      url.pathname === '/api/preview/frame') &&
-    request.method === 'POST'
-  ) {
+  const postActions: Record<string, RemoteRequestAction> = {
+    '/api/preview': 'preview',
+    '/api/preview/move': 'move-preview',
+    '/api/preview/frame': 'set-preview-frame',
+    '/api/live': 'project-preview',
+    '/api/live/item': 'project-item',
+    '/api/live/move': 'move-live',
+    '/api/live/frame': 'set-live-frame',
+    '/api/live/media': 'control-media',
+  };
+  const postAction = postActions[url.pathname];
+
+  if (postAction && request.method === 'POST') {
     if (!actionHandler) {
       sendJson(response, 503, { error: 'ICP Studio todavía no está listo.' });
       return;
     }
     try {
       const payload = await readJsonBody(request);
-      const action: RemoteRequestAction = url.pathname.endsWith('/move')
-        ? 'move-preview'
-        : url.pathname.endsWith('/frame')
-          ? 'set-preview-frame'
-          : 'preview';
-      const data = await actionHandler(action, payload);
+      const data = await actionHandler(postAction, payload);
       sendJson(response, 200, data);
     } catch (error) {
       sendJson(response, 400, {
-        error: error instanceof Error ? error.message : 'No se pudo cambiar la previsualización.',
+        error: error instanceof Error ? error.message : 'No se pudo completar el control remoto.',
       });
     }
     return;

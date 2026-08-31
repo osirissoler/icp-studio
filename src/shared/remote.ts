@@ -12,7 +12,16 @@ export type RemoteModule =
   'song' | 'audio' | 'bible' | 'image' | 'video' | 'document' | 'activity' | 'tool';
 
 export type RemoteRequestAction =
-  'catalog' | 'preview' | 'move-preview' | 'set-preview-frame' | 'state';
+  | 'catalog'
+  | 'preview'
+  | 'move-preview'
+  | 'set-preview-frame'
+  | 'project-preview'
+  | 'project-item'
+  | 'move-live'
+  | 'set-live-frame'
+  | 'control-media'
+  | 'state';
 
 export interface RemoteBridgeRequest {
   id: string;
@@ -36,6 +45,7 @@ export interface RemoteCatalogItem {
   mediaPath?: string;
   groupReference?: string;
   frameIndex?: number;
+  suggestionQuery?: string;
 }
 
 export interface RemoteCatalogResponse {
@@ -72,7 +82,13 @@ export interface RemotePreviewState {
 
 export interface RemoteControlState {
   preview: RemotePreviewState | null;
+  live: RemotePreviewState | null;
   serviceCount: number;
+  mediaPlayback: {
+    isPlaying: boolean;
+    time: number;
+    duration: number;
+  };
 }
 
 export interface RemoteServerStatus {
