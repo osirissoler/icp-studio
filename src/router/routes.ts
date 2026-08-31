@@ -65,7 +65,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'actividades',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ActivitiesPage.vue'),
         meta: {
           title: 'Actividades',
           description: 'Organiza dinámicas y actividades interactivas para la congregación.',
@@ -74,7 +74,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'herramientas',
-        component: () => import('../pages/ModulePlaceholderPage.vue'),
+        component: () => import('../pages/ToolsPage.vue'),
         meta: {
           title: 'Herramientas',
           description: 'Accede a utilidades adicionales para preparar y presentar contenido.',
