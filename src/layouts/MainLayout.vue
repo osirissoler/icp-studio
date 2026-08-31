@@ -1,8 +1,9 @@
 <template>
-  <q-layout view="hHh Lpr lFf" class="icp-layout">
+  <q-layout :view="layoutView" class="icp-layout">
     <q-header class="icp-header">
       <q-toolbar class="icp-toolbar">
         <q-btn
+          v-if="menuSide === 'left'"
           flat
           round
           dense
@@ -90,29 +91,48 @@
           class="q-ml-sm"
           @click="openSettings"
         />
+
+        <q-btn
+          v-if="menuSide === 'right'"
+          flat
+          round
+          dense
+          icon="menu"
+          aria-label="Mostrar u ocultar menú"
+          class="q-ml-sm"
+          @click="toggleMenu"
+        />
       </q-toolbar>
     </q-header>
 
     <q-drawer
-      v-model="leftDrawerOpen"
+      :key="menuSide"
+      v-model="drawerOpen"
       show-if-above
       bordered
       dark
+      :side="menuSide"
       :width="238"
       :mini-width="72"
-      :mini="miniState"
+      :mini="menuCollapsed"
       class="icp-drawer"
     >
       <q-scroll-area class="fit">
         <q-list padding class="navigation-list">
-          <template v-for="item in mainNavigation" :key="item.to">
+          <template v-for="item in orderedNavigationItems" :key="item.id">
             <q-item
               clickable
               v-ripple
+              draggable="true"
               :to="item.to"
-              :exact="item.to === '/'"
+              exact
               active-class="navigation-item--active"
               class="navigation-item"
+              :class="{ 'navigation-item--dragging': draggingNavigationId === item.id }"
+              @dragstart="startNavigationDrag($event, item.id)"
+              @dragend="stopNavigationDrag"
+              @dragover.prevent
+              @drop.prevent="dropNavigationItem(item.id)"
             >
               <q-item-section avatar>
                 <q-icon :name="item.icon" size="23px" />
@@ -122,10 +142,14 @@
                 <q-item-label>{{ item.label }}</q-item-label>
               </q-item-section>
 
+              <q-item-section v-if="!menuCollapsed" side class="navigation-drag-handle">
+                <q-icon name="drag_indicator" size="17px" />
+              </q-item-section>
+
               <q-tooltip
-                v-if="miniState"
-                anchor="center right"
-                self="center left"
+                v-if="menuCollapsed"
+                :anchor="menuTooltipAnchor"
+                :self="menuTooltipSelf"
                 :offset="[12, 0]"
               >
                 {{ item.label }}
@@ -144,7 +168,12 @@
               <q-item-label>Configuración</q-item-label>
             </q-item-section>
 
-            <q-tooltip v-if="miniState" anchor="center right" self="center left" :offset="[12, 0]">
+            <q-tooltip
+              v-if="menuCollapsed"
+              :anchor="menuTooltipAnchor"
+              :self="menuTooltipSelf"
+              :offset="[12, 0]"
+            >
               Configuración
             </q-tooltip>
           </q-item>
@@ -183,35 +212,34 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import type { DisplayInfo } from '../shared/display';
-
-interface NavigationItem {
-  label: string;
-  icon: string;
-  to: string;
-}
+import type { NavigationItemId } from '../shared/navigation';
+import { useNavigationSettingsStore } from '../stores/navigation-settings';
 
 const $q = useQuasar();
-const leftDrawerOpen = ref(true);
-const miniState = ref(true);
+const navigationSettings = useNavigationSettingsStore();
+const {
+  side: menuSide,
+  collapsed: menuCollapsed,
+  orderedItems: orderedNavigationItems,
+} = storeToRefs(navigationSettings);
+const drawerOpen = ref(true);
 const displays = ref<DisplayInfo[]>([]);
 const settingsDialogOpen = ref(false);
+const draggingNavigationId = ref<NavigationItemId | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
 
-const mainNavigation: NavigationItem[] = [
-  { label: 'Alabanzas', icon: 'music_note', to: '/alabanzas' },
-  { label: 'Canciones MP3', icon: 'audio_file', to: '/audio' },
-  { label: 'Biblia', icon: 'menu_book', to: '/biblia' },
-  { label: 'Imágenes', icon: 'image', to: '/imagenes' },
-  { label: 'Videos', icon: 'movie', to: '/videos' },
-  { label: 'Documentos', icon: 'description', to: '/documentos' },
-  { label: 'Actividades', icon: 'extension', to: '/actividades' },
-  { label: 'Herramientas', icon: 'construction', to: '/herramientas' },
-  { label: 'Biblioteca', icon: 'local_library', to: '/biblioteca' },
-];
+const layoutView = computed(() => (menuSide.value === 'right' ? 'hHh lpR lFf' : 'hHh Lpr lFf'));
+const menuTooltipAnchor = computed(() =>
+  menuSide.value === 'right' ? 'center left' : 'center right',
+);
+const menuTooltipSelf = computed(() =>
+  menuSide.value === 'right' ? 'center right' : 'center left',
+);
 
 const currentDate = computed(() => {
   const formattedDate = new Intl.DateTimeFormat('es-DO', {
@@ -240,11 +268,29 @@ onBeforeUnmount(() => {
 
 function toggleMenu() {
   if ($q.screen.lt.md) {
-    leftDrawerOpen.value = !leftDrawerOpen.value;
+    drawerOpen.value = !drawerOpen.value;
     return;
   }
 
-  miniState.value = !miniState.value;
+  navigationSettings.toggleCollapsed();
+}
+
+function startNavigationDrag(event: DragEvent, itemId: NavigationItemId): void {
+  draggingNavigationId.value = itemId;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', itemId);
+  }
+}
+
+function stopNavigationDrag(): void {
+  draggingNavigationId.value = null;
+}
+
+function dropNavigationItem(targetId: NavigationItemId): void {
+  const sourceId = draggingNavigationId.value;
+  if (sourceId) navigationSettings.moveItem(sourceId, targetId);
+  stopNavigationDrag();
 }
 </script>
 
@@ -399,6 +445,15 @@ function toggleMenu() {
 .navigation-item--active {
   color: #60a5fa;
   background: #132c49;
+}
+
+.navigation-item--dragging {
+  opacity: 0.42;
+}
+
+.navigation-drag-handle {
+  color: #526176;
+  cursor: grab;
 }
 
 .navigation-separator {

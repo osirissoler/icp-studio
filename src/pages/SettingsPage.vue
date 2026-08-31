@@ -28,37 +28,97 @@
           </div>
         </div>
 
-        <q-card flat class="settings-card general-panels-card">
-          <q-list>
-            <q-item v-for="panel in panelOptions" :key="panel.id">
-              <q-item-section avatar
-                ><q-icon :name="panel.icon" color="blue-grey-4"
-              /></q-item-section>
-              <q-item-section>
-                <q-item-label>{{ panel.label }}</q-item-label>
-                <q-item-label caption>{{ panel.description }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-toggle
-                  :model-value="workspaceSettings.visiblePanels[panel.id]"
-                  color="primary"
-                  @update:model-value="workspaceSettings.setPanelVisible(panel.id, Boolean($event))"
-                />
-              </q-item-section>
-            </q-item>
-          </q-list>
-          <q-separator dark />
-          <q-card-actions align="right">
-            <q-btn
-              flat
-              no-caps
-              color="primary"
-              icon="restart_alt"
-              label="Restaurar distribución"
-              @click="workspaceSettings.resetWorkspace"
-            />
-          </q-card-actions>
-        </q-card>
+        <div class="general-settings-layout">
+          <q-card flat class="settings-card general-panels-card">
+            <q-list>
+              <q-item v-for="panel in panelOptions" :key="panel.id">
+                <q-item-section avatar
+                  ><q-icon :name="panel.icon" color="blue-grey-4"
+                /></q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ panel.label }}</q-item-label>
+                  <q-item-label caption>{{ panel.description }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-toggle
+                    :model-value="workspaceSettings.visiblePanels[panel.id]"
+                    color="primary"
+                    @update:model-value="
+                      workspaceSettings.setPanelVisible(panel.id, Boolean($event))
+                    "
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <q-separator dark />
+            <q-card-actions align="right">
+              <q-btn
+                flat
+                no-caps
+                color="primary"
+                icon="restart_alt"
+                label="Restaurar distribución"
+                @click="workspaceSettings.resetWorkspace"
+              />
+            </q-card-actions>
+          </q-card>
+
+          <q-card flat class="settings-card navigation-settings-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Menú principal</strong>
+                <small>Elige el lado y arrastra los módulos para ordenarlos.</small>
+              </div>
+              <q-icon name="view_sidebar" size="23px" color="light-blue-4" />
+            </q-card-section>
+            <q-separator dark />
+
+            <q-card-section class="menu-side-setting">
+              <span>Posición del menú</span>
+              <q-btn-toggle
+                :model-value="menuSide"
+                no-caps
+                unelevated
+                toggle-color="primary"
+                color="blue-grey-9"
+                text-color="blue-grey-3"
+                :options="menuSideOptions"
+                @update:model-value="updateMenuSide"
+              />
+            </q-card-section>
+
+            <div class="navigation-order-list">
+              <div
+                v-for="item in orderedNavigationItems"
+                :key="item.id"
+                class="navigation-order-item"
+                :class="{ 'navigation-order-item--dragging': draggingNavigationId === item.id }"
+                draggable="true"
+                @dragstart="startNavigationDrag($event, item.id)"
+                @dragend="stopNavigationDrag"
+                @dragover.prevent
+                @drop.prevent="dropNavigationItem(item.id)"
+              >
+                <q-icon name="drag_indicator" class="navigation-order-handle" />
+                <q-icon :name="item.icon" color="blue-grey-4" />
+                <span>{{ item.label }}</span>
+              </div>
+            </div>
+
+            <q-separator dark />
+            <q-card-actions align="right">
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="blue-grey-4"
+                icon="restart_alt"
+                label="Restaurar menú"
+                @click="navigationSettings.resetNavigation"
+              />
+            </q-card-actions>
+          </q-card>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'screens'" class="settings-section">
@@ -593,6 +653,8 @@ import type {
   ThemeVerticalAlign,
 } from '../shared/theme';
 import type { WorkspacePanelId } from '../shared/workspace';
+import type { MenuSide, NavigationItemId } from '../shared/navigation';
+import { useNavigationSettingsStore } from '../stores/navigation-settings';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
@@ -684,7 +746,14 @@ const panelOptions: PanelOption[] = [
   },
 ];
 
+const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> = [
+  { label: 'Izquierda', value: 'left', icon: 'dock_to_left' },
+  { label: 'Derecha', value: 'right', icon: 'dock_to_right' },
+];
+
 const workspaceSettings = useWorkspaceSettingsStore();
+const navigationSettings = useNavigationSettingsStore();
+const { side: menuSide, orderedItems: orderedNavigationItems } = storeToRefs(navigationSettings);
 const projectionSettings = useProjectionSettingsStore();
 const {
   themes,
@@ -696,6 +765,7 @@ const {
   contentLayoutStyle,
 } = storeToRefs(projectionSettings);
 const activeSection = ref<SettingsSectionId>('general');
+const draggingNavigationId = ref<NavigationItemId | null>(null);
 const displays = ref<DisplayInfo[]>([]);
 const bibleVersions = ref<BibleVersion[]>([]);
 const preferredBibleVersionCode = ref<string | null>(null);
@@ -829,6 +899,28 @@ function resetProjectionThemes(): void {
   if (!window.confirm('¿Quieres restaurar los temas incluidos y eliminar los personalizados?'))
     return;
   projectionSettings.resetThemes();
+}
+
+function updateMenuSide(value: MenuSide): void {
+  navigationSettings.setSide(value);
+}
+
+function startNavigationDrag(event: DragEvent, itemId: NavigationItemId): void {
+  draggingNavigationId.value = itemId;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', itemId);
+  }
+}
+
+function stopNavigationDrag(): void {
+  draggingNavigationId.value = null;
+}
+
+function dropNavigationItem(targetId: NavigationItemId): void {
+  const sourceId = draggingNavigationId.value;
+  if (sourceId) navigationSettings.moveItem(sourceId, targetId);
+  stopNavigationDrag();
 }
 
 function selectBibleVersion(versionCode: string): void {
@@ -1015,9 +1107,63 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
   border: 1px solid #263448;
   border-radius: 10px;
 }
-.general-panels-card {
-  width: clamp(480px, 46%, 720px);
-  max-width: 100%;
+.general-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(440px, 0.9fr) minmax(380px, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.general-panels-card,
+.navigation-settings-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.menu-side-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #a9b6c6;
+  font-size: 12px;
+}
+
+.navigation-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 12px 12px;
+}
+
+.navigation-order-item {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  color: #c7d2df;
+  background: #0d1723;
+  border: 1px solid #293a50;
+  border-radius: 7px;
+  cursor: grab;
+  transition:
+    opacity 130ms ease,
+    border-color 130ms ease,
+    transform 130ms ease;
+}
+
+.navigation-order-item:hover {
+  border-color: #45678e;
+  transform: translateY(-1px);
+}
+
+.navigation-order-item--dragging {
+  opacity: 0.4;
+}
+
+.navigation-order-handle {
+  color: #5c6c80;
 }
 .card-header {
   display: flex;
@@ -1301,8 +1447,8 @@ code {
     grid-column: auto;
   }
 
-  .general-panels-card {
-    width: 100%;
+  .general-settings-layout {
+    grid-template-columns: 1fr;
   }
 }
 </style>
