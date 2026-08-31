@@ -91,7 +91,11 @@
             <span>Cargando biblioteca local...</span>
           </div>
 
-          <div v-else-if="filteredItems.length" class="media-grid">
+          <div
+            v-else-if="filteredItems.length"
+            class="media-grid"
+            :class="`media-grid--${libraryViewMode}`"
+          >
             <div
               v-for="item in filteredItems"
               :key="item.id"
@@ -125,7 +129,10 @@
                 <q-icon v-if="kind === 'video'" name="play_circle" class="video-mark" />
               </span>
               <span class="media-card-footer">
-                <span class="media-name">{{ item.name }}</span>
+                <span class="media-copy">
+                  <span class="media-name">{{ item.name }}</span>
+                  <small class="media-details">{{ mediaDetails(item) }}</small>
+                </span>
                 <q-btn
                   v-if="kind === 'image'"
                   flat
@@ -251,10 +258,12 @@ import ModuleWorkspace from './ModuleWorkspace.vue';
 import SelectionActionBar from './SelectionActionBar.vue';
 import type { MediaKind, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
 import { showAppNotification } from '../services/app-notification';
 
 const props = defineProps<{ kind: MediaKind }>();
 const presentationStore = usePresentationStore();
+const libraryViewSettings = useLibraryViewSettingsStore();
 
 const items = ref<MediaLibraryItem[]>([]);
 const selectedItem = ref<MediaLibraryItem | null>(null);
@@ -275,6 +284,7 @@ const moduleTitle = computed(() => {
   if (props.kind === 'video') return 'Videos';
   return 'Canciones MP3';
 });
+const libraryViewMode = computed(() => libraryViewSettings.views[props.kind]);
 const moduleIcon = computed(() => {
   if (props.kind === 'image') return 'image';
   if (props.kind === 'video') return 'movie';
@@ -319,6 +329,17 @@ function normalize(value: string): string {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .trim();
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function mediaDetails(item: MediaLibraryItem): string {
+  const type =
+    props.kind === 'image' ? 'Imagen' : props.kind === 'video' ? 'Video' : 'Archivo de audio';
+  return `${type} · ${formatBytes(item.size)}`;
 }
 
 async function loadItems(): Promise<void> {
@@ -629,6 +650,38 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+.media-grid--list,
+.media-grid--details {
+  grid-template-columns: 1fr;
+}
+
+.media-grid--list .media-card,
+.media-grid--details .media-card {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 9px;
+}
+
+.media-grid--list .media-thumbnail,
+.media-grid--details .media-thumbnail {
+  width: 72px;
+}
+
+.media-grid--list .media-card-footer,
+.media-grid--details .media-card-footer {
+  margin-top: 0;
+}
+
+.media-grid--details .media-card {
+  grid-template-columns: 96px minmax(0, 1fr);
+  padding: 7px;
+}
+
+.media-grid--details .media-thumbnail {
+  width: 96px;
+}
+
 .media-card {
   min-width: 0;
   padding: 5px;
@@ -717,6 +770,14 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+.media-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .media-name {
   display: block;
   min-width: 0;
@@ -725,6 +786,26 @@ onMounted(() => {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.media-details {
+  display: none;
+  color: #78899e;
+  font-size: 9px;
+}
+
+.media-grid--list .media-details,
+.media-grid--details .media-details {
+  display: block;
+}
+
+.media-grid--list .media-name,
+.media-grid--details .media-name {
+  font-size: 11px;
+}
+
+.media-grid--details .media-name {
+  font-size: 12px;
 }
 
 .rename-card {

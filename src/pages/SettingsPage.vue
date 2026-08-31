@@ -223,6 +223,54 @@
           </q-card>
         </div>
 
+        <q-card flat class="settings-card library-view-settings-card">
+          <q-card-section class="card-header">
+            <div>
+              <strong>Vista de las bibliotecas</strong>
+              <small>Elige cómo se organiza cada módulo en la computadora y el celular.</small>
+            </div>
+            <q-icon name="view_module" size="23px" color="light-blue-4" />
+          </q-card-section>
+          <q-separator dark />
+          <div class="library-view-settings-list">
+            <div v-for="module in libraryViewModules" :key="module.id" class="library-view-row">
+              <span class="library-view-module">
+                <q-icon :name="module.icon" />
+                <span>{{ module.label }}</span>
+              </span>
+              <div class="library-view-options" role="radiogroup" :aria-label="module.label">
+                <button
+                  v-for="option in libraryViewOptions"
+                  :key="option.value"
+                  type="button"
+                  role="radio"
+                  class="library-view-option"
+                  :class="{
+                    'library-view-option--active': libraryViews[module.id] === option.value,
+                  }"
+                  :aria-checked="libraryViews[module.id] === option.value"
+                  @click="libraryViewSettings.setView(module.id, option.value)"
+                >
+                  <q-icon :name="option.icon" />
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <q-separator dark />
+          <q-card-actions align="right">
+            <q-btn
+              flat
+              dense
+              no-caps
+              color="blue-grey-4"
+              icon="restart_alt"
+              label="Restaurar vistas"
+              @click="resetLibraryViews"
+            />
+          </q-card-actions>
+        </q-card>
+
         <div class="general-subsection-heading">
           <q-icon name="view_list" />
           <div>
@@ -964,6 +1012,7 @@ import {
 } from '../services/bible-settings';
 import type { BibleTransferResult, BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
+import type { LibraryViewMode, LibraryViewModule } from '../shared/library-view';
 import type { RemoteServerStatus } from '../shared/remote';
 import type {
   ActiveContentSettings,
@@ -976,6 +1025,7 @@ import type {
 import type { StackedColumnPosition, WorkspacePanelId } from '../shared/workspace';
 import type { MenuSide, NavigationItemId, ToolbarPosition } from '../shared/navigation';
 import { useNavigationSettingsStore } from '../stores/navigation-settings';
+import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
@@ -1095,8 +1145,32 @@ const stackedColumnOptions: Array<{
   { label: 'Última', value: 'end', previewIndex: 2 },
 ];
 
+const libraryViewModules: Array<{
+  id: LibraryViewModule;
+  label: string;
+  icon: string;
+}> = [
+  { id: 'song', label: 'Alabanzas', icon: 'music_note' },
+  { id: 'audio', label: 'Música', icon: 'audio_file' },
+  { id: 'image', label: 'Imágenes', icon: 'image' },
+  { id: 'video', label: 'Videos', icon: 'movie' },
+  { id: 'document', label: 'Documentos', icon: 'description' },
+];
+
+const libraryViewOptions: Array<{
+  label: string;
+  value: LibraryViewMode;
+  icon: string;
+}> = [
+  { label: 'Cuadrícula', value: 'grid', icon: 'grid_view' },
+  { label: 'Lista', value: 'list', icon: 'view_list' },
+  { label: 'Detalles', value: 'details', icon: 'view_agenda' },
+];
+
 const workspaceSettings = useWorkspaceSettingsStore();
 const navigationSettings = useNavigationSettingsStore();
+const libraryViewSettings = useLibraryViewSettingsStore();
+const { views: libraryViews } = storeToRefs(libraryViewSettings);
 const { stackedColumnPosition } = storeToRefs(workspaceSettings);
 const {
   side: menuSide,
@@ -1257,6 +1331,15 @@ function resetActiveContentSettings(): void {
     'La apariencia del contenido activo volvió a sus valores originales.',
     'positive',
     'restart_alt',
+  );
+}
+
+function resetLibraryViews(): void {
+  libraryViewSettings.resetViews();
+  showAppNotification(
+    'Las vistas de las bibliotecas fueron restauradas.',
+    'positive',
+    'view_module',
   );
 }
 
@@ -1604,6 +1687,68 @@ onBeforeUnmount(() => {
 .navigation-settings-card {
   width: 100%;
   min-width: 0;
+}
+
+.library-view-settings-card {
+  width: 100%;
+}
+
+.library-view-settings-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1px 16px;
+  padding: 8px 14px;
+}
+
+.library-view-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #202e40;
+}
+
+.library-view-module {
+  display: flex;
+  min-width: 112px;
+  align-items: center;
+  gap: 8px;
+  color: #c5d1df;
+  font-size: 11px;
+}
+
+.library-view-module > .q-icon {
+  color: #93c5fd;
+  font-size: 19px;
+}
+
+.library-view-options {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.library-view-option {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: #7f90a5;
+  background: #0d1723;
+  border: 1px solid #293b50;
+  border-radius: 7px;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.library-view-option:hover,
+.library-view-option--active {
+  color: #dbeafe;
+  background: #17314f;
+  border-color: #4384c4;
 }
 
 .workspace-setting-item {
@@ -2245,6 +2390,24 @@ code {
 
   .general-settings-layout {
     grid-template-columns: 1fr;
+  }
+
+  .library-view-settings-list {
+    grid-template-columns: 1fr;
+  }
+
+  .library-view-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .library-view-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .library-view-option {
+    justify-content: center;
   }
 }
 </style>

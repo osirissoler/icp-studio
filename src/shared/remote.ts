@@ -53,6 +53,7 @@ export interface RemoteCatalogResponse {
   module: RemoteModule;
   query: string;
   items: RemoteCatalogItem[];
+  viewMode?: LibraryViewMode;
   bibleVersion?: {
     code: string;
     name: string;
@@ -86,6 +87,7 @@ export interface RemoteControlState {
   preview: RemotePreviewState | null;
   live: RemotePreviewState | null;
   serviceCount: number;
+  activeContent?: ActiveContentSettings;
   mediaPlayback: {
     isPlaying: boolean;
     time: number;
@@ -101,3 +103,5 @@ export interface RemoteServerStatus {
   connectedClients: number;
   error: string | null;
 }
+import type { LibraryViewMode } from './library-view';
+import type { ActiveContentSettings } from './theme';

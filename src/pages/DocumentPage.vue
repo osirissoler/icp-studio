@@ -102,7 +102,11 @@
             <span>Cargando documentos...</span>
           </div>
 
-          <div v-else-if="filteredItems.length" class="document-list">
+          <div
+            v-else-if="filteredItems.length"
+            class="document-list"
+            :class="`document-list--${libraryViewMode}`"
+          >
             <div
               v-for="item in filteredItems"
               :key="item.id"
@@ -130,7 +134,7 @@
               </span>
               <span class="document-details">
                 <strong>{{ item.name }}</strong>
-                <small>{{ formatLabel(item) }}</small>
+                <small>{{ documentDetails(item) }}</small>
               </span>
             </div>
           </div>
@@ -250,9 +254,11 @@ import SelectionActionBar from '../components/SelectionActionBar.vue';
 import { inspectDocument, type DocumentInfo } from '../services/document-reader';
 import type { DocumentFormat, MediaImportProgress, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
 import { showAppNotification } from '../services/app-notification';
 
 const presentationStore = usePresentationStore();
+const libraryViewSettings = useLibraryViewSettingsStore();
 const items = ref<MediaLibraryItem[]>([]);
 const selectedItem = ref<MediaLibraryItem | null>(null);
 const selectedDocumentIds = ref(new Set<string>());
@@ -276,6 +282,7 @@ const filteredItems = computed(() => {
   const term = normalize(searchText.value);
   return term ? items.value.filter((item) => normalize(item.name).includes(term)) : items.value;
 });
+const libraryViewMode = computed(() => libraryViewSettings.views.document);
 
 const currentPageLabel = computed(() => pageLabels.value[previewPageIndex.value] ?? 'Página');
 const allFilteredDocumentsSelected = computed(
@@ -307,6 +314,10 @@ function formatLabel(item: MediaLibraryItem): string {
   if (item.documentFormat === 'pdf') return 'PDF';
   if (item.documentFormat === 'spreadsheet') return 'Hoja de cálculo';
   return 'PowerPoint';
+}
+
+function documentDetails(item: MediaLibraryItem): string {
+  return `${formatLabel(item)} · ${formatBytes(item.size)}`;
 }
 
 function viewerFormat(item: MediaLibraryItem): DocumentFormat {
@@ -637,6 +648,49 @@ onBeforeUnmount(() => {
   gap: 5px;
   margin-top: 10px;
   overflow-y: auto;
+}
+
+.document-list--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-content: start;
+  flex-direction: initial;
+  gap: 7px;
+}
+
+.document-list--grid .document-item {
+  min-height: 100px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  text-align: center;
+}
+
+.document-list--grid .document-icon {
+  width: 46px;
+  height: 52px;
+  flex-basis: 52px;
+  font-size: 26px;
+}
+
+.document-list--grid .document-details {
+  align-items: center;
+}
+
+.document-list--details .document-item {
+  min-height: 58px;
+  padding: 10px;
+}
+
+.document-list--details .document-icon {
+  width: 40px;
+  height: 44px;
+  flex-basis: 40px;
+}
+
+.document-list--details .document-details strong {
+  font-size: 12px;
 }
 
 .import-progress {

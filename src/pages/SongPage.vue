@@ -81,7 +81,11 @@
             </q-btn>
           </div>
 
-          <div v-if="filteredSongs.length" class="song-results">
+          <div
+            v-if="filteredSongs.length"
+            class="song-results"
+            :class="`song-results--${libraryViewMode}`"
+          >
             <button
               v-for="song in filteredSongs"
               :key="song.id"
@@ -295,6 +299,7 @@ import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import SelectionActionBar from '../components/SelectionActionBar.vue';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 import {
   deleteSong,
@@ -311,6 +316,7 @@ import {
 import { showAppNotification } from '../services/app-notification';
 
 const presentationStore = usePresentationStore();
+const libraryViewSettings = useLibraryViewSettingsStore();
 const projectionSettings = useProjectionSettingsStore();
 const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 
@@ -328,6 +334,7 @@ const livePanel = ref<HTMLElement | null>(null);
 let lastSelectionIndex: number | null = null;
 
 const normalizedSearch = computed(() => normalize(searchText.value));
+const libraryViewMode = computed(() => libraryViewSettings.views.song);
 const filteredSongs = computed(() => {
   const term = normalizedSearch.value;
 
@@ -728,6 +735,44 @@ onBeforeUnmount(() => {
   min-height: 0;
   margin-top: 10px;
   overflow-y: auto;
+}
+
+.song-results--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  align-content: start;
+  gap: 7px;
+}
+
+.song-results--grid .song-result {
+  min-height: 82px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  padding: 10px;
+}
+
+.song-results--grid .song-result-copy {
+  min-width: 100px;
+}
+
+.song-results--grid .song-result > .q-icon:last-child {
+  display: none;
+}
+
+.song-results--details .song-result {
+  min-height: 58px;
+  padding: 10px;
+}
+
+.song-results--details .song-result-copy strong {
+  font-size: 12px;
+}
+
+.song-results--details .song-result-copy small {
+  margin-top: 3px;
+  font-size: 10px;
+  white-space: normal;
 }
 
 .song-result,
