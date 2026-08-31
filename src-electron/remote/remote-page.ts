@@ -1,0 +1,107 @@
+export function buildRemotePage(): string {
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1420">
+  <title>ICP Studio Remote</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080e16;--surface:#101a27;--line:#26384e;--muted:#8492a6;--text:#e8eef6;--primary:#60a5fa;--success:#35d07f}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{height:100%}body{margin:0;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{color:inherit}
+    .app{display:flex;height:100dvh;flex-direction:column;background:radial-gradient(circle at 50% -20%,#173252 0,#0b1420 35%,#080e16 72%)}
+    .topbar{display:flex;min-height:62px;align-items:center;gap:11px;padding:calc(9px + env(safe-area-inset-top)) 14px 9px;background:rgba(10,18,28,.94);border-bottom:1px solid #213044;backdrop-filter:blur(16px)}
+    .icon-button{display:grid;width:40px;height:40px;flex:0 0 40px;padding:0;place-items:center;background:#111e2d;border:1px solid #2a3d55;border-radius:11px;cursor:pointer}.icon-button:active{background:#183452;border-color:#4778aa;transform:scale(.97)}
+    .menu-lines,.menu-lines::before,.menu-lines::after{display:block;width:18px;height:2px;background:#c9d7e7;border-radius:2px;content:""}.menu-lines::before{transform:translateY(-6px)}.menu-lines::after{transform:translateY(4px)}
+    .brand{min-width:0;flex:1}.brand strong{display:block;overflow:hidden;font-size:16px;text-overflow:ellipsis;white-space:nowrap}.brand small{display:flex;align-items:center;gap:7px;color:#8fa0b5;font-size:10px}.status-dot{width:7px;height:7px;background:var(--success);border-radius:50%;box-shadow:0 0 0 3px rgba(53,208,127,.12)}
+    .service-pill{display:flex;max-width:42%;align-items:center;gap:7px;padding:7px 9px;color:#a9b7c8;background:#111e2d;border:1px solid #26394f;border-radius:10px;font-size:10px;white-space:nowrap}.service-pill b{overflow:hidden;text-overflow:ellipsis}
+    .tabs{display:grid;grid-template-columns:1fr 1fr;padding:8px 12px 0;background:#0c1520;border-bottom:1px solid #1f2e40}.tab{position:relative;display:flex;min-height:45px;align-items:center;justify-content:center;gap:8px;padding:0 8px;color:#7f8da0;background:transparent;border:0;cursor:pointer}.tab.active{color:#bfdbfe}.tab.active::after{position:absolute;right:12%;bottom:0;left:12%;height:3px;background:var(--primary);border-radius:3px 3px 0 0;content:""}.tab-icon{font-size:17px}.tab-badge{min-width:18px;padding:2px 5px;background:#24374d;border-radius:9px;font-size:9px;text-align:center}
+    .content{min-height:0;flex:1;overflow:auto;scrollbar-color:#3d5d80 #0a111a;scrollbar-width:thin}.screen{display:none;width:min(100%,1100px);min-height:100%;margin:0 auto;padding:14px 14px calc(24px + env(safe-area-inset-bottom))}.screen.active{display:block}.section-label{display:flex;align-items:center;justify-content:space-between;margin:2px 1px 9px;color:#8d9caf;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.section-label span:last-child{color:#60738b;text-transform:none;letter-spacing:0}
+    .preview-grid,.live-layout{display:grid;gap:12px}.projection-card{overflow:hidden;background:#0e1926;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 42px rgba(0,0,0,.22)}.projection-head{display:flex;min-height:39px;align-items:center;justify-content:space-between;padding:0 12px;color:#8797aa;background:#132031;border-bottom:1px solid #273a50;font-size:10px}.projection-head b{color:#b9c7d7;font-weight:600}
+    .projection{position:relative;display:flex;aspect-ratio:16/9;min-height:188px;align-items:center;justify-content:center;padding:clamp(22px,7vw,64px);overflow:hidden;background:radial-gradient(circle at center,#173b67,#05080d 68%);text-align:center}.projection blockquote{max-width:760px;margin:0;color:#f2f7fd;font-size:clamp(17px,4.8vw,38px);font-weight:650;line-height:1.22}.projection-reference{position:absolute;bottom:12px;left:14px;color:#9fb4ca;font-size:9px}
+    .selection-card,.live-list{padding:13px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.selection-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.selection-heading div{min-width:0}.selection-heading small{display:block;color:var(--muted);font-size:10px}.selection-heading strong{display:block;overflow:hidden;margin-top:2px;font-size:14px;text-overflow:ellipsis;white-space:nowrap}.count{padding:4px 8px;color:#9ecbfa;background:#173252;border-radius:10px;font-size:10px}
+    .parts{display:flex;gap:7px;margin:0 -2px 12px;padding:2px;overflow-x:auto;scrollbar-width:none}.parts::-webkit-scrollbar{display:none}.part{min-width:100px;padding:9px 10px;color:#8fa0b5;background:#0c1622;border:1px solid #26394f;border-radius:9px;text-align:left}.part.active{color:#dbeafe;background:#153250;border-color:#427bb4}.part small{display:block;margin-bottom:3px;font-size:8px;text-transform:uppercase}.part b{font-size:11px}.control-row{display:grid;grid-template-columns:42px 42px minmax(0,1fr) 42px;gap:7px}.control{min-height:42px;background:#111e2d;border:1px solid #2c415a;border-radius:10px;cursor:pointer}.control.primary{display:flex;align-items:center;justify-content:center;gap:7px;color:#eaf4ff;background:#1769aa;border-color:#3187cb;font-size:11px;font-weight:650}
+    .live-indicator{display:flex;align-items:center;gap:8px;color:#fca5a5;font-size:10px}.live-dot{width:8px;height:8px;background:#ef6464;border-radius:50%;box-shadow:0 0 0 4px rgba(239,100,100,.12)}.live-list-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}.live-list-head strong{font-size:13px}.live-list-head button{padding:5px 7px;color:#e58b8b;background:transparent;border:0;font-size:11px}.live-item{display:grid;grid-template-columns:30px minmax(0,1fr) 34px;gap:9px;align-items:center;padding:9px 7px;color:#93a2b5;border:1px solid transparent;border-radius:9px}.live-item.active{color:#e4edf7;background:#142a43;border-color:#31587f}.live-item-number{display:grid;width:27px;height:27px;place-items:center;background:#1d2b3b;border-radius:7px;font-size:10px}.live-item div{min-width:0}.live-item b,.live-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-item b{font-size:11px}.live-item small{margin-top:2px;color:#718197;font-size:9px}.live-item-arrow{text-align:center}
+    .backdrop{position:fixed;z-index:20;inset:0;background:rgba(2,6,11,.72);opacity:0;pointer-events:none;transition:opacity .2s ease;backdrop-filter:blur(3px)}.backdrop.open{opacity:1;pointer-events:auto}.drawer{position:fixed;z-index:30;top:0;bottom:0;left:0;width:min(86vw,330px);padding:calc(18px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));overflow:auto;background:#0d1723;border-right:1px solid #2b3e54;box-shadow:25px 0 65px rgba(0,0,0,.48);transform:translateX(-105%);transition:transform .23s ease}.drawer.open{transform:translateX(0)}
+    .drawer-head{display:flex;align-items:center;gap:11px;padding:0 4px 18px}.drawer-logo{display:grid;width:42px;height:42px;place-items:center;color:#8fc7ff;background:#173252;border:1px solid #315a84;border-radius:12px}.drawer-head div{min-width:0;flex:1}.drawer-head strong,.drawer-head small{display:block}.drawer-head small{color:var(--muted);font-size:10px}.drawer-section{margin:13px 8px 8px;color:#60738a;font-size:9px;text-transform:uppercase;letter-spacing:.11em}.module-button{display:grid;width:100%;min-height:48px;align-items:center;grid-template-columns:38px minmax(0,1fr) 20px;gap:7px;margin-bottom:4px;padding:4px 8px;color:#9baabd;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer}.module-button:active{color:#e3eefb;background:#172b43}.module-icon{display:grid;width:34px;height:34px;place-items:center;color:#8bbef2;background:#132338;border-radius:9px;font-size:17px}.module-button b{font-size:12px;font-weight:550}.module-button small{display:block;margin-top:1px;color:#62748a;font-size:9px}.module-arrow{color:#4f6075;text-align:center}
+    .explorer{position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;background:#09111b;transform:translateY(105%);transition:transform .25s ease}.explorer.open{transform:translateY(0)}.explorer-head{display:flex;min-height:62px;align-items:center;gap:10px;padding:calc(9px + env(safe-area-inset-top)) 13px 9px;background:#0d1825;border-bottom:1px solid #28394e}.explorer-head div{min-width:0;flex:1}.explorer-head strong,.explorer-head small{display:block}.explorer-head small{color:var(--muted);font-size:9px}.explorer-body{min-height:0;flex:1;padding:14px;overflow:auto}
+    .search-box{display:flex;align-items:center;gap:9px;padding:3px 4px 3px 12px;background:#101c2a;border:1px solid #344a64;border-radius:12px}.search-box:focus-within{border-color:#4b8cca;box-shadow:0 0 0 3px rgba(75,140,202,.12)}.search-box span{color:#7890aa}.search-box input{min-width:0;min-height:42px;flex:1;color:#e8eef6;background:transparent;border:0;outline:0}.search-box input::placeholder{color:#65778d}.search-box button{width:39px;height:39px;color:#dcecff;background:#1769aa;border:0;border-radius:9px}.explorer-tools{display:flex;align-items:center;justify-content:space-between;margin:13px 2px 9px}.explorer-tools span{color:#8492a6;font-size:10px}.tool-buttons{display:flex;gap:6px}.tool-buttons button{width:34px;height:34px;color:#8fb9e5;background:#101d2b;border:1px solid #2c425c;border-radius:9px}.empty-results{display:grid;min-height:330px;padding:30px;place-items:center;color:#73859b;text-align:center;background:#0d1723;border:1px dashed #2d435d;border-radius:14px}.empty-results span{display:block;margin-bottom:10px;color:#52769e;font-size:44px}.empty-results b{display:block;margin-bottom:6px;color:#aab9ca;font-size:14px}.empty-results p{max-width:350px;margin:0;font-size:11px;line-height:1.5}
+    @media(min-width:760px){.topbar{padding-right:24px;padding-left:24px}.tabs{padding-right:max(22px,calc((100vw - 900px)/2));padding-left:max(22px,calc((100vw - 900px)/2))}.screen{padding:20px 24px 32px}.preview-grid,.live-layout{grid-template-columns:minmax(0,1.35fr) minmax(300px,.75fr);align-items:start}.selection-card,.live-list{position:sticky;top:0}.projection{min-height:300px}.explorer-body{width:min(100%,1000px);margin:0 auto;padding:22px}.empty-results{min-height:430px}.drawer{width:340px}}
+    @media(max-width:390px){.service-pill{display:none}.projection{min-height:172px}.control-row{grid-template-columns:40px 40px minmax(0,1fr) 40px}.screen{padding-right:10px;padding-left:10px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button id="open-menu" class="icon-button" type="button" aria-label="Abrir menú"><i class="menu-lines"></i></button>
+      <div class="brand"><strong>ICP Studio Remote</strong><small><i class="status-dot"></i><span id="status">Conectando…</span></small></div>
+      <div class="service-pill"><span>☷</span><b>Servicio activo</b><span>8</span></div>
+    </header>
+    <nav class="tabs" aria-label="Áreas del control remoto">
+      <button class="tab active" type="button" data-tab="preview"><span class="tab-icon">▣</span><span>Previsualización</span></button>
+      <button class="tab" type="button" data-tab="live"><span class="tab-icon">◉</span><span>En vivo</span><span class="tab-badge">4</span></button>
+    </nav>
+    <main class="content">
+      <section id="preview-screen" class="screen active">
+        <div class="preview-grid">
+          <div><div class="section-label"><span>Vista del operador</span><span>16:9</span></div><article class="projection-card"><div class="projection-head"><b>Previsualización</b><span>Solo visible para el operador</span></div><div class="projection"><blockquote>Todo lo puedo en Cristo que me fortalece.</blockquote><span class="projection-reference">Filipenses 4:13</span></div></article></div>
+          <article class="selection-card">
+            <div class="selection-heading"><div><small>Contenido seleccionado</small><strong>Filipenses 4:10–13</strong></div><span class="count">4 partes</span></div>
+            <div class="parts"><button class="part" type="button"><small>Versículo</small><b>Filipenses 4:10</b></button><button class="part" type="button"><small>Versículo</small><b>Filipenses 4:11</b></button><button class="part active" type="button"><small>Versículo</small><b>Filipenses 4:13</b></button></div>
+            <div class="control-row"><button class="control" type="button" aria-label="Anterior">‹</button><button class="control" type="button" aria-label="Siguiente">›</button><button class="control primary" type="button"><span>◉</span><span>Enviar a en vivo</span></button><button class="control" type="button" aria-label="Agregar al servicio">＋</button></div>
+          </article>
+        </div>
+      </section>
+      <section id="live-screen" class="screen">
+        <div class="live-layout">
+          <div><div class="section-label"><span class="live-indicator"><i class="live-dot"></i>Salida de proyección</span><span>Pantalla 1</span></div><article class="projection-card"><div class="projection-head"><b>En vivo</b><span>Proyectando</span></div><div class="projection"><blockquote>Todo lo puedo en Cristo que me fortalece.</blockquote><span class="projection-reference">Filipenses 4:13</span></div></article></div>
+          <article class="live-list"><div class="live-list-head"><strong>Contenido activo</strong><button type="button">Limpiar</button></div><div class="live-item"><span class="live-item-number">1</span><div><b>Filipenses 4:10</b><small>Versículo bíblico</small></div><span class="live-item-arrow">›</span></div><div class="live-item"><span class="live-item-number">2</span><div><b>Filipenses 4:11</b><small>Versículo bíblico</small></div><span class="live-item-arrow">›</span></div><div class="live-item active"><span class="live-item-number">3</span><div><b>Filipenses 4:13</b><small>Presentándose ahora</small></div><span class="live-item-arrow">●</span></div><div class="live-item"><span class="live-item-number">4</span><div><b>Filipenses 4:14</b><small>Versículo bíblico</small></div><span class="live-item-arrow">›</span></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="backdrop" class="backdrop"></div>
+  <aside id="drawer" class="drawer" aria-label="Módulos">
+    <div class="drawer-head"><div class="drawer-logo">▶</div><div><strong>ICP Studio</strong><small>Selecciona un módulo</small></div><button id="close-menu" class="icon-button" type="button" aria-label="Cerrar menú">×</button></div>
+    <div class="drawer-section">Contenido</div>
+    <button class="module-button" type="button" data-module="Alabanzas" data-icon="♫" data-placeholder="Buscar una alabanza por su título"><span class="module-icon">♫</span><span><b>Alabanzas</b><small>Letras y estrofas</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Música" data-icon="♪" data-placeholder="Buscar una canción o pista de audio"><span class="module-icon">♪</span><span><b>Música</b><small>Audios y pistas</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Biblia" data-icon="▤" data-placeholder="Escribe una referencia, por ejemplo: Juan 3:16"><span class="module-icon">▤</span><span><b>Biblia</b><small>Libros, capítulos y versículos</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Imágenes" data-icon="▧" data-placeholder="Buscar una imagen por su nombre"><span class="module-icon">▧</span><span><b>Imágenes</b><small>Biblioteca visual</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Videos" data-icon="▷" data-placeholder="Buscar un video por su nombre"><span class="module-icon">▷</span><span><b>Videos</b><small>Archivos de video</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Documentos" data-icon="▱" data-placeholder="Buscar un documento"><span class="module-icon">▱</span><span><b>Documentos</b><small>PDF y presentaciones</small></span><span class="module-arrow">›</span></button>
+    <div class="drawer-section">Recursos</div>
+    <button class="module-button" type="button" data-module="Actividades" data-icon="✦" data-placeholder="Buscar una actividad"><span class="module-icon">✦</span><span><b>Actividades</b><small>Juegos y dinámicas</small></span><span class="module-arrow">›</span></button>
+    <button class="module-button" type="button" data-module="Herramientas" data-icon="⌁" data-placeholder="Buscar una herramienta"><span class="module-icon">⌁</span><span><b>Herramientas</b><small>Ruleta, calendario y tiempo</small></span><span class="module-arrow">›</span></button>
+  </aside>
+  <section id="explorer" class="explorer" aria-label="Explorador de contenido">
+    <header class="explorer-head"><button id="close-explorer" class="icon-button" type="button" aria-label="Volver">‹</button><span id="explorer-icon" class="module-icon">▤</span><div><strong id="explorer-title">Biblia</strong><small>Búsqueda y contenido</small></div></header>
+    <div class="explorer-body"><label class="search-box"><span>⌕</span><input id="module-search" type="search" placeholder="Escribe una referencia bíblica" autocomplete="off"><button type="button" aria-label="Buscar">↵</button></label><div class="explorer-tools"><span id="result-label">Contenido de Biblia</span><div class="tool-buttons"><button type="button" aria-label="Agregar a previsualización">▣</button><button type="button" aria-label="Enviar a en vivo">◉</button></div></div><div class="empty-results"><div><span id="empty-icon">▤</span><b id="empty-title">Busca un contenido bíblico</b><p id="empty-copy">Cuando conectemos la lógica, aquí aparecerán los versículos encontrados para enviarlos a previsualización.</p></div></div></div>
+  </section>
+  <script>
+    const token = new URLSearchParams(location.search).get('token') || '';
+    const status = document.getElementById('status');
+    const events = new EventSource('/events?token=' + encodeURIComponent(token));
+    events.onopen = () => { status.textContent = 'Conectado'; };
+    events.onerror = () => { status.textContent = 'Reconectando…'; };
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('backdrop');
+    const explorer = document.getElementById('explorer');
+    const explorerTitle = document.getElementById('explorer-title');
+    const explorerIcon = document.getElementById('explorer-icon');
+    const moduleSearch = document.getElementById('module-search');
+    const resultLabel = document.getElementById('result-label');
+    const emptyIcon = document.getElementById('empty-icon');
+    const emptyTitle = document.getElementById('empty-title');
+    const emptyCopy = document.getElementById('empty-copy');
+    function setDrawer(open){drawer.classList.toggle('open',open);backdrop.classList.toggle('open',open)}
+    document.getElementById('open-menu').addEventListener('click',()=>setDrawer(true));
+    document.getElementById('close-menu').addEventListener('click',()=>setDrawer(false));
+    backdrop.addEventListener('click',()=>setDrawer(false));
+    document.querySelectorAll('.tab').forEach((tab)=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach((item)=>item.classList.remove('active'));document.querySelectorAll('.screen').forEach((item)=>item.classList.remove('active'));tab.classList.add('active');document.getElementById(tab.dataset.tab+'-screen').classList.add('active')})});
+    document.querySelectorAll('.module-button').forEach((button)=>{button.addEventListener('click',()=>{const module=button.dataset.module||'Contenido';const icon=button.dataset.icon||'⌕';explorerTitle.textContent=module;explorerIcon.textContent=icon;emptyIcon.textContent=icon;moduleSearch.placeholder=button.dataset.placeholder||'Buscar contenido';moduleSearch.value='';resultLabel.textContent='Contenido de '+module;emptyTitle.textContent='Busca en '+module.toLowerCase();emptyCopy.textContent='Cuando conectemos la lógica, aquí aparecerán los resultados para enviarlos a previsualización o directamente a en vivo.';setDrawer(false);explorer.classList.add('open');window.setTimeout(()=>moduleSearch.focus(),280)})});
+    document.getElementById('close-explorer').addEventListener('click',()=>explorer.classList.remove('open'));
+  </script>
+</body>
+</html>`;
+}
