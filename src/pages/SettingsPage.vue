@@ -75,16 +75,25 @@
 
             <q-card-section class="menu-side-setting">
               <span>Posición del menú</span>
-              <q-btn-toggle
-                :model-value="menuSide"
-                no-caps
-                unelevated
-                toggle-color="primary"
-                color="blue-grey-9"
-                text-color="blue-grey-3"
-                :options="menuSideOptions"
-                @update:model-value="updateMenuSide"
-              />
+              <div class="menu-side-options" role="radiogroup" aria-label="Posición del menú">
+                <button
+                  v-for="option in menuSideOptions"
+                  :key="option.value"
+                  type="button"
+                  role="radio"
+                  class="menu-side-option"
+                  :class="{ 'menu-side-option--active': menuSide === option.value }"
+                  :aria-checked="menuSide === option.value"
+                  @click="updateMenuSide(option.value)"
+                >
+                  <q-icon :name="option.icon" />
+                  <span>{{ option.label }}</span>
+                  <q-icon
+                    :name="menuSide === option.value ? 'check_circle' : 'radio_button_unchecked'"
+                    class="menu-side-option-state"
+                  />
+                </button>
+              </div>
             </q-card-section>
 
             <div class="navigation-order-list">
@@ -1122,11 +1131,57 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 
 .menu-side-setting {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  flex-direction: column;
   gap: 12px;
   color: #a9b6c6;
   font-size: 12px;
+}
+
+.menu-side-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.menu-side-option {
+  display: grid;
+  min-height: 54px;
+  align-items: center;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  gap: 8px;
+  padding: 8px 10px;
+  color: #9eacbd;
+  background: #0d1723;
+  border: 1px solid #2c3d52;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.menu-side-option:hover {
+  color: #dbeafe;
+  background: #14243a;
+  border-color: #45678e;
+}
+
+.menu-side-option--active {
+  color: #bfdbfe;
+  background: #173252;
+  border-color: #3b82c4;
+}
+
+.menu-side-option > .q-icon:first-child {
+  font-size: 22px;
+}
+
+.menu-side-option-state {
+  color: #60a5fa;
+  font-size: 17px;
 }
 
 .navigation-order-list {
