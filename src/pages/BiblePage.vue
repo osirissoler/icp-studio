@@ -226,7 +226,7 @@
                 color="red-4"
                 icon="delete_sweep"
                 aria-label="Eliminar versículos seleccionados"
-                class="result-action-button result-action-button--danger"
+                class="result-action-button"
                 :disable="selectedVerses.length === 0"
                 @click="removeSelectedResults"
               >
@@ -1412,10 +1412,6 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   min-width: 24px;
-}
-
-.result-action-button--danger {
-  margin-left: auto;
 }
 
 .book-suggestions {

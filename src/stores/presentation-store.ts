@@ -129,14 +129,10 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
-    const body =
-      item.type === 'bible'
-        ? `${frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label}. ${frame.text}`
-        : frame.text;
     window.icpStudio?.projection.setState({
       mode: 'content',
       title: '',
-      body,
+      body: frame.text,
       footer: item.footer,
     });
   }

@@ -234,7 +234,6 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   const postActions: Record<string, RemoteRequestAction> = {
     '/api/preview': 'preview',
-    '/api/service': 'service-item',
     '/api/preview/move': 'move-preview',
     '/api/preview/frame': 'set-preview-frame',
     '/api/live': 'project-preview',
