@@ -1,5 +1,5 @@
 <template>
-  <q-page class="settings-page">
+  <div class="settings-page">
     <nav class="settings-navigation" aria-label="Categorías de configuración">
       <button
         v-for="item in navigationItems"
@@ -231,7 +231,7 @@
         </q-card>
       </section>
     </main>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -453,7 +453,7 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 
 <style scoped>
 .settings-page {
-  min-height: calc(100vh - 66px);
+  min-height: 100vh;
   padding: 22px;
   color: #e8eef6;
   background: #0c131d;
