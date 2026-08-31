@@ -21,9 +21,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="light-blue-4"
               icon="add"
-              class="media-action-button"
+              class="library-toolbar-button"
               :loading="importing"
               :aria-label="`Importar ${kind === 'image' ? 'imágenes' : kind === 'video' ? 'videos' : 'canciones'}`"
               @click="importMedia"
@@ -44,9 +44,9 @@
               round
               dense
               size="sm"
-              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              :color="selectionMode ? 'amber-4' : 'blue-grey-4'"
               icon="checklist"
-              class="media-action-button"
+              class="library-toolbar-button"
               aria-label="Seleccionar elementos"
               @click="toggleSelectionMode"
             >
@@ -60,9 +60,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="green-4"
               icon="playlist_add"
-              class="media-action-button"
+              class="library-toolbar-button"
               :disable="!selectedItem"
               aria-label="Agregar al servicio"
               @click="addSelectedToService"
@@ -75,9 +75,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="deep-purple-3"
               icon="present_to_all"
-              class="media-action-button"
+              class="library-toolbar-button"
               :disable="!selectedItem"
               aria-label="Proyectar ahora"
               @click="presentSelected"
@@ -618,25 +618,6 @@ onMounted(() => {
 .media-search {
   min-width: 0;
   flex: 1;
-}
-
-.media-action-button {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  color: #93c5fd;
-  background: #13243a;
-  border: 1px solid #2d4665;
-  border-radius: 7px;
-}
-
-.media-action-button--danger:not(.disabled) {
-  color: #fca5a5;
-}
-
-.media-action-button:hover {
-  background: #193253;
-  border-color: #4b83c5;
 }
 
 .media-grid {

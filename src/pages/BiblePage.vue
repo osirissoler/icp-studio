@@ -193,7 +193,7 @@
                 round
                 dense
                 size="xs"
-                color="primary"
+                color="green-4"
                 icon="playlist_add"
                 aria-label="Agregar seleccionados al servicio"
                 class="result-action-button"
@@ -208,7 +208,7 @@
                 round
                 dense
                 size="xs"
-                color="primary"
+                color="deep-purple-3"
                 icon="present_to_all"
                 aria-label="Proyectar seleccionados ahora"
                 class="result-action-button"

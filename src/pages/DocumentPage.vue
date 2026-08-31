@@ -25,8 +25,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="light-blue-4"
               icon="upload_file"
+              class="library-toolbar-button"
               :loading="importing"
               aria-label="Importar documentos"
               @click="importDocuments"
@@ -38,8 +39,9 @@
               round
               dense
               size="sm"
-              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              :color="selectionMode ? 'amber-4' : 'blue-grey-4'"
               icon="checklist"
+              class="library-toolbar-button"
               aria-label="Seleccionar documentos"
               @click="toggleSelectionMode"
             >
@@ -52,8 +54,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="green-4"
               icon="playlist_add"
+              class="library-toolbar-button"
               :disable="!selectedItem"
               aria-label="Agregar al servicio"
               @click="void addSelectedToService()"
@@ -65,8 +68,9 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="deep-purple-3"
               icon="present_to_all"
+              class="library-toolbar-button"
               :disable="!selectedItem"
               aria-label="Proyectar ahora"
               @click="void presentSelected()"

@@ -25,10 +25,10 @@
               round
               dense
               size="sm"
-              color="primary"
+              color="light-blue-4"
               icon="add"
               aria-label="Crear nueva alabanza"
-              class="song-toolbar-button"
+              class="library-toolbar-button"
               @click="openSongEditor"
             >
               <q-tooltip>Crear nueva alabanza</q-tooltip>
@@ -40,9 +40,9 @@
               dense
               size="sm"
               icon="checklist"
-              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              :color="selectionMode ? 'amber-4' : 'blue-grey-4'"
               aria-label="Seleccionar alabanzas"
-              class="song-toolbar-button"
+              class="library-toolbar-button"
               @click="toggleSelectionMode"
             >
               <q-tooltip>{{
@@ -56,9 +56,9 @@
               dense
               size="sm"
               icon="playlist_add"
-              color="primary"
+              color="green-4"
               aria-label="Agregar alabanza seleccionada al servicio"
-              class="song-toolbar-button"
+              class="library-toolbar-button"
               :disable="!selectedSong"
               @click="addSelectedSongToService"
             >
@@ -71,9 +71,9 @@
               dense
               size="sm"
               icon="present_to_all"
-              color="primary"
+              color="deep-purple-3"
               aria-label="Proyectar alabanza seleccionada ahora"
-              class="song-toolbar-button"
+              class="library-toolbar-button"
               :disable="!selectedSong"
               @click="projectSelectedSong"
             >
@@ -703,25 +703,6 @@ onBeforeUnmount(() => {
 .song-search {
   min-width: 0;
   flex: 1;
-}
-
-.song-toolbar-button {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  color: #93c5fd;
-  background: #13243a;
-  border: 1px solid #2d4665;
-  border-radius: 7px;
-}
-
-.song-toolbar-button:hover {
-  background: #193253;
-  border-color: #4b83c5;
-}
-
-.song-toolbar-button--danger:not(.disabled) {
-  color: #fca5a5;
 }
 
 .song-edit-button {
