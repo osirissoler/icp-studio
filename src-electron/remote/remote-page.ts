@@ -72,9 +72,6 @@ export function buildRemotePage(): string {
     <button class="module-button" type="button" data-module="Imágenes" data-icon="▧" data-placeholder="Buscar una imagen por su nombre"><span class="module-icon">▧</span><span><b>Imágenes</b><small>Biblioteca visual</small></span><span class="module-arrow">›</span></button>
     <button class="module-button" type="button" data-module="Videos" data-icon="▷" data-placeholder="Buscar un video por su nombre"><span class="module-icon">▷</span><span><b>Videos</b><small>Archivos de video</small></span><span class="module-arrow">›</span></button>
     <button class="module-button" type="button" data-module="Documentos" data-icon="▱" data-placeholder="Buscar un documento"><span class="module-icon">▱</span><span><b>Documentos</b><small>PDF y presentaciones</small></span><span class="module-arrow">›</span></button>
-    <div class="drawer-section">Recursos</div>
-    <button class="module-button" type="button" data-module="Actividades" data-icon="✦" data-placeholder="Buscar una actividad"><span class="module-icon">✦</span><span><b>Actividades</b><small>Juegos y dinámicas</small></span><span class="module-arrow">›</span></button>
-    <button class="module-button" type="button" data-module="Herramientas" data-icon="⌁" data-placeholder="Buscar una herramienta"><span class="module-icon">⌁</span><span><b>Herramientas</b><small>Ruleta, calendario y tiempo</small></span><span class="module-arrow">›</span></button>
   </aside>
   <section id="explorer" class="explorer" aria-label="Explorador de contenido">
     <header class="explorer-head"><button id="close-explorer" class="icon-button" type="button" aria-label="Volver">‹</button><span id="explorer-icon" class="module-icon">▤</span><div><strong id="explorer-title">Biblia</strong><small>Búsqueda y contenido</small></div></header>
