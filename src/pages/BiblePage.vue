@@ -137,6 +137,17 @@
             {{ errorMessage }}
           </q-banner>
 
+          <div
+            v-if="!searchResult && activeVersionName"
+            class="results-heading idle-version-heading"
+          >
+            <div aria-hidden="true"></div>
+            <div class="active-version-summary">
+              <span>Versión bíblica</span>
+              <strong>{{ activeVersionName }}</strong>
+            </div>
+          </div>
+
           <div v-if="searching" class="panel-state">
             <q-spinner color="primary" size="34px" />
             <span>Buscando el pasaje...</span>
@@ -1474,6 +1485,11 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.idle-version-heading {
+  margin-top: 14px;
+  margin-bottom: 0;
 }
 
 .results-title {
