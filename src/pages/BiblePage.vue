@@ -162,49 +162,68 @@
                 </div>
               </div>
 
-              <div class="results-actions">
-                <q-checkbox
-                  :model-value="allResultsSelected"
-                  dense
-                  label="Todos"
-                  color="primary"
-                  @update:model-value="toggleAllResults(Boolean($event))"
-                />
-
-                <q-chip dense color="blue-grey-9" text-color="blue-grey-2" class="results-version">
-                  {{ searchResult.versionCode }}
-                </q-chip>
-
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="xs"
-                  color="primary"
-                  icon="playlist_add"
-                  aria-label="Agregar seleccionados al servicio"
-                  class="result-action-button"
-                  :disable="selectedVerses.length === 0"
-                  @click="addSelectedToService"
-                >
-                  <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
-                </q-btn>
-
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="xs"
-                  color="primary"
-                  icon="present_to_all"
-                  aria-label="Proyectar seleccionados ahora"
-                  class="result-action-button"
-                  :disable="selectedVerses.length === 0"
-                  @click="projectSelectedNow"
-                >
-                  <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
-                </q-btn>
+              <div class="active-version-summary">
+                <span>Versión bíblica</span>
+                <strong>{{ activeVersionName }}</strong>
               </div>
+            </div>
+
+            <div class="results-actions">
+              <q-checkbox
+                :model-value="allResultsSelected"
+                dense
+                label="Todos"
+                color="primary"
+                @update:model-value="toggleAllResults(Boolean($event))"
+              />
+
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                color="primary"
+                icon="playlist_add"
+                aria-label="Agregar seleccionados al servicio"
+                class="result-action-button"
+                :disable="selectedVerses.length === 0"
+                @click="addSelectedToService"
+              >
+                <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+              </q-btn>
+
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                color="primary"
+                icon="present_to_all"
+                aria-label="Proyectar seleccionados ahora"
+                class="result-action-button"
+                :disable="selectedVerses.length === 0"
+                @click="projectSelectedNow"
+              >
+                <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
+              </q-btn>
+
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                color="red-4"
+                icon="delete_sweep"
+                aria-label="Quitar versículos no seleccionados"
+                class="result-action-button"
+                :disable="
+                  selectedVerses.length === 0 ||
+                  selectedVerses.length === searchResult.verses.length
+                "
+                @click="removeUnselectedResults"
+              >
+                <q-tooltip>Quitar de la lista los versículos no seleccionados</q-tooltip>
+              </q-btn>
             </div>
 
             <button
@@ -459,7 +478,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 import { usePresentationStore } from '../stores/presentation-store';
-import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
+import type { BibleBook, BiblePassage, BibleVersion, BibleVerse } from '../shared/bible';
 import { getPreferredBibleVersion } from '../services/bible-settings';
 
 const presentationStore = usePresentationStore();
@@ -486,6 +505,7 @@ interface BibleServiceItem {
 }
 
 const books = ref<BibleBook[]>([]);
+const bibleVersions = ref<BibleVersion[]>([]);
 const preferredVersionCode = ref<string | null>(null);
 const referenceInput = ref<FocusableInput | null>(null);
 const resultsElement = ref<HTMLElement | null>(null);
@@ -599,6 +619,13 @@ const allResultsSelected = computed(() => {
   return verses.length > 0 && verses.every((verse) => isVerseSelected(verse));
 });
 
+const activeVersionName = computed(() => {
+  const versionCode = searchResult.value?.versionCode ?? preferredVersionCode.value;
+  return (
+    bibleVersions.value.find((version) => version.code === versionCode)?.name ?? versionCode ?? ''
+  );
+});
+
 const liveVersePosition = computed(() => {
   const item = liveServiceItem.value;
   const verse = liveVerse.value;
@@ -662,8 +689,8 @@ async function loadBooks(): Promise<void> {
   }
 
   try {
-    const versions = await bibleApi.getVersions();
-    preferredVersionCode.value = getPreferredBibleVersion(versions);
+    bibleVersions.value = await bibleApi.getVersions();
+    preferredVersionCode.value = getPreferredBibleVersion(bibleVersions.value);
     books.value = await bibleApi.getBooks({
       ...(preferredVersionCode.value ? { versionCode: preferredVersionCode.value } : {}),
     });
@@ -883,6 +910,19 @@ function toggleAllResults(selected: boolean): void {
 
   selectedVerses.value = selected ? [...verses] : [];
   selectedVerse.value = selected ? (verses[0] ?? null) : null;
+}
+
+function removeUnselectedResults(): void {
+  const passage = searchResult.value;
+  if (!passage || selectedVerses.value.length === 0) return;
+
+  const selectedKeys = new Set(selectedVerses.value.map(verseKey));
+  const remainingVerses = passage.verses.filter((verse) => selectedKeys.has(verseKey(verse)));
+  searchResult.value = { ...passage, verses: remainingVerses };
+
+  if (!selectedVerse.value || !selectedKeys.has(verseKey(selectedVerse.value))) {
+    selectedVerse.value = remainingVerses[0] ?? null;
+  }
 }
 
 function moveResultSelection(direction: -1 | 1): void {
@@ -1421,24 +1461,42 @@ onMounted(() => {
   font-size: 10px;
 }
 
+.active-version-summary {
+  display: flex;
+  min-width: 130px;
+  align-items: flex-end;
+  flex-direction: column;
+  text-align: right;
+}
+
+.active-version-summary span {
+  color: #758399;
+  font-size: 10px;
+}
+
+.active-version-summary strong {
+  max-width: 220px;
+  overflow: hidden;
+  color: #9fc6f4;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .results-actions {
   display: flex;
+  min-height: 28px;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 5px;
+  margin-bottom: 9px;
   color: #a8b4c3;
   font-size: 10px;
 }
 
 .results-actions :deep(.q-checkbox__inner) {
   font-size: 32px;
-}
-
-.results-version {
-  min-height: 22px;
-  margin: 0 1px;
-  padding: 0 6px;
-  font-size: 9px;
 }
 
 .verse-card {
