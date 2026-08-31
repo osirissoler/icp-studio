@@ -139,7 +139,6 @@
               />
             </div>
           </template>
-
         </div>
       </article>
 
@@ -160,6 +159,7 @@
       <div
         v-if="visiblePanels.length >= 4"
         class="resize-handle resize-handle--center"
+        :style="{ gridColumn: String(stackedColumnIndex * 2 + 1) }"
         title="Arrastra para cambiar la altura"
         @pointerdown="startRowResize"
       >
@@ -197,18 +197,23 @@ const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
 const columnSizes = reactive<number[]>([0.9, 1.15, 1.15, 0.9]);
 const topRowPercent = ref(50);
-const panels = ref<WorkspacePanel[]>([
+const panelDefinitions: WorkspacePanel[] = [
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
   { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
   { id: 'monitors', title: 'Monitores', icon: 'display_settings' },
-]);
+];
 
 const props = defineProps<Props>();
 
 const visiblePanels = computed(() =>
-  panels.value.filter((panel) => workspaceSettings.isVisible(panel.id)),
+  workspaceSettings.panelOrder
+    .map((panelId) => panelDefinitions.find((panel) => panel.id === panelId))
+    .filter(
+      (panel): panel is WorkspacePanel =>
+        panel !== undefined && workspaceSettings.isVisible(panel.id),
+    ),
 );
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
@@ -216,6 +221,14 @@ const isSongModule = computed(() => props.title === 'Alabanzas');
 const layoutColumnCount = computed(() => {
   const panelCount = visiblePanels.value.length;
   return panelCount >= 4 ? panelCount - 1 : panelCount;
+});
+const stackedColumnIndex = computed(() => {
+  const lastIndex = Math.max(0, layoutColumnCount.value - 1);
+
+  if (workspaceSettings.stackedColumnPosition === 'start') return 0;
+  if (workspaceSettings.stackedColumnPosition === 'end') return lastIndex;
+
+  return Math.floor(lastIndex / 2);
 });
 const workspaceGridStyle = computed(() => {
   const panelCount = visiblePanels.value.length;
@@ -236,22 +249,23 @@ const workspaceGridStyle = computed(() => {
 
 function panelGridPosition(index: number): Record<string, string> {
   if (visiblePanels.value.length >= 4) {
-    if (index === 0) {
-      return { gridColumn: '1', gridRow: '1 / 4' };
+    const isStackedPanel = index === 1 || index === 2;
+
+    if (isStackedPanel) {
+      return {
+        gridColumn: String(stackedColumnIndex.value * 2 + 1),
+        gridRow: index === 1 ? '1' : '3',
+      };
     }
 
-    if (index === 1) {
-      return { gridColumn: '3', gridRow: '1' };
-    }
+    const singlePanelIndex = index === 0 ? 0 : index - 2;
+    const availableColumns = Array.from(
+      { length: layoutColumnCount.value },
+      (_, columnIndex) => columnIndex,
+    ).filter((columnIndex) => columnIndex !== stackedColumnIndex.value);
+    const columnIndex = availableColumns[singlePanelIndex] ?? 0;
 
-    if (index === 2) {
-      return { gridColumn: '3', gridRow: '3' };
-    }
-
-    return {
-      gridColumn: String((index - 1) * 2 + 1),
-      gridRow: '1 / 4',
-    };
+    return { gridColumn: String(columnIndex * 2 + 1), gridRow: '1 / 4' };
   }
 
   return {
@@ -287,20 +301,7 @@ function dropPanel(targetPanelId: PanelId) {
     return;
   }
 
-  const sourceIndex = panels.value.findIndex((panel) => panel.id === sourcePanelId);
-  const targetIndex = panels.value.findIndex((panel) => panel.id === targetPanelId);
-
-  if (sourceIndex === -1 || targetIndex === -1) {
-    stopDragging();
-    return;
-  }
-
-  const [movedPanel] = panels.value.splice(sourceIndex, 1);
-
-  if (movedPanel) {
-    panels.value.splice(targetIndex, 0, movedPanel);
-  }
-
+  workspaceSettings.movePanel(sourcePanelId, targetPanelId);
   stopDragging();
 }
 

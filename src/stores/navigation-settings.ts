@@ -1,6 +1,11 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { MAIN_NAVIGATION_ITEMS, type MenuSide, type NavigationItemId } from '../shared/navigation';
+import {
+  MAIN_NAVIGATION_ITEMS,
+  type MenuSide,
+  type NavigationItemId,
+  type ToolbarPosition,
+} from '../shared/navigation';
 
 const STORAGE_KEY = 'icp-studio:navigation-settings:v1';
 const defaultOrder = MAIN_NAVIGATION_ITEMS.map((item) => item.id);
@@ -9,6 +14,7 @@ interface StoredNavigationSettings {
   order?: NavigationItemId[];
   side?: MenuSide;
   collapsed?: boolean;
+  toolbarPosition?: ToolbarPosition;
 }
 
 function normalizeOrder(value: unknown): NavigationItemId[] {
@@ -40,9 +46,10 @@ function loadSettings(): Required<StoredNavigationSettings> {
       order: normalizeOrder(parsed.order),
       side: parsed.side === 'right' ? 'right' : 'left',
       collapsed: typeof parsed.collapsed === 'boolean' ? parsed.collapsed : true,
+      toolbarPosition: parsed.toolbarPosition === 'bottom' ? 'bottom' : 'top',
     };
   } catch {
-    return { order: [...defaultOrder], side: 'left', collapsed: true };
+    return { order: [...defaultOrder], side: 'left', collapsed: true, toolbarPosition: 'top' };
   }
 }
 
@@ -51,6 +58,7 @@ export const useNavigationSettingsStore = defineStore('navigation-settings', () 
   const order = ref<NavigationItemId[]>(initialSettings.order);
   const side = ref<MenuSide>(initialSettings.side);
   const collapsed = ref(initialSettings.collapsed);
+  const toolbarPosition = ref<ToolbarPosition>(initialSettings.toolbarPosition);
 
   const orderedItems = computed(() =>
     order.value
@@ -61,7 +69,12 @@ export const useNavigationSettingsStore = defineStore('navigation-settings', () 
   function save(): void {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ order: order.value, side: side.value, collapsed: collapsed.value }),
+      JSON.stringify({
+        order: order.value,
+        side: side.value,
+        collapsed: collapsed.value,
+        toolbarPosition: toolbarPosition.value,
+      }),
     );
   }
 
@@ -96,10 +109,16 @@ export const useNavigationSettingsStore = defineStore('navigation-settings', () 
     setCollapsed(!collapsed.value);
   }
 
+  function setToolbarPosition(position: ToolbarPosition): void {
+    toolbarPosition.value = position;
+    save();
+  }
+
   function resetNavigation(): void {
     order.value = [...defaultOrder];
     side.value = 'left';
     collapsed.value = true;
+    toolbarPosition.value = 'top';
     save();
   }
 
@@ -107,11 +126,13 @@ export const useNavigationSettingsStore = defineStore('navigation-settings', () 
     order,
     side,
     collapsed,
+    toolbarPosition,
     orderedItems,
     moveItem,
     setSide,
     setCollapsed,
     toggleCollapsed,
+    setToolbarPosition,
     resetNavigation,
   };
 });

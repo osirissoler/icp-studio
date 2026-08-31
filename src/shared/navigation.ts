@@ -1,4 +1,5 @@
 export type MenuSide = 'left' | 'right';
+export type ToolbarPosition = 'top' | 'bottom';
 
 export const MAIN_NAVIGATION_ITEMS = [
   { id: 'songs', label: 'Alabanzas', icon: 'music_note', to: '/alabanzas' },

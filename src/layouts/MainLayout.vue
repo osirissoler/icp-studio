@@ -1,6 +1,6 @@
 <template>
   <q-layout :view="layoutView" class="icp-layout">
-    <q-header class="icp-header">
+    <component :is="toolbarContainer" class="icp-header">
       <q-toolbar class="icp-toolbar">
         <q-btn
           v-if="menuSide === 'left'"
@@ -103,7 +103,7 @@
           @click="toggleMenu"
         />
       </q-toolbar>
-    </q-header>
+    </component>
 
     <q-drawer
       :key="menuSide"
@@ -213,7 +213,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useQuasar } from 'quasar';
+import { QFooter, QHeader, useQuasar } from 'quasar';
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import type { DisplayInfo } from '../shared/display';
@@ -226,6 +226,7 @@ const {
   side: menuSide,
   collapsed: menuCollapsed,
   orderedItems: orderedNavigationItems,
+  toolbarPosition,
 } = storeToRefs(navigationSettings);
 const drawerOpen = ref(true);
 const displays = ref<DisplayInfo[]>([]);
@@ -234,6 +235,7 @@ const draggingNavigationId = ref<NavigationItemId | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
 
 const layoutView = computed(() => (menuSide.value === 'right' ? 'hHh lpR lFf' : 'hHh Lpr lFf'));
+const toolbarContainer = computed(() => (toolbarPosition.value === 'bottom' ? QFooter : QHeader));
 const menuTooltipAnchor = computed(() =>
   menuSide.value === 'right' ? 'center left' : 'center right',
 );

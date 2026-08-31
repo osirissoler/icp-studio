@@ -30,11 +30,34 @@
 
         <div class="general-settings-layout">
           <q-card flat class="settings-card general-panels-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Distribución del espacio</strong>
+                <small>Arrastra las áreas para cambiar su posición.</small>
+              </div>
+              <q-icon name="dashboard_customize" size="23px" color="light-blue-4" />
+            </q-card-section>
+            <q-separator dark />
             <q-list>
-              <q-item v-for="panel in panelOptions" :key="panel.id">
-                <q-item-section avatar
-                  ><q-icon :name="panel.icon" color="blue-grey-4"
-                /></q-item-section>
+              <q-item
+                v-for="panel in orderedPanelOptions"
+                :key="panel.id"
+                class="workspace-setting-item"
+                :class="{
+                  'workspace-setting-item--dragging': draggingWorkspacePanelId === panel.id,
+                }"
+                draggable="true"
+                @dragstart="startWorkspacePanelDrag($event, panel.id)"
+                @dragend="stopWorkspacePanelDrag"
+                @dragover.prevent
+                @drop.prevent="dropWorkspacePanel(panel.id)"
+              >
+                <q-item-section avatar>
+                  <div class="workspace-setting-leading">
+                    <q-icon name="drag_indicator" class="workspace-setting-drag" />
+                    <q-icon :name="panel.icon" color="blue-grey-4" />
+                  </div>
+                </q-item-section>
                 <q-item-section>
                   <q-item-label>{{ panel.label }}</q-item-label>
                   <q-item-label caption>{{ panel.description }}</q-item-label>
@@ -50,6 +73,46 @@
                 </q-item-section>
               </q-item>
             </q-list>
+            <q-separator dark />
+            <q-card-section class="stacked-column-setting">
+              <div>
+                <strong>Columna dividida</strong>
+                <small>Mueve la columna que contiene dos tarjetas.</small>
+              </div>
+              <div
+                class="stacked-position-options"
+                role="radiogroup"
+                aria-label="Posición de la columna dividida"
+              >
+                <button
+                  v-for="option in stackedColumnOptions"
+                  :key="option.value"
+                  type="button"
+                  role="radio"
+                  class="stacked-position-option"
+                  :class="{
+                    'stacked-position-option--active': stackedColumnPosition === option.value,
+                  }"
+                  :aria-checked="stackedColumnPosition === option.value"
+                  @click="workspaceSettings.setStackedColumnPosition(option.value)"
+                >
+                  <span class="workspace-layout-preview" aria-hidden="true">
+                    <span
+                      v-for="columnIndex in 3"
+                      :key="columnIndex"
+                      class="workspace-layout-column"
+                      :class="{
+                        'workspace-layout-column--stacked': columnIndex - 1 === option.previewIndex,
+                      }"
+                    >
+                      <i></i>
+                      <i v-if="columnIndex - 1 === option.previewIndex"></i>
+                    </span>
+                  </span>
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </q-card-section>
             <q-separator dark />
             <q-card-actions align="right">
               <q-btn
@@ -90,6 +153,37 @@
                   <span>{{ option.label }}</span>
                   <q-icon
                     :name="menuSide === option.value ? 'check_circle' : 'radio_button_unchecked'"
+                    class="menu-side-option-state"
+                  />
+                </button>
+              </div>
+            </q-card-section>
+
+            <q-separator dark inset />
+
+            <q-card-section class="menu-side-setting">
+              <span>Posición de la barra principal</span>
+              <div
+                class="menu-side-options"
+                role="radiogroup"
+                aria-label="Posición de la barra principal"
+              >
+                <button
+                  v-for="option in toolbarPositionOptions"
+                  :key="option.value"
+                  type="button"
+                  role="radio"
+                  class="menu-side-option"
+                  :class="{ 'menu-side-option--active': toolbarPosition === option.value }"
+                  :aria-checked="toolbarPosition === option.value"
+                  @click="updateToolbarPosition(option.value)"
+                >
+                  <q-icon :name="option.icon" />
+                  <span>{{ option.label }}</span>
+                  <q-icon
+                    :name="
+                      toolbarPosition === option.value ? 'check_circle' : 'radio_button_unchecked'
+                    "
                     class="menu-side-option-state"
                   />
                 </button>
@@ -661,8 +755,8 @@ import type {
   ThemeHorizontalAlign,
   ThemeVerticalAlign,
 } from '../shared/theme';
-import type { WorkspacePanelId } from '../shared/workspace';
-import type { MenuSide, NavigationItemId } from '../shared/navigation';
+import type { StackedColumnPosition, WorkspacePanelId } from '../shared/workspace';
+import type { MenuSide, NavigationItemId, ToolbarPosition } from '../shared/navigation';
 import { useNavigationSettingsStore } from '../stores/navigation-settings';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
@@ -760,9 +854,33 @@ const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> =
   { label: 'Derecha', value: 'right', icon: 'dock_to_right' },
 ];
 
+const toolbarPositionOptions: Array<{
+  label: string;
+  value: ToolbarPosition;
+  icon: string;
+}> = [
+  { label: 'Arriba', value: 'top', icon: 'vertical_align_top' },
+  { label: 'Abajo', value: 'bottom', icon: 'vertical_align_bottom' },
+];
+
+const stackedColumnOptions: Array<{
+  label: string;
+  value: StackedColumnPosition;
+  previewIndex: number;
+}> = [
+  { label: 'Primera', value: 'start', previewIndex: 0 },
+  { label: 'Centro', value: 'center', previewIndex: 1 },
+  { label: 'Última', value: 'end', previewIndex: 2 },
+];
+
 const workspaceSettings = useWorkspaceSettingsStore();
 const navigationSettings = useNavigationSettingsStore();
-const { side: menuSide, orderedItems: orderedNavigationItems } = storeToRefs(navigationSettings);
+const { stackedColumnPosition } = storeToRefs(workspaceSettings);
+const {
+  side: menuSide,
+  orderedItems: orderedNavigationItems,
+  toolbarPosition,
+} = storeToRefs(navigationSettings);
 const projectionSettings = useProjectionSettingsStore();
 const {
   themes,
@@ -775,6 +893,7 @@ const {
 } = storeToRefs(projectionSettings);
 const activeSection = ref<SettingsSectionId>('general');
 const draggingNavigationId = ref<NavigationItemId | null>(null);
+const draggingWorkspacePanelId = ref<WorkspacePanelId | null>(null);
 const displays = ref<DisplayInfo[]>([]);
 const bibleVersions = ref<BibleVersion[]>([]);
 const preferredBibleVersionCode = ref<string | null>(null);
@@ -784,6 +903,12 @@ const importingBible = ref(false);
 const exportingBibleCode = ref<string | null>(null);
 const removingBibleCode = ref<string | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
+
+const orderedPanelOptions = computed(() =>
+  workspaceSettings.panelOrder
+    .map((panelId) => panelOptions.find((panel) => panel.id === panelId))
+    .filter((panel): panel is PanelOption => panel !== undefined),
+);
 
 const backgroundTypeOptions: Array<{ label: string; value: ThemeBackgroundType }> = [
   { label: 'Color sólido', value: 'solid' },
@@ -914,6 +1039,10 @@ function updateMenuSide(value: MenuSide): void {
   navigationSettings.setSide(value);
 }
 
+function updateToolbarPosition(value: ToolbarPosition): void {
+  navigationSettings.setToolbarPosition(value);
+}
+
 function startNavigationDrag(event: DragEvent, itemId: NavigationItemId): void {
   draggingNavigationId.value = itemId;
   if (event.dataTransfer) {
@@ -930,6 +1059,24 @@ function dropNavigationItem(targetId: NavigationItemId): void {
   const sourceId = draggingNavigationId.value;
   if (sourceId) navigationSettings.moveItem(sourceId, targetId);
   stopNavigationDrag();
+}
+
+function startWorkspacePanelDrag(event: DragEvent, panelId: WorkspacePanelId): void {
+  draggingWorkspacePanelId.value = panelId;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', panelId);
+  }
+}
+
+function stopWorkspacePanelDrag(): void {
+  draggingWorkspacePanelId.value = null;
+}
+
+function dropWorkspacePanel(targetId: WorkspacePanelId): void {
+  const sourceId = draggingWorkspacePanelId.value;
+  if (sourceId) workspaceSettings.movePanel(sourceId, targetId);
+  stopWorkspacePanelDrag();
 }
 
 function selectBibleVersion(versionCode: string): void {
@@ -1127,6 +1274,106 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 .navigation-settings-card {
   width: 100%;
   min-width: 0;
+}
+
+.workspace-setting-item {
+  cursor: grab;
+  transition:
+    opacity 130ms ease,
+    background-color 130ms ease;
+}
+
+.workspace-setting-item:hover {
+  background: #142033;
+}
+
+.workspace-setting-item--dragging {
+  opacity: 0.4;
+}
+
+.workspace-setting-leading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.workspace-setting-drag {
+  color: #526176;
+}
+
+.stacked-column-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stacked-column-setting > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stacked-column-setting small {
+  color: #8492a6;
+  font-size: 11px;
+}
+
+.stacked-position-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.stacked-position-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 6px 7px;
+  color: #8f9eb0;
+  background: #0d1723;
+  border: 1px solid #2c3d52;
+  border-radius: 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.stacked-position-option:hover,
+.stacked-position-option--active {
+  color: #bfdbfe;
+  background: #142b45;
+  border-color: #3b82c4;
+}
+
+.workspace-layout-preview {
+  display: grid;
+  width: 62px;
+  height: 34px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.workspace-layout-column {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: 1fr;
+  gap: 3px;
+}
+
+.workspace-layout-column--stacked {
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.workspace-layout-column i {
+  display: block;
+  min-height: 0;
+  background: #52657c;
+  border-radius: 2px;
+}
+
+.stacked-position-option--active .workspace-layout-column i {
+  background: #60a5fa;
 }
 
 .menu-side-setting {
