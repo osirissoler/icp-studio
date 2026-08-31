@@ -1,4 +1,12 @@
-import { BrowserWindow, app, ipcMain, protocol, screen, type Display } from 'electron';
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  protocol,
+  screen,
+  type Display,
+  type IpcMainEvent,
+} from 'electron';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,8 +24,15 @@ import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 import { closeBibleDatabase } from './bible/bible-database';
 import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
 import { registerMediaIpc, unregisterMediaIpc } from './media/media-ipc';
-import { REMOTE_CHANNELS } from '../src/shared/remote';
 import {
+  REMOTE_CHANNELS,
+  type RemoteBridgeResponse,
+  type RemoteControlState,
+  type RemoteRequestAction,
+} from '../src/shared/remote';
+import {
+  broadcastRemoteState,
+  configureRemoteServer,
   getRemoteServerStatus,
   onRemoteServerStatusChanged,
   startRemoteServer,
@@ -418,10 +433,62 @@ function registerWindowIpc(): void {
   });
 }
 
+const pendingRemoteRequests = new Map<
+  string,
+  {
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }
+>();
+
+function requestRemoteRenderer(
+  action: RemoteRequestAction,
+  payload: Record<string, unknown>,
+): Promise<unknown> {
+  const mainWindow = windows.main;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return Promise.reject(new Error('La ventana principal de ICP Studio todavía no está lista.'));
+  }
+
+  const id = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingRemoteRequests.delete(id);
+      reject(new Error('ICP Studio tardó demasiado en responder.'));
+    }, 12_000);
+    pendingRemoteRequests.set(id, { resolve, reject, timeout });
+    mainWindow.webContents.send(REMOTE_CHANNELS.request, { id, action, payload });
+  });
+}
+
+function handleRemoteBridgeResponse(event: IpcMainEvent, response: RemoteBridgeResponse): void {
+  if (event.sender !== windows.main?.webContents || !response || typeof response.id !== 'string') {
+    return;
+  }
+  const pending = pendingRemoteRequests.get(response.id);
+  if (!pending) return;
+  clearTimeout(pending.timeout);
+  pendingRemoteRequests.delete(response.id);
+  if (response.success) pending.resolve(response.data);
+  else pending.reject(new Error(response.error ?? 'No se pudo completar la solicitud remota.'));
+}
+
+function handleRemoteState(event: IpcMainEvent, state: RemoteControlState): void {
+  if (event.sender === windows.main?.webContents) broadcastRemoteState(state);
+}
+
 function registerRemoteIpc(): void {
   ipcMain.handle(REMOTE_CHANNELS.status, () => getRemoteServerStatus());
   ipcMain.handle(REMOTE_CHANNELS.start, () => startRemoteServer());
   ipcMain.handle(REMOTE_CHANNELS.stop, () => stopRemoteServer());
+  ipcMain.on(REMOTE_CHANNELS.response, handleRemoteBridgeResponse);
+  ipcMain.on(REMOTE_CHANNELS.publishState, handleRemoteState);
+
+  configureRemoteServer({
+    handleAction: requestRemoteRenderer,
+    mediaRoot: () => path.join(app.getPath('userData'), 'media'),
+  });
 
   onRemoteServerStatusChanged((status) => {
     windows.main?.webContents.send(REMOTE_CHANNELS.statusChanged, status);
@@ -432,6 +499,13 @@ function unregisterRemoteIpc(): void {
   ipcMain.removeHandler(REMOTE_CHANNELS.status);
   ipcMain.removeHandler(REMOTE_CHANNELS.start);
   ipcMain.removeHandler(REMOTE_CHANNELS.stop);
+  ipcMain.off(REMOTE_CHANNELS.response, handleRemoteBridgeResponse);
+  ipcMain.off(REMOTE_CHANNELS.publishState, handleRemoteState);
+  for (const pending of pendingRemoteRequests.values()) {
+    clearTimeout(pending.timeout);
+    pending.reject(new Error('ICP Studio se está cerrando.'));
+  }
+  pendingRemoteRequests.clear();
   onRemoteServerStatusChanged(null);
 }
 

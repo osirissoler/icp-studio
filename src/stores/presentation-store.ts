@@ -11,6 +11,8 @@ function showServiceNotification(message: string, icon: string): void {
 export const usePresentationStore = defineStore('presentation', () => {
   const serviceItems = ref<ServicePresentationItem[]>([]);
   const selectedServiceItemId = ref<string | null>(null);
+  const previewItem = ref<ServicePresentationItem | null>(null);
+  const previewFrameIndex = ref(0);
   const liveItem = ref<ServicePresentationItem | null>(null);
   const liveFrameIndex = ref(0);
   const mediaPlayback = ref({ isPlaying: false, time: 0, duration: 0 });
@@ -18,6 +20,35 @@ export const usePresentationStore = defineStore('presentation', () => {
   const mediaCommandSequence = ref(0);
 
   const liveFrame = computed(() => liveItem.value?.frames[liveFrameIndex.value] ?? null);
+  const previewFrame = computed(() => previewItem.value?.frames[previewFrameIndex.value] ?? null);
+
+  function setPreviewItem(item: ServicePresentationItem, frameIndex = 0): void {
+    previewItem.value = item;
+    previewFrameIndex.value = Math.min(
+      Math.max(0, frameIndex),
+      Math.max(0, item.frames.length - 1),
+    );
+  }
+
+  function movePreviewFrame(direction: -1 | 1): void {
+    const frames = previewItem.value?.frames ?? [];
+    if (frames.length === 0) return;
+    previewFrameIndex.value = Math.min(
+      frames.length - 1,
+      Math.max(0, previewFrameIndex.value + direction),
+    );
+  }
+
+  function setPreviewFrame(index: number): void {
+    const frames = previewItem.value?.frames ?? [];
+    if (!frames[index]) return;
+    previewFrameIndex.value = index;
+  }
+
+  function clearPreview(): void {
+    previewItem.value = null;
+    previewFrameIndex.value = 0;
+  }
 
   function addToService(item: ServicePresentationItem): boolean {
     const alreadyExists = serviceItems.value.some(
@@ -196,6 +227,9 @@ export const usePresentationStore = defineStore('presentation', () => {
   return {
     serviceItems,
     selectedServiceItemId,
+    previewItem,
+    previewFrameIndex,
+    previewFrame,
     liveItem,
     liveFrameIndex,
     liveFrame,
@@ -203,6 +237,10 @@ export const usePresentationStore = defineStore('presentation', () => {
     mediaCommand,
     mediaCommandSequence,
     addToService,
+    setPreviewItem,
+    movePreviewFrame,
+    setPreviewFrame,
+    clearPreview,
     updateServiceItem,
     selectServiceItem,
     removeFromService,

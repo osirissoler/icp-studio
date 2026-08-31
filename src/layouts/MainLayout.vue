@@ -208,6 +208,7 @@
     </q-dialog>
 
     <PersistentMediaPlayer />
+    <RemoteControlBridge />
   </q-layout>
 </template>
 
@@ -216,6 +217,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { QFooter, QHeader, useQuasar } from 'quasar';
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
+import RemoteControlBridge from '../components/RemoteControlBridge.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import type { DisplayInfo } from '../shared/display';
 import type { NavigationItemId } from '../shared/navigation';

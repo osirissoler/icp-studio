@@ -10,7 +10,12 @@ import type {
 import type { DisplayInfo } from './src/shared/display';
 import type { MediaImportProgress, MediaKind, MediaLibraryItem } from './src/shared/media';
 import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
-import type { RemoteServerStatus } from './src/shared/remote';
+import type {
+  RemoteBridgeRequest,
+  RemoteBridgeResponse,
+  RemoteControlState,
+  RemoteServerStatus,
+} from './src/shared/remote';
 import type { DefaultSongCollection } from './src/shared/song';
 
 interface IcpStudioApi {
@@ -50,6 +55,9 @@ interface IcpStudioApi {
     start: () => Promise<RemoteServerStatus>;
     stop: () => Promise<RemoteServerStatus>;
     onStatusChanged: (listener: (status: RemoteServerStatus) => void) => () => void;
+    onRequest: (listener: (request: RemoteBridgeRequest) => void) => () => void;
+    respond: (response: RemoteBridgeResponse) => void;
+    publishState: (state: RemoteControlState) => void;
   };
   windows: {
     openSongEditor: (songId?: string) => void;

@@ -24,7 +24,13 @@ import {
   type MediaKind,
   type MediaLibraryItem,
 } from '../src/shared/media';
-import { REMOTE_CHANNELS, type RemoteServerStatus } from '../src/shared/remote';
+import {
+  REMOTE_CHANNELS,
+  type RemoteBridgeRequest,
+  type RemoteBridgeResponse,
+  type RemoteControlState,
+  type RemoteServerStatus,
+} from '../src/shared/remote';
 
 const displayApi = {
   list: (): Promise<DisplayInfo[]> => {
@@ -120,6 +126,18 @@ const remoteApi = {
 
     ipcRenderer.on(REMOTE_CHANNELS.statusChanged, subscription);
     return () => ipcRenderer.removeListener(REMOTE_CHANNELS.statusChanged, subscription);
+  },
+  onRequest: (listener: (request: RemoteBridgeRequest) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, request: RemoteBridgeRequest) =>
+      listener(request);
+    ipcRenderer.on(REMOTE_CHANNELS.request, subscription);
+    return () => ipcRenderer.removeListener(REMOTE_CHANNELS.request, subscription);
+  },
+  respond: (response: RemoteBridgeResponse): void => {
+    ipcRenderer.send(REMOTE_CHANNELS.response, response);
+  },
+  publishState: (state: RemoteControlState): void => {
+    ipcRenderer.send(REMOTE_CHANNELS.publishState, state);
   },
 };
 
