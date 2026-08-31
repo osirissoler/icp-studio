@@ -6,7 +6,7 @@
       icon="description"
     >
       <template #search>
-        <div class="documents-panel">
+        <div class="documents-panel" tabindex="0" @keydown="handleSelectionKeydown">
           <div class="documents-toolbar">
             <q-input
               v-model="searchText"
@@ -38,13 +38,14 @@
               round
               dense
               size="sm"
-              color="red-4"
-              icon="delete_sweep"
-              :disable="selectedDocumentIds.size === 0"
-              aria-label="Eliminar documentos seleccionados"
-              @click="void deleteSelectedDocuments()"
+              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              icon="checklist"
+              aria-label="Seleccionar documentos"
+              @click="toggleSelectionMode"
             >
-              <q-tooltip>Eliminar documentos seleccionados</q-tooltip>
+              <q-tooltip>{{
+                selectionMode ? 'Cancelar selección' : 'Seleccionar documentos'
+              }}</q-tooltip>
             </q-btn>
             <q-btn
               flat
@@ -104,17 +105,21 @@
               role="button"
               tabindex="0"
               class="document-item"
-              :class="{ 'document-item--active': selectedItem?.id === item.id }"
-              @click="selectItem(item)"
-              @dblclick="void addItemToService(item)"
+              :class="{
+                'document-item--active': selectedItem?.id === item.id,
+                'document-item--selected': selectedDocumentIds.has(item.id),
+              }"
+              @click="handleDocumentClick(item, $event)"
+              @dblclick="handleDocumentDoubleClick(item)"
             >
               <q-checkbox
+                v-if="selectionMode || selectedDocumentIds.size > 0"
                 :model-value="selectedDocumentIds.has(item.id)"
                 dense
                 size="xs"
                 color="primary"
                 @click.stop
-                @update:model-value="toggleDocumentSelection(item.id)"
+                @update:model-value="toggleDocumentSelection(item)"
               />
               <span class="document-icon" :class="`document-icon--${item.documentFormat}`">
                 <q-icon :name="documentIcon(item)" />
@@ -133,6 +138,15 @@
             }}</strong>
             <span>Importa archivos PDF, Excel o PowerPoint desde tu computadora.</span>
           </div>
+
+          <SelectionActionBar
+            :count="selectedDocumentIds.size"
+            :all-selected="allFilteredDocumentsSelected"
+            :deleting="deletingSelection"
+            @toggle-all="toggleAllDocuments"
+            @cancel="cancelSelection"
+            @delete="void deleteSelectedDocuments()"
+          />
         </div>
       </template>
 
@@ -228,6 +242,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
+import SelectionActionBar from '../components/SelectionActionBar.vue';
 import { inspectDocument, type DocumentInfo } from '../services/document-reader';
 import type { DocumentFormat, MediaImportProgress, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
@@ -237,6 +252,8 @@ const presentationStore = usePresentationStore();
 const items = ref<MediaLibraryItem[]>([]);
 const selectedItem = ref<MediaLibraryItem | null>(null);
 const selectedDocumentIds = ref(new Set<string>());
+const selectionMode = ref(false);
+const deletingSelection = ref(false);
 const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
@@ -249,6 +266,7 @@ const documentInfo = new Map<string, DocumentInfo>();
 let unsubscribeImportProgress: (() => void) | undefined;
 let progressVisibleSince = 0;
 let wheelLockedUntil = 0;
+let lastSelectionIndex: number | null = null;
 
 const filteredItems = computed(() => {
   const term = normalize(searchText.value);
@@ -256,6 +274,11 @@ const filteredItems = computed(() => {
 });
 
 const currentPageLabel = computed(() => pageLabels.value[previewPageIndex.value] ?? 'Página');
+const allFilteredDocumentsSelected = computed(
+  () =>
+    filteredItems.value.length > 0 &&
+    filteredItems.value.every((item) => selectedDocumentIds.value.has(item.id)),
+);
 
 function normalize(value: string): string {
   return value
@@ -303,11 +326,87 @@ function selectItem(item: MediaLibraryItem): void {
   pageLabels.value = cached?.labels ?? [];
 }
 
-function toggleDocumentSelection(itemId: string): void {
+function toggleDocumentSelection(item: MediaLibraryItem): void {
   const nextSelection = new Set(selectedDocumentIds.value);
-  if (nextSelection.has(itemId)) nextSelection.delete(itemId);
-  else nextSelection.add(itemId);
+  if (nextSelection.has(item.id)) nextSelection.delete(item.id);
+  else nextSelection.add(item.id);
   selectedDocumentIds.value = nextSelection;
+  selectionMode.value = nextSelection.size > 0 || selectionMode.value;
+  lastSelectionIndex = filteredItems.value.findIndex((entry) => entry.id === item.id);
+}
+
+function selectDocumentRange(item: MediaLibraryItem): void {
+  const itemIndex = filteredItems.value.findIndex((entry) => entry.id === item.id);
+  if (itemIndex < 0 || lastSelectionIndex === null) {
+    toggleDocumentSelection(item);
+    return;
+  }
+
+  const startIndex = Math.min(lastSelectionIndex, itemIndex);
+  const endIndex = Math.max(lastSelectionIndex, itemIndex);
+  const nextSelection = new Set(selectedDocumentIds.value);
+  filteredItems.value.slice(startIndex, endIndex + 1).forEach((entry) => {
+    nextSelection.add(entry.id);
+  });
+  selectedDocumentIds.value = nextSelection;
+  lastSelectionIndex = itemIndex;
+}
+
+function handleDocumentClick(item: MediaLibraryItem, event: MouseEvent): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || selectionMode.value) {
+    selectionMode.value = true;
+    if (event.shiftKey) selectDocumentRange(item);
+    else toggleDocumentSelection(item);
+    return;
+  }
+
+  selectItem(item);
+}
+
+function handleDocumentDoubleClick(item: MediaLibraryItem): void {
+  if (!selectionMode.value) void addItemToService(item);
+}
+
+function toggleSelectionMode(): void {
+  if (selectionMode.value) cancelSelection();
+  else selectionMode.value = true;
+}
+
+function toggleAllDocuments(): void {
+  if (allFilteredDocumentsSelected.value) {
+    const visibleIds = new Set(filteredItems.value.map((item) => item.id));
+    selectedDocumentIds.value = new Set(
+      [...selectedDocumentIds.value].filter((itemId) => !visibleIds.has(itemId)),
+    );
+    return;
+  }
+
+  selectedDocumentIds.value = new Set([
+    ...selectedDocumentIds.value,
+    ...filteredItems.value.map((item) => item.id),
+  ]);
+  selectionMode.value = true;
+}
+
+function cancelSelection(): void {
+  selectedDocumentIds.value = new Set();
+  selectionMode.value = false;
+  lastSelectionIndex = null;
+}
+
+function handleSelectionKeydown(event: KeyboardEvent): void {
+  const target = event.target as HTMLElement | null;
+  if (target?.matches('input, textarea, [contenteditable="true"]')) return;
+
+  if (event.key === 'Escape') {
+    cancelSelection();
+    return;
+  }
+
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedDocumentIds.value.size > 0) {
+    event.preventDefault();
+    void deleteSelectedDocuments();
+  }
 }
 
 function changePreviewZoom(amount: number): void {
@@ -341,45 +440,51 @@ async function deleteSelectedDocuments(): Promise<void> {
   );
   if (!confirmed) return;
 
+  deletingSelection.value = true;
   const removedIds = new Set<string>();
-  for (const item of selectedItems) {
-    try {
-      const removed = await window.icpStudio?.media.remove(item.id);
-      if (!removed) continue;
-      if (presentationStore.liveItem?.sourceId === item.id) presentationStore.clearLive();
-      presentationStore.serviceItems
-        .filter((serviceItem) => serviceItem.sourceId === item.id)
-        .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
-      documentInfo.delete(item.id);
-      removedIds.add(item.id);
-    } catch {
-      // Continúa con los demás archivos y reporta el resultado al finalizar.
+  try {
+    for (const item of selectedItems) {
+      try {
+        const removed = await window.icpStudio?.media.remove(item.id);
+        if (!removed) continue;
+        if (presentationStore.liveItem?.sourceId === item.id) presentationStore.clearLive();
+        presentationStore.serviceItems
+          .filter((serviceItem) => serviceItem.sourceId === item.id)
+          .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+        documentInfo.delete(item.id);
+        removedIds.add(item.id);
+      } catch {
+        // Continúa con los demás archivos y reporta el resultado al finalizar.
+      }
     }
+
+    items.value = items.value.filter((item) => !removedIds.has(item.id));
+    selectedDocumentIds.value = new Set(
+      selectedItems.filter((item) => !removedIds.has(item.id)).map((item) => item.id),
+    );
+    selectionMode.value = selectedDocumentIds.value.size > 0;
+
+    if (selectedItem.value && removedIds.has(selectedItem.value.id)) {
+      selectedItem.value = null;
+      previewPageIndex.value = 0;
+      previewZoom.value = 1;
+      pageCount.value = 1;
+      pageLabels.value = [];
+    }
+
+    const removedCount = removedIds.size;
+    showAppNotification(
+      removedCount === selectedItems.length
+        ? removedCount === 1
+          ? 'El documento fue eliminado.'
+          : `${removedCount} documentos fueron eliminados.`
+        : `Se eliminaron ${removedCount} de ${selectedItems.length} documentos.`,
+      removedCount === selectedItems.length ? 'positive' : 'warning',
+      'delete_sweep',
+    );
+  } finally {
+    deletingSelection.value = false;
   }
-
-  items.value = items.value.filter((item) => !removedIds.has(item.id));
-  selectedDocumentIds.value = new Set(
-    selectedItems.filter((item) => !removedIds.has(item.id)).map((item) => item.id),
-  );
-
-  if (selectedItem.value && removedIds.has(selectedItem.value.id)) {
-    selectedItem.value = null;
-    previewPageIndex.value = 0;
-    previewZoom.value = 1;
-    pageCount.value = 1;
-    pageLabels.value = [];
-  }
-
-  const removedCount = removedIds.size;
-  showAppNotification(
-    removedCount === selectedItems.length
-      ? removedCount === 1
-        ? 'El documento fue eliminado.'
-        : `${removedCount} documentos fueron eliminados.`
-      : `Se eliminaron ${removedCount} de ${selectedItems.length} documentos.`,
-    removedCount === selectedItems.length ? 'positive' : 'warning',
-    'delete_sweep',
-  );
 }
 
 async function ensureDocumentInfo(item: MediaLibraryItem): Promise<DocumentInfo> {
@@ -570,9 +675,14 @@ onBeforeUnmount(() => {
 }
 
 .document-item:hover,
-.document-item--active {
+.document-item--active,
+.document-item--selected {
   background: #12243a;
   border-color: #3b82f6;
+}
+
+.document-item--selected {
+  box-shadow: inset 3px 0 #60a5fa;
 }
 
 .document-icon {

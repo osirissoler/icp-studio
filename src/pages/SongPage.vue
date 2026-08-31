@@ -6,7 +6,7 @@
       icon="music_note"
     >
       <template #search>
-        <div class="song-panel">
+        <div class="song-panel" tabindex="0" @keydown="handleSelectionKeydown">
           <div class="song-toolbar">
             <q-input
               v-model="searchText"
@@ -39,14 +39,15 @@
               round
               dense
               size="sm"
-              icon="delete_outline"
-              color="red-4"
-              aria-label="Eliminar alabanza seleccionada"
-              class="song-toolbar-button song-toolbar-button--danger"
-              :disable="!selectedSong"
-              @click="deleteSelectedSong"
+              icon="checklist"
+              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              aria-label="Seleccionar alabanzas"
+              class="song-toolbar-button"
+              @click="toggleSelectionMode"
             >
-              <q-tooltip>Eliminar alabanza seleccionada</q-tooltip>
+              <q-tooltip>{{
+                selectionMode ? 'Cancelar selección' : 'Seleccionar alabanzas'
+              }}</q-tooltip>
             </q-btn>
 
             <q-btn
@@ -86,10 +87,22 @@
               :key="song.id"
               type="button"
               class="song-result"
-              :class="{ 'song-result--active': selectedSong?.id === song.id }"
-              @click="selectSong(song)"
-              @dblclick="addSongFromList(song)"
+              :class="{
+                'song-result--active': selectedSong?.id === song.id,
+                'song-result--selected': selectedSongIds.has(song.id),
+              }"
+              @click="handleSongClick(song, $event)"
+              @dblclick="handleSongDoubleClick(song)"
             >
+              <q-checkbox
+                v-if="selectionMode || selectedSongIds.size > 0"
+                :model-value="selectedSongIds.has(song.id)"
+                dense
+                size="xs"
+                color="primary"
+                @click.stop
+                @update:model-value="toggleSongSelection(song)"
+              />
               <q-icon name="music_note" color="primary" />
               <span class="song-result-copy">
                 <strong>{{ song.title }}</strong>
@@ -122,6 +135,14 @@
             }}</strong>
             <span>Crea una alabanza para comenzar tu biblioteca local.</span>
           </div>
+
+          <SelectionActionBar
+            :count="selectedSongIds.size"
+            :all-selected="allFilteredSongsSelected"
+            @toggle-all="toggleAllSongs"
+            @cancel="cancelSelection"
+            @delete="deleteSelectedSongs"
+          />
         </div>
       </template>
 
@@ -271,6 +292,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import FittedTechnicalText from '../components/FittedTechnicalText.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
+import SelectionActionBar from '../components/SelectionActionBar.vue';
 import { usePresentationStore } from '../stores/presentation-store';
 import {
   deleteSong,
@@ -291,12 +313,15 @@ const presentationStore = usePresentationStore();
 const songs = ref<Song[]>([]);
 const searchText = ref('');
 const selectedSong = ref<Song | null>(null);
+const selectedSongIds = ref(new Set<string>());
+const selectionMode = ref(false);
 const selectedPartId = ref<string | null>(null);
 const serviceSongs = ref<Song[]>([]);
 const selectedServiceSongId = ref<string | null>(null);
 const liveSong = ref<Song | null>(null);
 const livePart = ref<SongPart | null>(null);
 const livePanel = ref<HTMLElement | null>(null);
+let lastSelectionIndex: number | null = null;
 
 const normalizedSearch = computed(() => normalize(searchText.value));
 const filteredSongs = computed(() => {
@@ -308,6 +333,11 @@ const filteredSongs = computed(() => {
       )
     : songs.value;
 });
+const allFilteredSongsSelected = computed(
+  () =>
+    filteredSongs.value.length > 0 &&
+    filteredSongs.value.every((song) => selectedSongIds.value.has(song.id)),
+);
 const selectedPart = computed(
   () =>
     selectedSong.value?.parts.find((part) => part.id === selectedPartId.value) ??
@@ -412,33 +442,135 @@ function selectSong(song: Song): void {
   selectedPartId.value = song.parts[0]?.id ?? null;
 }
 
-function deleteSelectedSong(): void {
-  const song = selectedSong.value;
-  if (!song) return;
+function toggleSongSelection(song: Song): void {
+  const nextSelection = new Set(selectedSongIds.value);
+  if (nextSelection.has(song.id)) nextSelection.delete(song.id);
+  else nextSelection.add(song.id);
+  selectedSongIds.value = nextSelection;
+  selectionMode.value = nextSelection.size > 0 || selectionMode.value;
+  lastSelectionIndex = filteredSongs.value.findIndex((entry) => entry.id === song.id);
+}
 
-  const confirmed = window.confirm(`¿Quieres eliminar la alabanza “${song.title}”?`);
-  if (!confirmed) return;
-
-  if (!deleteSong(song.id)) {
-    showAppNotification('No fue posible eliminar la alabanza.', 'negative', 'error_outline');
+function selectSongRange(song: Song): void {
+  const songIndex = filteredSongs.value.findIndex((entry) => entry.id === song.id);
+  if (songIndex < 0 || lastSelectionIndex === null) {
+    toggleSongSelection(song);
     return;
   }
 
-  if (presentationStore.liveItem?.sourceId === song.id) {
-    presentationStore.clearLive();
+  const startIndex = Math.min(lastSelectionIndex, songIndex);
+  const endIndex = Math.max(lastSelectionIndex, songIndex);
+  const nextSelection = new Set(selectedSongIds.value);
+  filteredSongs.value.slice(startIndex, endIndex + 1).forEach((entry) => {
+    nextSelection.add(entry.id);
+  });
+  selectedSongIds.value = nextSelection;
+  lastSelectionIndex = songIndex;
+}
+
+function handleSongClick(song: Song, event: MouseEvent): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || selectionMode.value) {
+    selectionMode.value = true;
+    if (event.shiftKey) selectSongRange(song);
+    else toggleSongSelection(song);
+    return;
   }
 
-  presentationStore.serviceItems
-    .filter((serviceItem) => serviceItem.sourceId === song.id)
-    .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+  selectSong(song);
+}
 
-  serviceSongs.value = serviceSongs.value.filter((entry) => entry.id !== song.id);
-  if (selectedServiceSongId.value === song.id) selectedServiceSongId.value = null;
-  if (liveSong.value?.id === song.id) clearLive();
-  selectedSong.value = null;
-  selectedPartId.value = null;
+function handleSongDoubleClick(song: Song): void {
+  if (!selectionMode.value) addSongFromList(song);
+}
+
+function toggleSelectionMode(): void {
+  if (selectionMode.value) cancelSelection();
+  else selectionMode.value = true;
+}
+
+function toggleAllSongs(): void {
+  if (allFilteredSongsSelected.value) {
+    const visibleIds = new Set(filteredSongs.value.map((song) => song.id));
+    selectedSongIds.value = new Set(
+      [...selectedSongIds.value].filter((songId) => !visibleIds.has(songId)),
+    );
+    return;
+  }
+
+  selectedSongIds.value = new Set([
+    ...selectedSongIds.value,
+    ...filteredSongs.value.map((song) => song.id),
+  ]);
+  selectionMode.value = true;
+}
+
+function cancelSelection(): void {
+  selectedSongIds.value = new Set();
+  selectionMode.value = false;
+  lastSelectionIndex = null;
+}
+
+function handleSelectionKeydown(event: KeyboardEvent): void {
+  const target = event.target as HTMLElement | null;
+  if (target?.matches('input, textarea, [contenteditable="true"]')) return;
+
+  if (event.key === 'Escape') {
+    cancelSelection();
+    return;
+  }
+
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedSongIds.value.size > 0) {
+    event.preventDefault();
+    deleteSelectedSongs();
+  }
+}
+
+function deleteSelectedSongs(): void {
+  const songsToDelete = songs.value.filter((song) => selectedSongIds.value.has(song.id));
+  if (songsToDelete.length === 0) return;
+
+  const confirmed = window.confirm(
+    songsToDelete.length === 1
+      ? `¿Quieres eliminar la alabanza “${songsToDelete[0]?.title}”?`
+      : `¿Quieres eliminar las ${songsToDelete.length} alabanzas seleccionadas?`,
+  );
+  if (!confirmed) return;
+
+  const removedIds = new Set<string>();
+  songsToDelete.forEach((song) => {
+    if (!deleteSong(song.id)) return;
+    if (presentationStore.liveItem?.sourceId === song.id) presentationStore.clearLive();
+    presentationStore.serviceItems
+      .filter((serviceItem) => serviceItem.sourceId === song.id)
+      .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+    removedIds.add(song.id);
+  });
+
+  serviceSongs.value = serviceSongs.value.filter((song) => !removedIds.has(song.id));
+  if (selectedServiceSongId.value && removedIds.has(selectedServiceSongId.value)) {
+    selectedServiceSongId.value = null;
+  }
+  if (liveSong.value && removedIds.has(liveSong.value.id)) clearLive();
+  if (selectedSong.value && removedIds.has(selectedSong.value.id)) {
+    selectedSong.value = null;
+    selectedPartId.value = null;
+  }
+
   loadSongs();
-  showAppNotification(`${song.title} fue eliminada.`, 'positive', 'delete_outline');
+  selectedSongIds.value = new Set(
+    songsToDelete.filter((song) => !removedIds.has(song.id)).map((song) => song.id),
+  );
+  selectionMode.value = selectedSongIds.value.size > 0;
+
+  showAppNotification(
+    removedIds.size === songsToDelete.length
+      ? removedIds.size === 1
+        ? 'La alabanza fue eliminada.'
+        : `${removedIds.size} alabanzas fueron eliminadas.`
+      : `Se eliminaron ${removedIds.size} de ${songsToDelete.length} alabanzas.`,
+    removedIds.size === songsToDelete.length ? 'positive' : 'warning',
+    'delete_sweep',
+  );
 }
 
 function addSongFromList(song: Song): void {
@@ -632,12 +764,17 @@ onBeforeUnmount(() => {
 
 .song-result:hover,
 .song-result--active,
+.song-result--selected,
 .service-item:hover,
 .service-item--active,
 .live-part:hover,
 .live-part--active {
   background: #12243a;
   border-color: #3b82f6;
+}
+
+.song-result--selected {
+  box-shadow: inset 3px 0 #60a5fa;
 }
 
 .song-result-copy,

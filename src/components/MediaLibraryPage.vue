@@ -2,7 +2,7 @@
   <q-page>
     <ModuleWorkspace :title="moduleTitle" :description="moduleDescription" :icon="moduleIcon">
       <template #search>
-        <div class="media-panel">
+        <div class="media-panel" tabindex="0" @keydown="handleSelectionKeydown">
           <div class="media-toolbar">
             <q-input
               v-model="searchText"
@@ -44,14 +44,15 @@
               round
               dense
               size="sm"
-              color="red-4"
-              icon="delete_outline"
-              class="media-action-button media-action-button--danger"
-              :disable="!selectedItem"
-              aria-label="Eliminar elemento seleccionado"
-              @click="void deleteSelectedItem()"
+              :color="selectionMode ? 'primary' : 'blue-grey-4'"
+              icon="checklist"
+              class="media-action-button"
+              aria-label="Seleccionar elementos"
+              @click="toggleSelectionMode"
             >
-              <q-tooltip>Eliminar seleccionado</q-tooltip>
+              <q-tooltip>{{
+                selectionMode ? 'Cancelar selección' : 'Seleccionar elementos'
+              }}</q-tooltip>
             </q-btn>
 
             <q-btn
@@ -97,12 +98,25 @@
               role="button"
               tabindex="0"
               class="media-card"
-              :class="{ 'media-card--active': selectedItem?.id === item.id }"
-              @click="selectItem(item)"
-              @dblclick="addMediaFromList(item)"
+              :class="{
+                'media-card--active': selectedItem?.id === item.id,
+                'media-card--selected': selectedItemIds.has(item.id),
+              }"
+              @click="handleItemClick(item, $event)"
+              @dblclick="handleItemDoubleClick(item)"
               @keydown.enter.prevent="selectItem(item)"
             >
               <span class="media-thumbnail">
+                <q-checkbox
+                  v-if="selectionMode || selectedItemIds.size > 0"
+                  :model-value="selectedItemIds.has(item.id)"
+                  dense
+                  size="xs"
+                  color="primary"
+                  class="media-selection-checkbox"
+                  @click.stop
+                  @update:model-value="toggleItemSelection(item)"
+                />
                 <img v-if="kind === 'image'" :src="item.url" :alt="item.name" />
                 <video v-else-if="kind === 'video'" :src="item.url" preload="metadata" muted />
                 <span v-else class="audio-thumbnail">
@@ -137,6 +151,15 @@
             </strong>
             <span>{{ emptyDescription }}</span>
           </div>
+
+          <SelectionActionBar
+            :count="selectedItemIds.size"
+            :all-selected="allFilteredItemsSelected"
+            :deleting="deletingSelection"
+            @toggle-all="toggleAllItems"
+            @cancel="cancelSelection"
+            @delete="void deleteSelectedItems()"
+          />
         </div>
       </template>
 
@@ -225,6 +248,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import ModuleWorkspace from './ModuleWorkspace.vue';
+import SelectionActionBar from './SelectionActionBar.vue';
 import type { MediaKind, MediaLibraryItem } from '../shared/media';
 import { usePresentationStore } from '../stores/presentation-store';
 import { showAppNotification } from '../services/app-notification';
@@ -234,6 +258,9 @@ const presentationStore = usePresentationStore();
 
 const items = ref<MediaLibraryItem[]>([]);
 const selectedItem = ref<MediaLibraryItem | null>(null);
+const selectedItemIds = ref(new Set<string>());
+const selectionMode = ref(false);
+const deletingSelection = ref(false);
 const searchText = ref('');
 const loading = ref(true);
 const importing = ref(false);
@@ -241,6 +268,7 @@ const renameDialogOpen = ref(false);
 const renameItem = ref<MediaLibraryItem | null>(null);
 const renameName = ref('');
 const renaming = ref(false);
+let lastSelectionIndex: number | null = null;
 
 const moduleTitle = computed(() => {
   if (props.kind === 'image') return 'Imágenes';
@@ -279,6 +307,11 @@ const filteredItems = computed(() => {
   const term = normalize(searchText.value);
   return term ? items.value.filter((item) => normalize(item.name).includes(term)) : items.value;
 });
+const allFilteredItemsSelected = computed(
+  () =>
+    filteredItems.value.length > 0 &&
+    filteredItems.value.every((item) => selectedItemIds.value.has(item.id)),
+);
 
 function normalize(value: string): string {
   return value
@@ -324,37 +357,136 @@ function selectItem(item: MediaLibraryItem): void {
   selectedItem.value = item;
 }
 
-async function deleteSelectedItem(): Promise<void> {
-  const item = selectedItem.value;
-  if (!item) return;
+function toggleItemSelection(item: MediaLibraryItem): void {
+  const nextSelection = new Set(selectedItemIds.value);
+  if (nextSelection.has(item.id)) nextSelection.delete(item.id);
+  else nextSelection.add(item.id);
+  selectedItemIds.value = nextSelection;
+  selectionMode.value = nextSelection.size > 0 || selectionMode.value;
+  lastSelectionIndex = filteredItems.value.findIndex((entry) => entry.id === item.id);
+}
 
-  const confirmed = window.confirm(`¿Quieres eliminar “${item.name}” de ICP Studio?`);
+function selectItemRange(item: MediaLibraryItem): void {
+  const itemIndex = filteredItems.value.findIndex((entry) => entry.id === item.id);
+  if (itemIndex < 0 || lastSelectionIndex === null) {
+    toggleItemSelection(item);
+    return;
+  }
+
+  const startIndex = Math.min(lastSelectionIndex, itemIndex);
+  const endIndex = Math.max(lastSelectionIndex, itemIndex);
+  const nextSelection = new Set(selectedItemIds.value);
+  filteredItems.value.slice(startIndex, endIndex + 1).forEach((entry) => {
+    nextSelection.add(entry.id);
+  });
+  selectedItemIds.value = nextSelection;
+  lastSelectionIndex = itemIndex;
+}
+
+function handleItemClick(item: MediaLibraryItem, event: MouseEvent): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || selectionMode.value) {
+    selectionMode.value = true;
+    if (event.shiftKey) selectItemRange(item);
+    else toggleItemSelection(item);
+    return;
+  }
+
+  selectItem(item);
+}
+
+function handleItemDoubleClick(item: MediaLibraryItem): void {
+  if (!selectionMode.value) addMediaFromList(item);
+}
+
+function toggleSelectionMode(): void {
+  if (selectionMode.value) cancelSelection();
+  else selectionMode.value = true;
+}
+
+function toggleAllItems(): void {
+  if (allFilteredItemsSelected.value) {
+    const visibleIds = new Set(filteredItems.value.map((item) => item.id));
+    selectedItemIds.value = new Set(
+      [...selectedItemIds.value].filter((itemId) => !visibleIds.has(itemId)),
+    );
+    return;
+  }
+
+  selectedItemIds.value = new Set([
+    ...selectedItemIds.value,
+    ...filteredItems.value.map((item) => item.id),
+  ]);
+  selectionMode.value = true;
+}
+
+function cancelSelection(): void {
+  selectedItemIds.value = new Set();
+  selectionMode.value = false;
+  lastSelectionIndex = null;
+}
+
+function handleSelectionKeydown(event: KeyboardEvent): void {
+  const target = event.target as HTMLElement | null;
+  if (target?.matches('input, textarea, [contenteditable="true"]')) return;
+
+  if (event.key === 'Escape') {
+    cancelSelection();
+    return;
+  }
+
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedItemIds.value.size > 0) {
+    event.preventDefault();
+    void deleteSelectedItems();
+  }
+}
+
+async function deleteSelectedItems(): Promise<void> {
+  const selectedItems = items.value.filter((item) => selectedItemIds.value.has(item.id));
+  if (selectedItems.length === 0) return;
+
+  const confirmed = window.confirm(
+    selectedItems.length === 1
+      ? `¿Quieres eliminar “${selectedItems[0]?.name}” de ICP Studio?`
+      : `¿Quieres eliminar los ${selectedItems.length} elementos seleccionados de ICP Studio?`,
+  );
   if (!confirmed) return;
 
+  deletingSelection.value = true;
+  const removedIds = new Set<string>();
   try {
-    const removed = await window.icpStudio?.media.remove(item.id);
-    if (!removed) {
-      showAppNotification('No fue posible eliminar el archivo.', 'negative', 'error_outline');
-      return;
+    for (const item of selectedItems) {
+      try {
+        const removed = await window.icpStudio?.media.remove(item.id);
+        if (!removed) continue;
+        if (presentationStore.liveItem?.sourceId === item.id) presentationStore.clearLive();
+        presentationStore.serviceItems
+          .filter((serviceItem) => serviceItem.sourceId === item.id)
+          .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
+        removedIds.add(item.id);
+      } catch {
+        // Continúa eliminando los demás elementos seleccionados.
+      }
     }
 
-    if (presentationStore.liveItem?.sourceId === item.id) {
-      presentationStore.clearLive();
-    }
-
-    presentationStore.serviceItems
-      .filter((serviceItem) => serviceItem.sourceId === item.id)
-      .forEach((serviceItem) => presentationStore.removeFromService(serviceItem.id));
-
-    items.value = items.value.filter((entry) => entry.id !== item.id);
-    selectedItem.value = null;
-    showAppNotification(`${item.name} fue eliminado.`, 'positive', 'delete_outline');
-  } catch (error) {
-    showAppNotification(
-      error instanceof Error ? error.message : 'No fue posible eliminar el archivo.',
-      'negative',
-      'error_outline',
+    items.value = items.value.filter((item) => !removedIds.has(item.id));
+    selectedItemIds.value = new Set(
+      selectedItems.filter((item) => !removedIds.has(item.id)).map((item) => item.id),
     );
+    selectionMode.value = selectedItemIds.value.size > 0;
+    if (selectedItem.value && removedIds.has(selectedItem.value.id)) selectedItem.value = null;
+
+    const removedCount = removedIds.size;
+    showAppNotification(
+      removedCount === selectedItems.length
+        ? removedCount === 1
+          ? 'El elemento fue eliminado.'
+          : `${removedCount} elementos fueron eliminados.`
+        : `Se eliminaron ${removedCount} de ${selectedItems.length} elementos.`,
+      removedCount === selectedItems.length ? 'positive' : 'warning',
+      'delete_sweep',
+    );
+  } finally {
+    deletingSelection.value = false;
   }
 }
 
@@ -469,6 +601,7 @@ onMounted(() => {
   min-height: 100%;
   flex: 1;
   flex-direction: column;
+  outline: none;
 }
 
 .media-toolbar,
@@ -527,9 +660,14 @@ onMounted(() => {
 }
 
 .media-card:hover,
-.media-card--active {
+.media-card--active,
+.media-card--selected {
   background: #12243a;
   border-color: #3b82f6;
+}
+
+.media-card--selected {
+  box-shadow: inset 0 0 0 1px #60a5fa;
 }
 
 .media-thumbnail {
@@ -540,6 +678,16 @@ onMounted(() => {
   background: #05080d;
   border-radius: 5px;
   place-items: center;
+}
+
+.media-selection-checkbox {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  left: 4px;
+  padding: 2px;
+  background: rgb(5 12 22 / 85%);
+  border-radius: 5px;
 }
 
 .media-thumbnail img,
