@@ -24,6 +24,7 @@ import {
   type MediaKind,
   type MediaLibraryItem,
 } from '../src/shared/media';
+import { REMOTE_CHANNELS, type RemoteServerStatus } from '../src/shared/remote';
 
 const displayApi = {
   list: (): Promise<DisplayInfo[]> => {
@@ -103,6 +104,25 @@ const mediaApi = {
   },
 };
 
+const remoteApi = {
+  status: (): Promise<RemoteServerStatus> => {
+    return ipcRenderer.invoke(REMOTE_CHANNELS.status) as Promise<RemoteServerStatus>;
+  },
+  start: (): Promise<RemoteServerStatus> => {
+    return ipcRenderer.invoke(REMOTE_CHANNELS.start) as Promise<RemoteServerStatus>;
+  },
+  stop: (): Promise<RemoteServerStatus> => {
+    return ipcRenderer.invoke(REMOTE_CHANNELS.stop) as Promise<RemoteServerStatus>;
+  },
+  onStatusChanged: (listener: (status: RemoteServerStatus) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, status: RemoteServerStatus) =>
+      listener(status);
+
+    ipcRenderer.on(REMOTE_CHANNELS.statusChanged, subscription);
+    return () => ipcRenderer.removeListener(REMOTE_CHANNELS.statusChanged, subscription);
+  },
+};
+
 const bibleApi = {
   getVersions: (): Promise<BibleVersion[]> => {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getVersions) as Promise<BibleVersion[]>;
@@ -149,5 +169,6 @@ contextBridge.exposeInMainWorld('icpStudio', {
   songs: songApi,
   media: mediaApi,
   projection: projectionApi,
+  remote: remoteApi,
   windows: windowApi,
 });

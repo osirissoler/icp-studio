@@ -16,6 +16,13 @@ import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 import { closeBibleDatabase } from './bible/bible-database';
 import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
 import { registerMediaIpc, unregisterMediaIpc } from './media/media-ipc';
+import { REMOTE_CHANNELS } from '../src/shared/remote';
+import {
+  getRemoteServerStatus,
+  onRemoteServerStatusChanged,
+  startRemoteServer,
+  stopRemoteServer,
+} from './remote/remote-server';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -411,6 +418,23 @@ function registerWindowIpc(): void {
   });
 }
 
+function registerRemoteIpc(): void {
+  ipcMain.handle(REMOTE_CHANNELS.status, () => getRemoteServerStatus());
+  ipcMain.handle(REMOTE_CHANNELS.start, () => startRemoteServer());
+  ipcMain.handle(REMOTE_CHANNELS.stop, () => stopRemoteServer());
+
+  onRemoteServerStatusChanged((status) => {
+    windows.main?.webContents.send(REMOTE_CHANNELS.statusChanged, status);
+  });
+}
+
+function unregisterRemoteIpc(): void {
+  ipcMain.removeHandler(REMOTE_CHANNELS.status);
+  ipcMain.removeHandler(REMOTE_CHANNELS.start);
+  ipcMain.removeHandler(REMOTE_CHANNELS.stop);
+  onRemoteServerStatusChanged(null);
+}
+
 async function createProjectionWindow(
   display: Display | null,
   index: number,
@@ -535,12 +559,14 @@ void app.whenReady().then(() => {
 
   registerProjectionIpc();
   registerWindowIpc();
+  registerRemoteIpc();
   registerDisplayMonitoring();
 
   registerBibleIpc(() => (windows.main ? [windows.main] : []));
   registerSongIpc(() => windows.main);
   registerMediaIpc(() => windows.main);
 
+  void startRemoteServer();
   void createWindow();
 
   app.on('activate', () => {
@@ -554,7 +580,9 @@ app.on('before-quit', () => {
   unregisterBibleIpc();
   unregisterSongIpc();
   unregisterMediaIpc();
+  unregisterRemoteIpc();
   unregisterDisplayMonitoring();
+  void stopRemoteServer();
   closeBibleDatabase();
 });
 

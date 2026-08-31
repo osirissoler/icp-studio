@@ -64,7 +64,7 @@
               </q-item>
 
               <q-separator dark />
-              <q-item clickable v-close-popup @click="openSettings">
+              <q-item clickable v-close-popup @click="openSettings('screens')">
                 <q-item-section avatar>
                   <q-icon name="settings" />
                 </q-item-section>
@@ -80,6 +80,7 @@
           icon="smartphone"
           label="Control remoto"
           class="remote-button q-ml-md gt-xs"
+          @click="openSettings('remote')"
         />
 
         <q-btn
@@ -201,7 +202,7 @@
         </q-card-section>
         <q-separator dark />
         <q-card-section class="settings-dialog-content">
-          <SettingsPage />
+          <SettingsPage :initial-section="settingsInitialSection" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -231,6 +232,7 @@ const {
 const drawerOpen = ref(true);
 const displays = ref<DisplayInfo[]>([]);
 const settingsDialogOpen = ref(false);
+const settingsInitialSection = ref<'general' | 'screens' | 'remote'>('general');
 const draggingNavigationId = ref<NavigationItemId | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
 
@@ -253,7 +255,8 @@ const currentDate = computed(() => {
   return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 });
 
-function openSettings(): void {
+function openSettings(section: 'general' | 'screens' | 'remote' | Event = 'general'): void {
+  settingsInitialSection.value = typeof section === 'string' ? section : 'general';
   settingsDialogOpen.value = true;
 }
 
@@ -335,6 +338,30 @@ function dropNavigationItem(targetId: NavigationItemId): void {
   flex: 1;
   padding: 0;
   overflow-y: auto;
+  scrollbar-color: #45678e #0a111a;
+  scrollbar-width: thin;
+}
+
+.settings-dialog-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.settings-dialog-content::-webkit-scrollbar-track {
+  margin: 6px 0;
+  background: #0a111a;
+  border-radius: 999px;
+}
+
+.settings-dialog-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4e7199, #304d6d);
+  background-clip: padding-box;
+  border: 2px solid #0a111a;
+  border-radius: 999px;
+}
+
+.settings-dialog-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #6290c2, #3d638b);
+  background-clip: padding-box;
 }
 
 @media (max-width: 900px) {

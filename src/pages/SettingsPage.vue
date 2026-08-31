@@ -715,6 +715,112 @@
         </div>
       </section>
 
+      <section v-else-if="activeSection === 'remote'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="smartphone" />
+          <div>
+            <h2>Control remoto</h2>
+            <p>Vincula un celular directamente con esta computadora mediante la red local.</p>
+          </div>
+        </div>
+
+        <div class="remote-settings-layout">
+          <q-card flat class="settings-card remote-connection-card">
+            <q-card-section class="card-header">
+              <div>
+                <strong>Servidor local</strong>
+                <small>No utiliza la nube ni necesita conexión a internet.</small>
+              </div>
+              <q-badge
+                rounded
+                :color="remoteStatus.running ? 'positive' : 'blue-grey-7'"
+                :label="remoteStatus.running ? 'Activo' : 'Detenido'"
+              />
+            </q-card-section>
+            <q-separator dark />
+
+            <q-card-section class="remote-connection-body">
+              <div class="remote-status-row">
+                <span
+                  class="remote-status-dot"
+                  :class="{ 'remote-status-dot--active': remoteStatus.running }"
+                ></span>
+                <div>
+                  <strong>{{
+                    remoteStatus.running ? 'Listo para conectar' : 'Control apagado'
+                  }}</strong>
+                  <small v-if="remoteStatus.running">
+                    {{ remoteStatus.connectedClients }}
+                    {{
+                      remoteStatus.connectedClients === 1
+                        ? 'celular conectado'
+                        : 'celulares conectados'
+                    }}
+                  </small>
+                  <small v-else>Inicia el servidor para generar un nuevo enlace.</small>
+                </div>
+              </div>
+
+              <div v-if="remoteStatus.primaryUrl" class="remote-address">
+                <q-icon name="wifi" />
+                <code>{{ remoteStatus.primaryUrl }}</code>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="light-blue-4"
+                  icon="content_copy"
+                  @click="copyRemoteUrl"
+                >
+                  <q-tooltip>Copiar enlace</q-tooltip>
+                </q-btn>
+              </div>
+
+              <div v-if="remoteStatus.error" class="settings-error remote-error">
+                <q-icon name="error_outline" />{{ remoteStatus.error }}
+              </div>
+
+              <div class="remote-actions">
+                <q-btn
+                  v-if="!remoteStatus.running"
+                  unelevated
+                  no-caps
+                  color="primary"
+                  icon="power_settings_new"
+                  label="Iniciar control remoto"
+                  :loading="changingRemoteState"
+                  @click="startRemote"
+                />
+                <q-btn
+                  v-else
+                  outline
+                  no-caps
+                  color="blue-grey-4"
+                  icon="stop_circle"
+                  label="Detener control remoto"
+                  :loading="changingRemoteState"
+                  @click="stopRemote"
+                />
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="settings-card remote-qr-card">
+            <div v-if="remoteQrCode" class="remote-qr-frame">
+              <img :src="remoteQrCode" alt="Código QR para abrir ICP Studio Remote" />
+            </div>
+            <div v-else class="remote-qr-placeholder">
+              <q-icon name="qr_code_2" />
+            </div>
+            <strong>Escanea desde el celular</strong>
+            <p v-if="remoteStatus.primaryUrl">
+              Ambos dispositivos deben estar conectados a la misma red Wi-Fi.
+            </p>
+            <p v-else>Conecta la computadora a una red local para crear una dirección accesible.</p>
+          </q-card>
+        </div>
+      </section>
+
       <section v-else class="settings-section">
         <div class="section-heading">
           <q-icon :name="activeNavigationItem.icon" />
@@ -737,8 +843,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import QRCode from 'qrcode';
 import AudioVisualizer from '../components/AudioVisualizer.vue';
 import { showAppNotification } from '../services/app-notification';
 import {
@@ -748,6 +855,7 @@ import {
 } from '../services/bible-settings';
 import type { BibleTransferResult, BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
+import type { RemoteServerStatus } from '../shared/remote';
 import type {
   AudioVisualizerType,
   ProjectionTheme,
@@ -763,6 +871,10 @@ import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
 type SettingsSectionId =
   'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'remote';
+
+const props = withDefaults(defineProps<{ initialSection?: SettingsSectionId }>(), {
+  initialSection: 'general',
+});
 interface NavigationItem {
   id: SettingsSectionId;
   label: string;
@@ -891,7 +1003,7 @@ const {
   surfaceStyle,
   contentLayoutStyle,
 } = storeToRefs(projectionSettings);
-const activeSection = ref<SettingsSectionId>('general');
+const activeSection = ref<SettingsSectionId>(props.initialSection);
 const draggingNavigationId = ref<NavigationItemId | null>(null);
 const draggingWorkspacePanelId = ref<WorkspacePanelId | null>(null);
 const displays = ref<DisplayInfo[]>([]);
@@ -903,6 +1015,39 @@ const importingBible = ref(false);
 const exportingBibleCode = ref<string | null>(null);
 const removingBibleCode = ref<string | null>(null);
 let unsubscribeDisplays: (() => void) | undefined;
+let unsubscribeRemoteStatus: (() => void) | undefined;
+const remoteStatus = ref<RemoteServerStatus>({
+  running: false,
+  port: null,
+  addresses: [],
+  primaryUrl: null,
+  connectedClients: 0,
+  error: null,
+});
+const remoteQrCode = ref('');
+const changingRemoteState = ref(false);
+
+watch(
+  () => props.initialSection,
+  (section) => {
+    activeSection.value = section;
+  },
+);
+
+watch(
+  () => remoteStatus.value.primaryUrl,
+  async (url) => {
+    remoteQrCode.value = url
+      ? await QRCode.toDataURL(url, {
+          width: 290,
+          margin: 2,
+          color: { dark: '#0b1420', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        })
+      : '';
+  },
+  { immediate: true },
+);
 
 const orderedPanelOptions = computed(() =>
   workspaceSettings.panelOrder
@@ -1168,15 +1313,48 @@ async function deleteBibleVersion(version: BibleVersion): Promise<void> {
   }
 }
 
+async function startRemote(): Promise<void> {
+  changingRemoteState.value = true;
+  try {
+    remoteStatus.value = (await window.icpStudio?.remote.start()) ?? remoteStatus.value;
+  } finally {
+    changingRemoteState.value = false;
+  }
+}
+
+async function stopRemote(): Promise<void> {
+  changingRemoteState.value = true;
+  try {
+    remoteStatus.value = (await window.icpStudio?.remote.stop()) ?? remoteStatus.value;
+  } finally {
+    changingRemoteState.value = false;
+  }
+}
+
+async function copyRemoteUrl(): Promise<void> {
+  const url = remoteStatus.value.primaryUrl;
+  if (!url) return;
+
+  await navigator.clipboard.writeText(url);
+  showAppNotification('Enlace del control remoto copiado.', 'positive', 'content_copy');
+}
+
 onMounted(async () => {
   displays.value = (await window.icpStudio?.displays.list()) ?? [];
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
     displays.value = nextDisplays;
   });
+  remoteStatus.value = (await window.icpStudio?.remote.status()) ?? remoteStatus.value;
+  unsubscribeRemoteStatus = window.icpStudio?.remote.onStatusChanged((status) => {
+    remoteStatus.value = status;
+  });
   await loadBibleVersions();
 });
 
-onBeforeUnmount(() => unsubscribeDisplays?.());
+onBeforeUnmount(() => {
+  unsubscribeDisplays?.();
+  unsubscribeRemoteStatus?.();
+});
 </script>
 
 <style scoped>
@@ -1735,9 +1913,136 @@ code {
   opacity: 0.65;
 }
 
+.remote-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.25fr) minmax(280px, 0.75fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.remote-connection-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.remote-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.remote-status-row > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.remote-status-row small,
+.remote-qr-card p {
+  color: #8492a6;
+}
+
+.remote-status-dot {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  background: #64748b;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgb(100 116 139 / 12%);
+}
+
+.remote-status-dot--active {
+  background: #35d07f;
+  box-shadow: 0 0 0 5px rgb(53 208 127 / 14%);
+}
+
+.remote-address {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #0d1723;
+  border: 1px solid #2d4058;
+  border-radius: 8px;
+}
+
+.remote-address > .q-icon {
+  color: #60a5fa;
+}
+
+.remote-address code {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-error {
+  justify-content: flex-start;
+  padding: 0;
+}
+
+.remote-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.remote-qr-card {
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.remote-qr-card p {
+  max-width: 330px;
+  margin: 0;
+}
+
+.remote-qr-frame {
+  display: grid;
+  width: min(230px, 70%);
+  aspect-ratio: 1;
+  margin-bottom: 4px;
+  padding: 10px;
+  place-items: center;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 28%);
+}
+
+.remote-qr-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.remote-qr-placeholder {
+  display: grid;
+  width: 180px;
+  aspect-ratio: 1;
+  place-items: center;
+  color: #52657c;
+  background: #0d1723;
+  border: 1px dashed #34506f;
+  border-radius: 14px;
+}
+
+.remote-qr-placeholder .q-icon {
+  font-size: 88px;
+}
+
 @media (max-width: 850px) {
   .settings-columns,
-  .theme-customization-layout {
+  .theme-customization-layout,
+  .remote-settings-layout {
     grid-template-columns: 1fr;
   }
 
