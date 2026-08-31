@@ -222,6 +222,114 @@
             </q-card-actions>
           </q-card>
         </div>
+
+        <div class="general-subsection-heading">
+          <q-icon name="view_list" />
+          <div>
+            <strong>Contenido activo</strong>
+            <small>Personaliza las estrofas y los versículos del área técnica.</small>
+          </div>
+        </div>
+
+        <div class="active-content-settings-layout">
+          <q-card flat class="settings-card active-content-settings-card">
+            <q-card-section class="theme-editor-grid">
+              <label>
+                <span>Color de selección</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeBackgroundColor"
+                  @input="updateActiveContentColor('activeBackgroundColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Color del borde activo</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeBorderColor"
+                  @input="updateActiveContentColor('activeBorderColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Texto activo</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeTextColor"
+                  @input="updateActiveContentColor('activeTextColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Texto inactivo</span>
+                <input
+                  type="color"
+                  :value="activeContent.inactiveTextColor"
+                  @input="updateActiveContentColor('inactiveTextColor', $event)"
+                />
+              </label>
+              <label class="range-field">
+                <span>Tamaño del texto: {{ activeContent.fontSize }} px</span>
+                <q-slider
+                  :model-value="activeContent.fontSize"
+                  :min="9"
+                  :max="18"
+                  :step="1"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveContent({ fontSize: Number($event) })
+                  "
+                />
+              </label>
+              <label class="range-field">
+                <span>Líneas visibles: {{ activeContent.visibleLines }}</span>
+                <q-slider
+                  :model-value="activeContent.visibleLines"
+                  :min="1"
+                  :max="5"
+                  :step="1"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveContent({ visibleLines: Number($event) })
+                  "
+                />
+              </label>
+            </q-card-section>
+            <q-separator dark />
+            <q-card-actions align="right">
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="blue-grey-4"
+                icon="restart_alt"
+                label="Restaurar valores originales"
+                @click="resetActiveContentSettings"
+              />
+            </q-card-actions>
+          </q-card>
+
+          <q-card flat class="settings-card active-content-preview-card">
+            <strong>Vista previa</strong>
+            <div
+              class="active-content-preview-list"
+              :style="{
+                '--preview-active-background': activeContent.activeBackgroundColor,
+                '--preview-active-border': activeContent.activeBorderColor,
+                '--preview-active-text': activeContent.activeTextColor,
+                '--preview-inactive-text': activeContent.inactiveTextColor,
+                '--preview-font-size': `${activeContent.fontSize}px`,
+                '--preview-lines': activeContent.visibleLines,
+              }"
+            >
+              <div class="active-content-preview-row active-content-preview-row--active">
+                1:1. En el principio creó Dios los cielos y la tierra.
+              </div>
+              <div class="active-content-preview-row">
+                1:2. Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz
+                del abismo.
+              </div>
+            </div>
+          </q-card>
+        </div>
       </section>
 
       <section v-else-if="activeSection === 'screens'" class="settings-section">
@@ -613,104 +721,6 @@
         </div>
       </section>
 
-      <section v-else-if="activeSection === 'active-content'" class="settings-section">
-        <div class="section-heading">
-          <q-icon name="view_list" />
-          <div>
-            <h2>Contenido activo</h2>
-            <p>Configura cómo se muestran las estrofas y los versículos en el área técnica.</p>
-          </div>
-        </div>
-
-        <div class="active-content-settings-layout">
-          <q-card flat class="settings-card active-content-settings-card">
-            <q-card-section class="theme-editor-grid">
-              <label>
-                <span>Color de selección</span>
-                <input
-                  type="color"
-                  :value="activeContent.activeBackgroundColor"
-                  @input="updateActiveContentColor('activeBackgroundColor', $event)"
-                />
-              </label>
-              <label>
-                <span>Color del borde activo</span>
-                <input
-                  type="color"
-                  :value="activeContent.activeBorderColor"
-                  @input="updateActiveContentColor('activeBorderColor', $event)"
-                />
-              </label>
-              <label>
-                <span>Texto activo</span>
-                <input
-                  type="color"
-                  :value="activeContent.activeTextColor"
-                  @input="updateActiveContentColor('activeTextColor', $event)"
-                />
-              </label>
-              <label>
-                <span>Texto inactivo</span>
-                <input
-                  type="color"
-                  :value="activeContent.inactiveTextColor"
-                  @input="updateActiveContentColor('inactiveTextColor', $event)"
-                />
-              </label>
-              <label class="range-field">
-                <span>Tamaño del texto: {{ activeContent.fontSize }} px</span>
-                <q-slider
-                  :model-value="activeContent.fontSize"
-                  :min="9"
-                  :max="18"
-                  :step="1"
-                  color="primary"
-                  @update:model-value="
-                    projectionSettings.updateActiveContent({ fontSize: Number($event) })
-                  "
-                />
-              </label>
-              <label class="range-field">
-                <span>Líneas visibles: {{ activeContent.visibleLines }}</span>
-                <q-slider
-                  :model-value="activeContent.visibleLines"
-                  :min="1"
-                  :max="5"
-                  :step="1"
-                  color="primary"
-                  @update:model-value="
-                    projectionSettings.updateActiveContent({ visibleLines: Number($event) })
-                  "
-                />
-              </label>
-            </q-card-section>
-          </q-card>
-
-          <q-card flat class="settings-card active-content-preview-card">
-            <strong>Vista previa</strong>
-            <div
-              class="active-content-preview-list"
-              :style="{
-                '--preview-active-background': activeContent.activeBackgroundColor,
-                '--preview-active-border': activeContent.activeBorderColor,
-                '--preview-active-text': activeContent.activeTextColor,
-                '--preview-inactive-text': activeContent.inactiveTextColor,
-                '--preview-font-size': `${activeContent.fontSize}px`,
-                '--preview-lines': activeContent.visibleLines,
-              }"
-            >
-              <div class="active-content-preview-row active-content-preview-row--active">
-                1:1. En el principio creó Dios los cielos y la tierra.
-              </div>
-              <div class="active-content-preview-row">
-                1:2. Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz
-                del abismo.
-              </div>
-            </div>
-          </q-card>
-        </div>
-      </section>
-
       <section v-else-if="activeSection === 'music'" class="settings-section">
         <div class="section-heading">
           <q-icon name="graphic_eq" />
@@ -855,7 +865,7 @@
                         : 'celulares conectados'
                     }}
                   </small>
-                  <small v-else>Inicia el servidor para generar un nuevo enlace.</small>
+                  <small v-else>Inicia el servidor para habilitar la dirección local.</small>
                 </div>
               </div>
 
@@ -912,7 +922,8 @@
             </div>
             <strong>Escanea desde el celular</strong>
             <p v-if="remoteStatus.primaryUrl">
-              Ambos dispositivos deben estar conectados a la misma red Wi-Fi.
+              Guarda esta dirección en favoritos. Podrás reutilizarla mientras ambos dispositivos
+              estén en la misma red Wi-Fi.
             </p>
             <p v-else>Conecta la computadora a una red local para crear una dirección accesible.</p>
           </q-card>
@@ -969,7 +980,7 @@ import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
 type SettingsSectionId =
-  'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'active-content' | 'remote';
+  'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'remote';
 
 const props = withDefaults(defineProps<{ initialSection?: SettingsSectionId }>(), {
   initialSection: 'general',
@@ -1018,12 +1029,6 @@ const navigationItems: NavigationItem[] = [
     label: 'Temas',
     icon: 'palette',
     description: 'Fondos, tipografía y apariencia de la presentación.',
-  },
-  {
-    id: 'active-content',
-    label: 'Contenido activo',
-    icon: 'view_list',
-    description: 'Apariencia de las filas activas del operador.',
   },
   {
     id: 'remote',
@@ -1244,6 +1249,15 @@ function updateActiveContentColor(
   event: Event,
 ): void {
   projectionSettings.updateActiveContent({ [field]: colorFromEvent(event) });
+}
+
+function resetActiveContentSettings(): void {
+  projectionSettings.resetActiveContent();
+  showAppNotification(
+    'La apariencia del contenido activo volvió a sus valores originales.',
+    'positive',
+    'restart_alt',
+  );
 }
 
 function updateVisualizerColor(field: 'primaryColor' | 'secondaryColor', event: Event): void {
@@ -1562,6 +1576,28 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(440px, 0.9fr) minmax(380px, 1.1fr);
   gap: 16px;
   align-items: start;
+}
+
+.general-subsection-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.general-subsection-heading > .q-icon {
+  color: #60a5fa;
+  font-size: 24px;
+}
+
+.general-subsection-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.general-subsection-heading small {
+  color: #8492a6;
 }
 
 .general-panels-card,

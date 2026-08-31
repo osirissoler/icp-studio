@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -14,7 +13,6 @@ import { buildRemotePage } from './remote-page';
 const DEFAULT_PORT = 43120;
 
 let remoteServer: Server | null = null;
-let sessionToken = randomBytes(18).toString('hex');
 let lastError: string | null = null;
 const eventClients = new Set<ServerResponse>();
 let statusListener: ((status: RemoteServerStatus) => void) | null = null;
@@ -29,13 +27,26 @@ function localAddresses(): string[] {
 
   for (const interfaces of Object.values(networkInterfaces())) {
     for (const address of interfaces ?? []) {
-      if (address.family === 'IPv4' && !address.internal) {
+      if (
+        address.family === 'IPv4' &&
+        !address.internal &&
+        !address.address.startsWith('169.254.')
+      ) {
         addresses.add(address.address);
       }
     }
   }
 
-  return [...addresses];
+  const priority = (address: string): number => {
+    if (address.startsWith('192.168.')) return 3;
+    if (address.startsWith('10.')) return 2;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) return 1;
+    return 0;
+  };
+
+  return [...addresses].sort(
+    (first, second) => priority(second) - priority(first) || first.localeCompare(second),
+  );
 }
 
 function activePort(): number | null {
@@ -46,9 +57,7 @@ function activePort(): number | null {
 export function getRemoteServerStatus(): RemoteServerStatus {
   const port = activePort();
   const addresses = port ? localAddresses() : [];
-  const urls = addresses.map(
-    (address) => `http://${address}:${port}/?token=${encodeURIComponent(sessionToken)}`,
-  );
+  const urls = addresses.map((address) => `http://${address}:${port}/`);
 
   return {
     running: remoteServer?.listening === true,
@@ -90,10 +99,6 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
     'Content-Type': 'application/json; charset=utf-8',
   });
   response.end(JSON.stringify(body));
-}
-
-function hasValidToken(url: URL): boolean {
-  return url.searchParams.get('token') === sessionToken;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
@@ -188,12 +193,6 @@ async function serveRemoteMedia(
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? '/', 'http://localhost');
 
-  if (!hasValidToken(url)) {
-    response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Enlace remoto inválido o vencido. Escanea nuevamente el código QR.');
-    return;
-  }
-
   if (url.pathname === '/') {
     response.writeHead(200, {
       'Cache-Control': 'no-store',
@@ -234,6 +233,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   const postActions: Record<string, RemoteRequestAction> = {
     '/api/preview': 'preview',
+    '/api/service': 'service-item',
     '/api/preview/move': 'move-preview',
     '/api/preview/frame': 'set-preview-frame',
     '/api/live': 'project-preview',
@@ -296,7 +296,6 @@ export async function startRemoteServer(): Promise<RemoteServerStatus> {
   if (remoteServer?.listening) return getRemoteServerStatus();
 
   lastError = null;
-  sessionToken = randomBytes(18).toString('hex');
 
   try {
     remoteServer = createServer((request, response) => {

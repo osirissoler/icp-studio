@@ -269,6 +269,11 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     save();
   }
 
+  function resetActiveContent(): void {
+    activeContent.value = { ...defaultActiveContent };
+    save();
+  }
+
   window.addEventListener('storage', (event) => {
     if (event.key === PROJECTION_SETTINGS_STORAGE_KEY) reload();
   });
@@ -289,5 +294,6 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     resetThemes,
     updateAudioVisualizer,
     updateActiveContent,
+    resetActiveContent,
   };
 });
