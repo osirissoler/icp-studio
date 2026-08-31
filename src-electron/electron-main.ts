@@ -225,7 +225,6 @@ function unregisterDisplayMonitoring(): void {
 }
 
 let songEditorWindow: BrowserWindow | null = null;
-let settingsWindow: BrowserWindow | null = null;
 
 let latestProjectionState: ProjectionState = {
   mode: 'blank',
@@ -400,43 +399,6 @@ async function createSongEditorWindow(songId?: string): Promise<void> {
   await loadAppWindow(songEditorWindow, editorRoute);
 }
 
-async function createSettingsWindow(): Promise<void> {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    if (settingsWindow.isMinimized()) settingsWindow.restore();
-    settingsWindow.focus();
-    return;
-  }
-
-  settingsWindow = new BrowserWindow({
-    title: 'ICP Studio - Configuración',
-    icon: resolveElectronAssetsPath('icons/icon.png'),
-    width: 1080,
-    height: 760,
-    minWidth: 820,
-    minHeight: 600,
-    center: true,
-    fullscreen: false,
-    fullscreenable: false,
-    maximizable: false,
-    resizable: true,
-    movable: true,
-    show: false,
-    autoHideMenuBar: true,
-    backgroundColor: '#0c131d',
-    webPreferences: {
-      contextIsolation: true,
-      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
-    },
-  });
-
-  settingsWindow.once('ready-to-show', () => settingsWindow?.show());
-  settingsWindow.on('closed', () => {
-    settingsWindow = null;
-  });
-
-  await loadAppWindow(settingsWindow, '/settings');
-}
-
 function registerWindowIpc(): void {
   ipcMain.on(WINDOW_CHANNELS.openSongEditor, (event, value: unknown) => {
     if (event.sender !== windows.main?.webContents) {
@@ -446,11 +408,6 @@ function registerWindowIpc(): void {
     const songId = typeof value === 'string' && value.length <= 200 ? value : undefined;
 
     void createSongEditorWindow(songId);
-  });
-
-  ipcMain.on(WINDOW_CHANNELS.openSettings, (event) => {
-    if (event.sender !== windows.main?.webContents) return;
-    void createSettingsWindow();
   });
 }
 
@@ -580,7 +537,7 @@ void app.whenReady().then(() => {
   registerWindowIpc();
   registerDisplayMonitoring();
 
-  registerBibleIpc(() => [windows.main, settingsWindow].filter((window) => window !== null));
+  registerBibleIpc(() => (windows.main ? [windows.main] : []));
   registerSongIpc(() => windows.main);
   registerMediaIpc(() => windows.main);
 

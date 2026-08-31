@@ -46,7 +46,6 @@ interface IcpStudioApi {
   };
   windows: {
     openSongEditor: (songId?: string) => void;
-    openSettings: () => void;
   };
 }
 

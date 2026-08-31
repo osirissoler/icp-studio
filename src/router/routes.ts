@@ -90,24 +90,11 @@ const routes: RouteRecordRaw[] = [
           icon: 'local_library',
         },
       },
-      {
-        path: 'configuracion',
-        component: () => import('../pages/SettingsPage.vue'),
-        meta: {
-          title: 'Configuración',
-          description: 'Configura pantallas, apariencia y control remoto.',
-          icon: 'settings',
-        },
-      },
     ],
   },
   {
     path: '/song-editor/:songId',
     component: () => import('../pages/SongEditorPage.vue'),
-  },
-  {
-    path: '/settings',
-    component: () => import('../pages/SettingsPage.vue'),
   },
   {
     path: '/projector',

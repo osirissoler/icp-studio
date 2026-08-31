@@ -42,9 +42,6 @@ const windowApi = {
   openSongEditor: (songId?: string): void => {
     ipcRenderer.send(WINDOW_CHANNELS.openSongEditor, songId);
   },
-  openSettings: (): void => {
-    ipcRenderer.send(WINDOW_CHANNELS.openSettings);
-  },
 };
 
 const projectionApi = {

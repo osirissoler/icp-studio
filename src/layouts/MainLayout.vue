@@ -160,6 +160,23 @@
       </router-view>
     </q-page-container>
 
+    <q-dialog v-model="settingsDialogOpen">
+      <q-card class="settings-dialog-card">
+        <q-card-section class="settings-dialog-header">
+          <div class="row items-center no-wrap">
+            <q-icon name="settings" size="21px" color="primary" />
+            <span>Configuración</span>
+          </div>
+          <q-space />
+          <q-btn v-close-popup flat round dense icon="close" aria-label="Cerrar configuración" />
+        </q-card-section>
+        <q-separator dark />
+        <q-card-section class="settings-dialog-content">
+          <SettingsPage />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
     <PersistentMediaPlayer />
   </q-layout>
 </template>
@@ -168,6 +185,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
+import SettingsPage from '../pages/SettingsPage.vue';
 import type { DisplayInfo } from '../shared/display';
 
 interface NavigationItem {
@@ -180,6 +198,7 @@ const $q = useQuasar();
 const leftDrawerOpen = ref(true);
 const miniState = ref(true);
 const displays = ref<DisplayInfo[]>([]);
+const settingsDialogOpen = ref(false);
 let unsubscribeDisplays: (() => void) | undefined;
 
 const mainNavigation: NavigationItem[] = [
@@ -205,7 +224,7 @@ const currentDate = computed(() => {
 });
 
 function openSettings(): void {
-  window.icpStudio?.windows.openSettings();
+  settingsDialogOpen.value = true;
 }
 
 onMounted(async () => {
@@ -232,6 +251,51 @@ function toggleMenu() {
 <style scoped>
 .icp-layout {
   background: #f4f6f8;
+}
+
+.settings-dialog-card {
+  display: flex;
+  width: 80vw;
+  max-width: 80vw;
+  height: 80vh;
+  max-height: 80vh;
+  flex-direction: column;
+  overflow: hidden;
+  color: #e8eef6;
+  background: #0c131d;
+  border: 1px solid #2a394d;
+  border-radius: 12px;
+}
+
+.settings-dialog-header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: #dce7f4;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-dialog-header .row {
+  gap: 8px;
+}
+
+.settings-dialog-content {
+  min-height: 0;
+  flex: 1;
+  padding: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .settings-dialog-card {
+    width: 92vw;
+    max-width: 92vw;
+    height: 88vh;
+    max-height: 88vh;
+  }
 }
 
 .icp-header {

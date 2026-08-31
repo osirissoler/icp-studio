@@ -453,7 +453,7 @@ onBeforeUnmount(() => unsubscribeDisplays?.());
 
 <style scoped>
 .settings-page {
-  min-height: 100vh;
+  min-height: 100%;
   padding: 22px;
   color: #e8eef6;
   background: #0c131d;
