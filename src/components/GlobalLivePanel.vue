@@ -155,7 +155,7 @@
           </template>
         </div>
 
-        <div v-else-if="liveItem" class="frame-list">
+        <div v-else-if="liveItem" class="frame-list" :style="activeContentStyle">
           <div class="item-title">{{ liveItem.title }}</div>
           <button
             v-for="(frame, frameIndex) in liveItem.frames"
@@ -167,8 +167,13 @@
           >
             <span class="position">{{ frameIndex + 1 }}</span>
             <span class="frame-details">
-              <strong>{{ displayFrameLabel(frame) }}</strong>
-              <small>{{ frame.text || mediaFrameLabel(frame.mediaType) }}</small>
+              <strong v-if="liveItem.type === 'bible'" class="frame-inline-text">
+                {{ displayFrameLabel(frame) }}. {{ frame.text }}
+              </strong>
+              <template v-else>
+                <strong>{{ displayFrameLabel(frame) }}</strong>
+                <small>{{ frame.text || mediaFrameLabel(frame.mediaType) }}</small>
+              </template>
             </span>
             <DocumentThumbnail
               v-if="frame.mediaType === 'document' && frame.mediaUrl && frame.documentFormat"
@@ -212,7 +217,7 @@ type LiveSection = 'screen' | 'content';
 const presentationStore = usePresentationStore();
 const projectionSettings = useProjectionSettingsStore();
 const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
-const { audioVisualizer, visualizerColors, surfaceStyle, contentLayoutStyle } =
+const { audioVisualizer, activeContent, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
 const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame } = presentationStore;
 
@@ -222,6 +227,15 @@ const liveDisplayText = computed(() => {
   const verseNumber = liveFrame.value.label.match(/(\d+:\d+)$/)?.[1] ?? liveFrame.value.label;
   return `${verseNumber}. ${liveFrame.value.text}`;
 });
+
+const activeContentStyle = computed<Record<string, string>>(() => ({
+  '--active-content-background': activeContent.value.activeBackgroundColor,
+  '--active-content-border': activeContent.value.activeBorderColor,
+  '--active-content-text': activeContent.value.activeTextColor,
+  '--inactive-content-text': activeContent.value.inactiveTextColor,
+  '--active-content-font-size': `${activeContent.value.fontSize}px`,
+  '--active-content-lines': String(activeContent.value.visibleLines),
+}));
 
 function displayFrameLabel(frame: PresentationFrame): string {
   if (liveItem.value?.type !== 'bible') return frame.label;
@@ -531,7 +545,7 @@ onBeforeUnmount(() => {
   gap: 7px;
   margin-bottom: 3px;
   padding: 5px;
-  color: #aebaca;
+  color: var(--inactive-content-text, #aebaca);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -541,16 +555,16 @@ onBeforeUnmount(() => {
 
 .frame-item:hover,
 .frame-item--active {
-  color: #f8fbff;
-  background: linear-gradient(90deg, #1d4f7d, #163653);
-  border-color: #60a5fa;
+  color: var(--active-content-text, #f8fbff);
+  background: var(--active-content-background, #1d4f7d);
+  border-color: var(--active-content-border, #60a5fa);
   box-shadow:
-    inset 3px 0 #60a5fa,
+    inset 3px 0 var(--active-content-border, #60a5fa),
     0 0 0 1px rgb(96 165 250 / 20%);
 }
 
 .frame-item--active strong {
-  color: #ffffff;
+  color: var(--active-content-text, #ffffff);
 }
 
 .frame-item--active small {
@@ -564,12 +578,24 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
+.frame-details strong,
+.frame-details small {
+  font-size: var(--active-content-font-size, 11px);
+}
+
+.frame-details .frame-inline-text,
 .frame-item small {
+  display: -webkit-box;
   overflow: hidden;
-  color: #8492a6;
-  font-size: 10px;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--active-content-lines, 2);
+}
+
+.frame-item small {
+  color: var(--inactive-content-text, #8492a6);
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .position {

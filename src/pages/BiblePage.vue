@@ -180,43 +180,45 @@
             </div>
 
             <div class="results-actions">
-              <q-checkbox
-                :model-value="allResultsSelected"
-                dense
-                label="Todos"
-                color="primary"
-                @update:model-value="toggleAllResults(Boolean($event))"
-              />
+              <div class="results-actions-primary">
+                <q-checkbox
+                  :model-value="allResultsSelected"
+                  dense
+                  label="Todos"
+                  color="primary"
+                  @update:model-value="toggleAllResults(Boolean($event))"
+                />
 
-              <q-btn
-                flat
-                round
-                dense
-                size="xs"
-                color="green-4"
-                icon="playlist_add"
-                aria-label="Agregar seleccionados al servicio"
-                class="result-action-button"
-                :disable="selectedVerses.length === 0"
-                @click="addSelectedToService"
-              >
-                <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
-              </q-btn>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  color="green-4"
+                  icon="playlist_add"
+                  aria-label="Agregar seleccionados al servicio"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="addSelectedToService"
+                >
+                  <q-tooltip>Agregar seleccionados al servicio</q-tooltip>
+                </q-btn>
 
-              <q-btn
-                flat
-                round
-                dense
-                size="xs"
-                color="deep-purple-3"
-                icon="present_to_all"
-                aria-label="Proyectar seleccionados ahora"
-                class="result-action-button"
-                :disable="selectedVerses.length === 0"
-                @click="projectSelectedNow"
-              >
-                <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
-              </q-btn>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  size="xs"
+                  color="deep-purple-3"
+                  icon="present_to_all"
+                  aria-label="Proyectar seleccionados ahora"
+                  class="result-action-button"
+                  :disable="selectedVerses.length === 0"
+                  @click="projectSelectedNow"
+                >
+                  <q-tooltip>Agregar al servicio y proyectar ahora</q-tooltip>
+                </q-btn>
+              </div>
 
               <q-btn
                 flat
@@ -226,7 +228,7 @@
                 color="red-4"
                 icon="delete_sweep"
                 aria-label="Eliminar versículos seleccionados"
-                class="result-action-button"
+                class="result-action-button result-action-button--danger"
                 :disable="selectedVerses.length === 0"
                 @click="removeSelectedResults"
               >
@@ -1414,6 +1416,10 @@ onMounted(() => {
   min-width: 24px;
 }
 
+.result-action-button--danger {
+  margin-left: auto;
+}
+
 .book-suggestions {
   position: absolute;
   z-index: 20;
@@ -1548,12 +1554,18 @@ onMounted(() => {
   display: flex;
   min-height: 28px;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 9px;
   color: #a8b4c3;
   font-size: 10px;
+}
+
+.results-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .results-actions :deep(.q-checkbox__inner) {

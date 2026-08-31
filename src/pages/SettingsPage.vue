@@ -613,6 +613,104 @@
         </div>
       </section>
 
+      <section v-else-if="activeSection === 'active-content'" class="settings-section">
+        <div class="section-heading">
+          <q-icon name="view_list" />
+          <div>
+            <h2>Contenido activo</h2>
+            <p>Configura cómo se muestran las estrofas y los versículos en el área técnica.</p>
+          </div>
+        </div>
+
+        <div class="active-content-settings-layout">
+          <q-card flat class="settings-card active-content-settings-card">
+            <q-card-section class="theme-editor-grid">
+              <label>
+                <span>Color de selección</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeBackgroundColor"
+                  @input="updateActiveContentColor('activeBackgroundColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Color del borde activo</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeBorderColor"
+                  @input="updateActiveContentColor('activeBorderColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Texto activo</span>
+                <input
+                  type="color"
+                  :value="activeContent.activeTextColor"
+                  @input="updateActiveContentColor('activeTextColor', $event)"
+                />
+              </label>
+              <label>
+                <span>Texto inactivo</span>
+                <input
+                  type="color"
+                  :value="activeContent.inactiveTextColor"
+                  @input="updateActiveContentColor('inactiveTextColor', $event)"
+                />
+              </label>
+              <label class="range-field">
+                <span>Tamaño del texto: {{ activeContent.fontSize }} px</span>
+                <q-slider
+                  :model-value="activeContent.fontSize"
+                  :min="9"
+                  :max="18"
+                  :step="1"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveContent({ fontSize: Number($event) })
+                  "
+                />
+              </label>
+              <label class="range-field">
+                <span>Líneas visibles: {{ activeContent.visibleLines }}</span>
+                <q-slider
+                  :model-value="activeContent.visibleLines"
+                  :min="1"
+                  :max="5"
+                  :step="1"
+                  color="primary"
+                  @update:model-value="
+                    projectionSettings.updateActiveContent({ visibleLines: Number($event) })
+                  "
+                />
+              </label>
+            </q-card-section>
+          </q-card>
+
+          <q-card flat class="settings-card active-content-preview-card">
+            <strong>Vista previa</strong>
+            <div
+              class="active-content-preview-list"
+              :style="{
+                '--preview-active-background': activeContent.activeBackgroundColor,
+                '--preview-active-border': activeContent.activeBorderColor,
+                '--preview-active-text': activeContent.activeTextColor,
+                '--preview-inactive-text': activeContent.inactiveTextColor,
+                '--preview-font-size': `${activeContent.fontSize}px`,
+                '--preview-lines': activeContent.visibleLines,
+              }"
+            >
+              <div class="active-content-preview-row active-content-preview-row--active">
+                1:1. En el principio creó Dios los cielos y la tierra.
+              </div>
+              <div class="active-content-preview-row">
+                1:2. Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz
+                del abismo.
+              </div>
+            </div>
+          </q-card>
+        </div>
+      </section>
+
       <section v-else-if="activeSection === 'music'" class="settings-section">
         <div class="section-heading">
           <q-icon name="graphic_eq" />
@@ -857,6 +955,7 @@ import type { BibleTransferResult, BibleVersion } from '../shared/bible';
 import type { DisplayInfo } from '../shared/display';
 import type { RemoteServerStatus } from '../shared/remote';
 import type {
+  ActiveContentSettings,
   AudioVisualizerType,
   ProjectionTheme,
   ThemeBackgroundType,
@@ -870,7 +969,7 @@ import { useProjectionSettingsStore } from '../stores/projection-settings';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
 type SettingsSectionId =
-  'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'remote';
+  'general' | 'screens' | 'bible' | 'songs' | 'music' | 'projection' | 'active-content' | 'remote';
 
 const props = withDefaults(defineProps<{ initialSection?: SettingsSectionId }>(), {
   initialSection: 'general',
@@ -919,6 +1018,12 @@ const navigationItems: NavigationItem[] = [
     label: 'Temas',
     icon: 'palette',
     description: 'Fondos, tipografía y apariencia de la presentación.',
+  },
+  {
+    id: 'active-content',
+    label: 'Contenido activo',
+    icon: 'view_list',
+    description: 'Apariencia de las filas activas del operador.',
   },
   {
     id: 'remote',
@@ -999,6 +1104,7 @@ const {
   activeThemeId,
   activeTheme,
   audioVisualizer,
+  activeContent,
   visualizerColors,
   surfaceStyle,
   contentLayoutStyle,
@@ -1128,6 +1234,16 @@ function updateThemeColor(
   event: Event,
 ): void {
   projectionSettings.updateActiveTheme({ [field]: colorFromEvent(event) });
+}
+
+function updateActiveContentColor(
+  field: keyof Pick<
+    ActiveContentSettings,
+    'activeBackgroundColor' | 'activeBorderColor' | 'activeTextColor' | 'inactiveTextColor'
+  >,
+  event: Event,
+): void {
+  projectionSettings.updateActiveContent({ [field]: colorFromEvent(event) });
 }
 
 function updateVisualizerColor(field: 'primaryColor' | 'secondaryColor', event: Event): void {
@@ -1913,6 +2029,42 @@ code {
   opacity: 0.65;
 }
 
+.active-content-settings-layout {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 14px;
+}
+
+.active-content-preview-card {
+  padding: 16px;
+}
+
+.active-content-preview-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.active-content-preview-row {
+  display: -webkit-box;
+  padding: 10px;
+  overflow: hidden;
+  color: var(--preview-inactive-text);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: var(--preview-font-size);
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--preview-lines);
+}
+
+.active-content-preview-row--active {
+  color: var(--preview-active-text);
+  background: var(--preview-active-background);
+  border-color: var(--preview-active-border);
+}
+
 .remote-settings-layout {
   display: grid;
   grid-template-columns: minmax(420px, 1.25fr) minmax(280px, 0.75fr);
@@ -2042,6 +2194,7 @@ code {
 @media (max-width: 850px) {
   .settings-columns,
   .theme-customization-layout,
+  .active-content-settings-layout,
   .remote-settings-layout {
     grid-template-columns: 1fr;
   }

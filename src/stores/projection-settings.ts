@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type {
+  ActiveContentSettings,
   AudioVisualizerSettings,
   ProjectionTheme,
   StoredProjectionSettings,
@@ -71,6 +72,15 @@ const defaultAudioVisualizer: AudioVisualizerSettings = {
   showTitle: true,
 };
 
+const defaultActiveContent: ActiveContentSettings = {
+  activeBackgroundColor: '#1f4f7a',
+  activeBorderColor: '#60a5fa',
+  activeTextColor: '#f8fbff',
+  inactiveTextColor: '#94a3b8',
+  fontSize: 11,
+  visibleLines: 2,
+};
+
 function cloneDefaultThemes(): ProjectionTheme[] {
   return defaultThemes.map((theme) => ({ ...theme }));
 }
@@ -80,6 +90,7 @@ function defaultSettings(): StoredProjectionSettings {
     themes: cloneDefaultThemes(),
     activeThemeId: defaultThemes[0]!.id,
     audioVisualizer: { ...defaultAudioVisualizer },
+    activeContent: { ...defaultActiveContent },
   };
 }
 
@@ -116,6 +127,10 @@ function loadSettings(): StoredProjectionSettings {
         ...fallback.audioVisualizer,
         ...parsed.audioVisualizer,
       },
+      activeContent: {
+        ...fallback.activeContent,
+        ...parsed.activeContent,
+      },
     };
   } catch {
     return fallback;
@@ -127,6 +142,7 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
   const themes = ref<ProjectionTheme[]>(initialSettings.themes);
   const activeThemeId = ref(initialSettings.activeThemeId);
   const audioVisualizer = ref<AudioVisualizerSettings>(initialSettings.audioVisualizer);
+  const activeContent = ref<ActiveContentSettings>(initialSettings.activeContent);
 
   const activeTheme = computed(
     () => themes.value.find((theme) => theme.id === activeThemeId.value) ?? themes.value[0]!,
@@ -190,6 +206,7 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
         themes: themes.value,
         activeThemeId: activeThemeId.value,
         audioVisualizer: audioVisualizer.value,
+        activeContent: activeContent.value,
       } satisfies StoredProjectionSettings),
     );
   }
@@ -199,6 +216,7 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     themes.value = stored.themes;
     activeThemeId.value = stored.activeThemeId;
     audioVisualizer.value = stored.audioVisualizer;
+    activeContent.value = stored.activeContent;
   }
 
   function selectTheme(themeId: string): void {
@@ -246,6 +264,11 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     save();
   }
 
+  function updateActiveContent(changes: Partial<ActiveContentSettings>): void {
+    activeContent.value = { ...activeContent.value, ...changes };
+    save();
+  }
+
   window.addEventListener('storage', (event) => {
     if (event.key === PROJECTION_SETTINGS_STORAGE_KEY) reload();
   });
@@ -255,6 +278,7 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     activeThemeId,
     activeTheme,
     audioVisualizer,
+    activeContent,
     visualizerColors,
     surfaceStyle,
     contentLayoutStyle,
@@ -264,5 +288,6 @@ export const useProjectionSettingsStore = defineStore('projection-settings', () 
     deleteActiveTheme,
     resetThemes,
     updateAudioVisualizer,
+    updateActiveContent,
   };
 });

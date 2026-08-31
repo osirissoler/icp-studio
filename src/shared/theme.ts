@@ -30,8 +30,18 @@ export interface AudioVisualizerSettings {
   showTitle: boolean;
 }
 
+export interface ActiveContentSettings {
+  activeBackgroundColor: string;
+  activeBorderColor: string;
+  activeTextColor: string;
+  inactiveTextColor: string;
+  fontSize: number;
+  visibleLines: number;
+}
+
 export interface StoredProjectionSettings {
   themes: ProjectionTheme[];
   activeThemeId: string;
   audioVisualizer: AudioVisualizerSettings;
+  activeContent: ActiveContentSettings;
 }
