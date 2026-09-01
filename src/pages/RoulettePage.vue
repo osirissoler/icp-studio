@@ -265,6 +265,7 @@ const labelModeOptions = [
   { label: 'Texto completo', value: 'full' },
   { label: 'Primera palabra', value: 'first-word' },
   { label: 'Texto abreviado…', value: 'short' },
+  { label: 'Colores y texto', value: 'colors-text' },
   { label: 'Solo colores, sin texto', value: 'hidden' },
 ];
 const presentationStore = usePresentationStore();
@@ -366,7 +367,13 @@ function applyOptionsText(): void {
   if (liveSent.value && !spinning.value) publishLive();
 }
 function changeLabelMode(value: unknown): void {
-  if (value === 'full' || value === 'first-word' || value === 'short' || value === 'hidden') {
+  if (
+    value === 'full' ||
+    value === 'first-word' ||
+    value === 'short' ||
+    value === 'colors-text' ||
+    value === 'hidden'
+  ) {
     roulette.labelMode = value;
     if (liveSent.value && !spinning.value) publishLive();
   }
