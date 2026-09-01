@@ -263,12 +263,67 @@ export const usePresentationStore = defineStore('presentation', () => {
       projectCurrentFrame();
     };
 
-    updateRoulette({ ...roulette, rotation, winnerId: '', spinning: true });
+    updateRoulette({
+      ...roulette,
+      rotation,
+      winnerId: '',
+      pendingWinnerId: selected.id,
+      spinning: true,
+      spinStartedAt: Date.now(),
+    });
     window.setTimeout(() => {
       const currentRoulette = liveItem.value?.frames[frameIndex]?.roulette;
-      if (!currentRoulette || currentRoulette.rotation !== rotation) return;
-      updateRoulette({ ...currentRoulette, winnerId: selected.id, spinning: false });
+      if (!currentRoulette || currentRoulette.rotation !== rotation || !currentRoulette.spinning)
+        return;
+      stopLiveRoulette();
     }, spinDuration);
+  }
+
+  function stopLiveRoulette(): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const roulette = item?.frames[frameIndex]?.roulette;
+    if (!item || !roulette || !roulette.spinning) return;
+    liveItem.value = {
+      ...item,
+      frames: item.frames.map((frame, index) =>
+        index === frameIndex
+          ? {
+              ...frame,
+              roulette: {
+                ...roulette,
+                winnerId: roulette.pendingWinnerId,
+                pendingWinnerId: '',
+                spinning: false,
+                spinStartedAt: 0,
+              },
+            }
+          : frame,
+      ),
+    };
+    projectCurrentFrame();
+  }
+
+  function setLiveRouletteDuration(duration: number): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const roulette = item?.frames[frameIndex]?.roulette;
+    if (!item || !roulette || roulette.spinning || !Number.isFinite(duration)) return;
+    liveItem.value = {
+      ...item,
+      frames: item.frames.map((frame, index) =>
+        index === frameIndex
+          ? {
+              ...frame,
+              roulette: {
+                ...roulette,
+                spinDuration: Math.min(600_000, Math.max(1_000, duration)),
+              },
+            }
+          : frame,
+      ),
+    };
+    projectCurrentFrame();
   }
 
   function clearLive(): void {
@@ -303,6 +358,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     setLiveFrame,
     moveLiveFrame,
     spinLiveRoulette,
+    stopLiveRoulette,
+    setLiveRouletteDuration,
     controlLiveMedia,
     setLiveMediaPlaying,
     updateLiveMediaDuration,
