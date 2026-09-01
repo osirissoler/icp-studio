@@ -1,20 +1,18 @@
 import { reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { StackedColumnPosition, WorkspacePanelId } from '../shared/workspace';
+import type { WorkspacePanelId } from '../shared/workspace';
 
 const STORAGE_KEY = 'icp-studio-workspace-settings';
 
 interface StoredWorkspaceSettings {
   visiblePanels?: Partial<Record<WorkspacePanelId, boolean>>;
   panelOrder?: WorkspacePanelId[];
-  stackedColumnPosition?: StackedColumnPosition;
   stackedTopPercent?: number;
 }
 
 interface LoadedWorkspaceSettings {
   visiblePanels: Record<WorkspacePanelId, boolean>;
   panelOrder: WorkspacePanelId[];
-  stackedColumnPosition: StackedColumnPosition;
   stackedTopPercent: number;
 }
 
@@ -28,9 +26,9 @@ const defaultVisibility: Record<WorkspacePanelId, boolean> = {
 };
 
 const defaultPanelOrder: WorkspacePanelId[] = [
-  'preview',
   'search',
   'upcomingActivities',
+  'preview',
   'service',
   'live',
   'monitors',
@@ -49,10 +47,25 @@ function normalizePanelOrder(value: unknown): WorkspacePanelId[] {
   if (!uniqueIds.includes('upcomingActivities')) {
     const withoutSearch = uniqueIds.filter((id) => id !== 'search');
     return [
-      'preview',
       'search',
       'upcomingActivities',
+      'preview',
       ...withoutSearch.filter((id) => id !== 'preview'),
+    ];
+  }
+
+  if (
+    uniqueIds[0] === 'preview' &&
+    uniqueIds[1] === 'search' &&
+    uniqueIds[2] === 'upcomingActivities'
+  ) {
+    return [
+      'search',
+      'upcomingActivities',
+      'preview',
+      ...uniqueIds.filter(
+        (id) => id !== 'search' && id !== 'upcomingActivities' && id !== 'preview',
+      ),
     ];
   }
 
@@ -65,15 +78,9 @@ function loadSettings(): LoadedWorkspaceSettings {
     if (!stored) throw new Error('No stored workspace settings');
 
     const parsed = JSON.parse(stored) as StoredWorkspaceSettings;
-    const stackedColumnPosition: StackedColumnPosition =
-      parsed.stackedColumnPosition === 'start' || parsed.stackedColumnPosition === 'end'
-        ? parsed.stackedColumnPosition
-        : 'center';
-
     return {
       visiblePanels: { ...defaultVisibility, ...parsed.visiblePanels },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
-      stackedColumnPosition,
       stackedTopPercent:
         typeof parsed.stackedTopPercent === 'number'
           ? Math.min(80, Math.max(55, parsed.stackedTopPercent))
@@ -83,7 +90,6 @@ function loadSettings(): LoadedWorkspaceSettings {
     return {
       visiblePanels: { ...defaultVisibility },
       panelOrder: [...defaultPanelOrder],
-      stackedColumnPosition: 'center',
       stackedTopPercent: 70,
     };
   }
@@ -93,7 +99,6 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
   const initialSettings = loadSettings();
   const visiblePanels = reactive(initialSettings.visiblePanels);
   const panelOrder = ref<WorkspacePanelId[]>(initialSettings.panelOrder);
-  const stackedColumnPosition = ref<StackedColumnPosition>(initialSettings.stackedColumnPosition);
   const stackedTopPercent = ref(initialSettings.stackedTopPercent);
 
   function save(): void {
@@ -102,7 +107,6 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
       JSON.stringify({
         visiblePanels,
         panelOrder: panelOrder.value,
-        stackedColumnPosition: stackedColumnPosition.value,
         stackedTopPercent: stackedTopPercent.value,
       }),
     );
@@ -135,11 +139,6 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     save();
   }
 
-  function setStackedColumnPosition(position: StackedColumnPosition): void {
-    stackedColumnPosition.value = position;
-    save();
-  }
-
   function setStackedTopPercent(percent: number): void {
     stackedTopPercent.value = Math.min(80, Math.max(55, percent));
     save();
@@ -148,7 +147,6 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
   function resetWorkspace(): void {
     Object.assign(visiblePanels, defaultVisibility);
     panelOrder.value = [...defaultPanelOrder];
-    stackedColumnPosition.value = 'center';
     stackedTopPercent.value = 70;
     save();
   }
@@ -156,12 +154,10 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
   return {
     visiblePanels,
     panelOrder,
-    stackedColumnPosition,
     stackedTopPercent,
     isVisible,
     setPanelVisible,
     movePanel,
-    setStackedColumnPosition,
     setStackedTopPercent,
     resetWorkspace,
   };
