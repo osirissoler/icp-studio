@@ -379,6 +379,12 @@
                 <small v-if="selectedActivity.location"
                   ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
                 >
+                <span
+                  v-if="selectedActivity.showDescriptionOnImage && selectedActivity.description"
+                  class="presentation-description"
+                >
+                  {{ selectedActivity.description }}
+                </span>
               </div>
             </template>
           </div>
@@ -494,6 +500,12 @@
               <small v-if="selectedActivity.location"
                 ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
               >
+              <span
+                v-if="selectedActivity.showDescriptionOnImage && selectedActivity.description"
+                class="presentation-description"
+              >
+                {{ selectedActivity.description }}
+              </span>
             </div>
           </template>
         </div>
@@ -562,6 +574,12 @@
                   <small v-if="presentedActivity.location"
                     ><q-icon name="location_on" /> {{ presentedActivity.location }}</small
                   >
+                  <span
+                    v-if="presentedActivity.showDescriptionOnImage && presentedActivity.description"
+                    class="presentation-description"
+                  >
+                    {{ presentedActivity.description }}
+                  </span>
                 </div>
               </template>
             </div>
@@ -906,6 +924,9 @@
                   <small>{{ categoryInfo(activityForm.category).label }}</small>
                   <strong>{{ activityForm.title || 'Nombre de la actividad' }}</strong>
                   <span>{{ activityForm.date ? formDateLabel : 'Selecciona una fecha' }}</span>
+                  <em v-if="activityForm.showDescriptionOnImage && activityForm.description">
+                    {{ activityForm.description }}
+                  </em>
                 </div>
               </template>
             </div>
@@ -919,6 +940,16 @@
               />
               <small>
                 Desactívalo cuando la imagen ya tenga su propio título, fecha y diseño.
+              </small>
+              <q-toggle
+                v-model="activityForm.showDescriptionOnImage"
+                dark
+                color="primary"
+                label="Mostrar también la descripción"
+                :disable="!activityForm.imageUrl || !activityForm.showOverlayText"
+              />
+              <small>
+                Esta opción permanece desactivada por defecto para evitar saturar la imagen.
               </small>
             </div>
             <button type="button" class="image-picker" @click="chooseActivityImage">
@@ -1018,6 +1049,7 @@ interface ActivityForm {
   description: string;
   imageUrl: string;
   showOverlayText: boolean;
+  showDescriptionOnImage: boolean;
 }
 
 type CalendarViewMode = 'month' | 'year' | 'agenda';
@@ -1193,6 +1225,7 @@ function emptyActivityForm(selectedDate: string): ActivityForm {
     description: '',
     imageUrl: '',
     showOverlayText: true,
+    showDescriptionOnImage: false,
   };
 }
 
@@ -1345,6 +1378,8 @@ function sendActivityToLive(
     description: activity.description,
     imageUrl: activity.imageUrl,
     showOverlayText: activity.showOverlayText || !activity.imageUrl,
+    showDescriptionOnImage:
+      activity.showOverlayText && activity.showDescriptionOnImage && Boolean(activity.description),
     categoryLabel: category.label,
     categoryColor: category.color,
   });
@@ -1513,6 +1548,7 @@ function saveActivity(): void {
     description: activityForm.description.trim(),
     imageUrl: activityForm.imageUrl,
     showOverlayText: activityForm.showOverlayText,
+    showDescriptionOnImage: activityForm.showDescriptionOnImage,
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };
@@ -1672,8 +1708,8 @@ button {
 .app-action-button {
   min-height: 40px;
   padding: 0 15px;
-  border: 1px solid transparent;
-  border-radius: 11px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.01em;
@@ -1684,38 +1720,33 @@ button {
 }
 .app-action-button:not(.disabled):hover {
   transform: translateY(-1px);
-  filter: brightness(1.08);
+  filter: brightness(1.12);
 }
 .app-action-button--primary {
   color: #f7fbff !important;
-  background: linear-gradient(135deg, #2f87c8, #1d5f9b) !important;
-  border-color: #4b9bd2 !important;
-  box-shadow: 0 7px 18px rgb(27 101 158 / 25%);
+  background: #2479ad !important;
+  box-shadow: 0 5px 14px rgb(20 91 137 / 24%);
 }
 .app-action-button--live {
   color: #fff7f7 !important;
-  background: linear-gradient(135deg, #ef565e, #b72539) !important;
-  border-color: #f2767d !important;
-  box-shadow: 0 7px 18px rgb(190 35 56 / 28%);
+  background: #d6424f !important;
+  box-shadow: 0 5px 14px rgb(173 38 53 / 25%);
 }
 .app-action-button--danger {
-  color: #fecaca !important;
-  background: linear-gradient(135deg, #3f2029, #29151c) !important;
-  border-color: #793846 !important;
+  color: #f28c96 !important;
+  background: rgb(163 49 63 / 13%) !important;
 }
 .app-action-button--secondary {
-  color: #d8e7f4 !important;
-  background: linear-gradient(135deg, #1a2c3f, #111d2b) !important;
-  border-color: #39536d !important;
-  box-shadow: 0 5px 14px rgb(3 9 16 / 24%);
+  color: #c5d5e4 !important;
+  background: #1a2a39 !important;
+  box-shadow: none;
 }
 .app-action-button--ghost {
-  color: #a9bfd3 !important;
-  background: #101d2a !important;
-  border-color: #2e4358 !important;
+  color: #91a6ba !important;
+  background: transparent !important;
 }
 .live-control-button {
-  box-shadow: 0 0 0 4px rgb(239 68 68 / 12%);
+  box-shadow: 0 5px 14px rgb(173 38 53 / 25%);
 }
 .calendar-summary {
   display: grid;
@@ -2479,6 +2510,20 @@ button {
   color: #b9cada;
   font-size: clamp(7px, 1vw, 11px);
 }
+.presentation-description {
+  display: -webkit-box;
+  max-width: 78%;
+  margin-top: 8px;
+  overflow: hidden;
+  color: #aebfce;
+  font-size: clamp(7px, 0.85vw, 10px);
+  font-weight: 400;
+  line-height: 1.4;
+  text-shadow: 0 2px 8px #000;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 .detail-information {
   display: flex;
   flex-direction: column;
@@ -3117,6 +3162,18 @@ button {
   color: #b9c9d8;
   font-size: 7px;
   text-transform: capitalize;
+}
+.form-preview-copy em {
+  z-index: 1;
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #91a6b9;
+  font-size: 6px;
+  font-style: normal;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .overlay-text-setting {
   display: flex;
