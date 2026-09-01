@@ -523,11 +523,13 @@ onBeforeUnmount(() => {
 
 .panel-header-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
 }
 
 .panel-heading {
   display: flex;
+  overflow: hidden;
   min-width: 0;
   align-items: center;
   gap: 8px;
@@ -543,6 +545,7 @@ onBeforeUnmount(() => {
 .panel-title {
   overflow: hidden;
   min-width: 0;
+  flex: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
