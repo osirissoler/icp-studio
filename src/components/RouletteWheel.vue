@@ -89,6 +89,9 @@ const clockNow = ref(Date.now());
 const showCelebration = ref(false);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 let spinSoundTimer: ReturnType<typeof setInterval> | null = null;
+let brakeStartTimer: ReturnType<typeof setTimeout> | null = null;
+let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
+let brakeSoundTimers: Array<ReturnType<typeof setTimeout>> = [];
 let spinAnimationFrame: number | null = null;
 let audioContext: AudioContext | null = null;
 const confettiColors = ['#38bdf8', '#facc15', '#fb7185', '#4ade80', '#c084fc', '#f8fafc'];
@@ -150,6 +153,7 @@ const remainingLabel = computed(() => {
 });
 
 function animateToTarget(): void {
+  clearBrakeSounds();
   if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
   spinAnimationFrame = null;
   if (!props.roulette.spinning || !props.roulette.timedSpin) {
@@ -171,6 +175,14 @@ function animateToTarget(): void {
   const cruiseDistance = cruiseSpeed * cruiseDuration;
   const brakingDistance = totalDistance - cruiseDistance;
   const animationStartedAt = performance.now();
+
+  if (
+    props.playSounds &&
+    props.roulette.soundEnabled &&
+    props.roulette.brakeSoundEnabled !== false
+  ) {
+    brakeStartTimer = setTimeout(() => startBrakeSound(brakingDuration), cruiseDuration);
+  }
 
   const updateRotation = (now: number): void => {
     const animationElapsed = Math.min(remaining, now - animationStartedAt);
@@ -242,16 +254,23 @@ watch(
 );
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer);
+  if (celebrationTimer) clearTimeout(celebrationTimer);
   stopSpinSound();
+  clearBrakeSounds();
   if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
   void audioContext?.close();
 });
 
 function startCelebration(): void {
+  if (celebrationTimer) clearTimeout(celebrationTimer);
   showCelebration.value = true;
+  const duration = Number(props.roulette.confettiDuration) || 0;
+  if (duration > 0) celebrationTimer = setTimeout(stopCelebration, duration * 1000);
 }
 
 function stopCelebration(): void {
+  if (celebrationTimer) clearTimeout(celebrationTimer);
+  celebrationTimer = null;
   showCelebration.value = false;
 }
 
@@ -282,7 +301,13 @@ function playTone(frequency: number, duration: number, strength = 1): void {
 
 function startSpinSound(): void {
   stopSpinSound();
-  if (!props.playSounds || !props.roulette.soundEnabled) return;
+  clearBrakeSounds();
+  if (
+    !props.playSounds ||
+    !props.roulette.soundEnabled ||
+    props.roulette.spinSoundEnabled === false
+  )
+    return;
   playTone(150, 0.035, 0.12);
   spinSoundTimer = setInterval(() => playTone(150, 0.035, 0.12), 170);
 }
@@ -292,8 +317,38 @@ function stopSpinSound(): void {
   spinSoundTimer = null;
 }
 
+function startBrakeSound(duration: number): void {
+  stopSpinSound();
+  if (
+    !props.playSounds ||
+    !props.roulette.soundEnabled ||
+    props.roulette.brakeSoundEnabled === false
+  )
+    return;
+  const moments = [0, 0.12, 0.27, 0.45, 0.68, 0.9];
+  moments.forEach((moment, index) => {
+    const timer = setTimeout(
+      () => playTone(230 - index * 22, 0.055 + index * 0.012, 0.15),
+      duration * moment,
+    );
+    brakeSoundTimers.push(timer);
+  });
+}
+
+function clearBrakeSounds(): void {
+  if (brakeStartTimer) clearTimeout(brakeStartTimer);
+  brakeStartTimer = null;
+  brakeSoundTimers.forEach((timer) => clearTimeout(timer));
+  brakeSoundTimers = [];
+}
+
 function playWinnerSound(): void {
-  if (!props.playSounds || !props.roulette.soundEnabled) return;
+  if (
+    !props.playSounds ||
+    !props.roulette.soundEnabled ||
+    props.roulette.winnerSoundEnabled === false
+  )
+    return;
   playTone(523.25, 0.28, 0.2);
   window.setTimeout(() => playTone(659.25, 0.3, 0.2), 120);
   window.setTimeout(() => playTone(783.99, 0.5, 0.24), 250);
