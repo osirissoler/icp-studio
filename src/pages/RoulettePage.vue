@@ -602,7 +602,10 @@ function spin(): void {
   const selectedIndex = roulette.options.findIndex((option) => option.id === selected.id);
   const center = (360 / roulette.options.length) * (selectedIndex + 0.5);
   const current = ((rotation.value % 360) + 360) % 360;
-  rotation.value += 360 * (6 + randomIndex(3)) + ((360 - center - current + 360) % 360);
+  const cruiseTurns = roulette.useTimer
+    ? Math.max(6, Math.ceil(Math.max(0, spinDuration.value - 2000) / 650) + 2)
+    : 8;
+  rotation.value += 360 * (cruiseTurns + randomIndex(3)) + ((360 - center - current + 360) % 360);
   winnerId.value = '';
   pendingWinnerId.value = selected.id;
   spinning.value = true;
