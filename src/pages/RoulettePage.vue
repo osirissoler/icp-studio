@@ -90,6 +90,27 @@
             label="Retirar ganador al continuar"
           />
         </div>
+        <div class="duration-settings">
+          <q-input
+            v-model.number="roulette.durationValue"
+            dark
+            outlined
+            dense
+            type="number"
+            min="1"
+            :max="roulette.durationUnit === 'minutes' ? 10 : 600"
+            label="Duración del giro"
+          />
+          <q-select
+            v-model="roulette.durationUnit"
+            dark
+            outlined
+            dense
+            emit-value
+            map-options
+            :options="durationUnitOptions"
+          />
+        </div>
         <div class="option-preview-list">
           <div v-for="(option, index) in roulette.options" :key="option.id">
             <i :style="{ backgroundColor: option.color }"></i><span>{{ option.label }}</span
@@ -118,6 +139,15 @@
             :label="spinning ? 'Girando…' : 'Girar ruleta'"
             :disable="spinning || roulette.options.length < 2"
             @click="spin"
+          />
+          <q-btn
+            v-if="spinning"
+            unelevated
+            no-caps
+            color="red-6"
+            icon="stop"
+            label="Detener"
+            @click="stopSpin"
           />
           <q-btn
             outline
@@ -220,6 +250,15 @@
               @click="spin"
             />
             <q-btn
+              v-if="spinning"
+              unelevated
+              no-caps
+              color="red-6"
+              icon="stop"
+              label="Detener"
+              @click="stopSpin"
+            />
+            <q-btn
               outline
               no-caps
               color="blue-grey-3"
@@ -268,6 +307,10 @@ const labelModeOptions = [
   { label: 'Colores y texto', value: 'colors-text' },
   { label: 'Solo colores, sin texto', value: 'hidden' },
 ];
+const durationUnitOptions = [
+  { label: 'Segundos', value: 'seconds' },
+  { label: 'Minutos', value: 'minutes' },
+];
 const presentationStore = usePresentationStore();
 const savedRoulettes = ref(loadSaved());
 const roulette = reactive<SavedRoulette>(
@@ -276,7 +319,9 @@ const roulette = reactive<SavedRoulette>(
 const optionsText = ref(roulette.options.map((option) => option.label).join('\n'));
 const rotation = ref(0);
 const winnerId = ref('');
+const pendingWinnerId = ref('');
 const spinning = ref(false);
+const spinStartedAt = ref(0);
 const liveSent = ref(false);
 const operatorConsoleOpen = ref(false);
 const history = ref<RouletteOption[]>([]);
@@ -291,10 +336,16 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   options: roulette.options,
   rotation: rotation.value,
   winnerId: winnerId.value,
+  pendingWinnerId: pendingWinnerId.value,
   spinning: spinning.value,
-  spinDuration: 5200,
+  spinDuration: spinDuration.value,
+  spinStartedAt: spinStartedAt.value,
   labelMode: roulette.labelMode,
 }));
+const spinDuration = computed(() => {
+  const value = Math.max(1, Number(roulette.durationValue) || 1);
+  return Math.min(600_000, value * (roulette.durationUnit === 'minutes' ? 60_000 : 1_000));
+});
 
 function createRoulette(): SavedRoulette {
   return {
@@ -308,6 +359,8 @@ function createRoulette(): SavedRoulette {
     allowRepeats: true,
     removeWinner: false,
     labelMode: 'short',
+    durationValue: 6,
+    durationUnit: 'seconds',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -317,7 +370,12 @@ function loadSaved(): SavedRoulette[] {
     return Array.isArray(value)
       ? value
           .filter((item) => item?.id && Array.isArray(item.options))
-          .map((item) => ({ ...item, labelMode: item.labelMode ?? 'short' }))
+          .map((item) => ({
+            ...item,
+            labelMode: item.labelMode ?? 'short',
+            durationValue: item.durationValue ?? 6,
+            durationUnit: item.durationUnit ?? 'seconds',
+          }))
       : [];
   } catch {
     return [];
@@ -409,6 +467,11 @@ function sendLive(): void {
     showAppNotification('Agrega por lo menos dos opciones.', 'warning', 'warning');
     return;
   }
+  if (finishTimer) clearTimeout(finishTimer);
+  spinning.value = false;
+  winnerId.value = '';
+  pendingWinnerId.value = '';
+  spinStartedAt.value = 0;
   publishLive();
   operatorConsoleOpen.value = true;
   showAppNotification('La ruleta está en Contenido activo.', 'positive', 'live_tv');
@@ -444,14 +507,28 @@ function spin(): void {
   const current = ((rotation.value % 360) + 360) % 360;
   rotation.value += 360 * (6 + randomIndex(3)) + ((360 - center - current + 360) % 360);
   winnerId.value = '';
+  pendingWinnerId.value = selected.id;
   spinning.value = true;
+  spinStartedAt.value = Date.now();
   if (liveSent.value) publishLive();
   finishTimer = setTimeout(() => {
-    spinning.value = false;
-    winnerId.value = selected.id;
-    history.value = [selected, ...history.value];
-    if (liveSent.value) publishLive();
-  }, 5200);
+    finishSpin();
+  }, spinDuration.value);
+}
+function finishSpin(): void {
+  if (!spinning.value) return;
+  if (finishTimer) clearTimeout(finishTimer);
+  finishTimer = null;
+  spinning.value = false;
+  spinStartedAt.value = 0;
+  winnerId.value = pendingWinnerId.value;
+  const selected = roulette.options.find((option) => option.id === pendingWinnerId.value);
+  pendingWinnerId.value = '';
+  if (selected) history.value = [selected, ...history.value];
+  if (liveSent.value) publishLive();
+}
+function stopSpin(): void {
+  finishSpin();
 }
 function removeWinner(): void {
   const index = roulette.options.findIndex((option) => option.id === winnerId.value);
@@ -463,7 +540,9 @@ function resetGame(): void {
   if (finishTimer) clearTimeout(finishTimer);
   spinning.value = false;
   winnerId.value = '';
+  pendingWinnerId.value = '';
   rotation.value = 0;
+  spinStartedAt.value = 0;
   history.value = [];
   if (liveSent.value) publishLive();
 }
@@ -587,6 +666,11 @@ watch(
 .editor-toggles {
   display: flex;
   flex-direction: column;
+}
+.duration-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 8px;
 }
 .roulette-options-input :deep(textarea) {
   min-height: 150px !important;
