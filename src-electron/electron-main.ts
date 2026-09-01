@@ -424,6 +424,62 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     }
   }
 
+  if (state.mode === 'time-tool' && typeof state.tool === 'object' && state.tool !== null) {
+    const tool = state.tool as Record<string, unknown>;
+    if (
+      typeof tool.id === 'string' &&
+      typeof tool.title === 'string' &&
+      (tool.mode === 'clock' || tool.mode === 'timer' || tool.mode === 'stopwatch') &&
+      (tool.clockStyle === 'digital' || tool.clockStyle === 'analog') &&
+      typeof tool.use24Hour === 'boolean' &&
+      typeof tool.showSeconds === 'boolean' &&
+      typeof tool.showDate === 'boolean' &&
+      typeof tool.showMilliseconds === 'boolean' &&
+      typeof tool.durationMs === 'number' &&
+      Number.isFinite(tool.durationMs) &&
+      typeof tool.baseTimeMs === 'number' &&
+      Number.isFinite(tool.baseTimeMs) &&
+      typeof tool.startedAt === 'number' &&
+      Number.isFinite(tool.startedAt) &&
+      typeof tool.running === 'boolean' &&
+      typeof tool.completed === 'boolean' &&
+      typeof tool.countdownSound === 'boolean' &&
+      typeof tool.completionSound === 'boolean' &&
+      typeof tool.soundVolume === 'number' &&
+      Number.isFinite(tool.soundVolume) &&
+      typeof tool.backgroundColor === 'string' &&
+      typeof tool.accentColor === 'string' &&
+      typeof tool.textColor === 'string'
+    ) {
+      const safeColor = (value: string, fallback: string) =>
+        /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+      return {
+        mode: 'time-tool',
+        tool: {
+          id: tool.id.slice(0, 200),
+          title: tool.title.slice(0, 200),
+          mode: tool.mode,
+          clockStyle: tool.clockStyle,
+          use24Hour: tool.use24Hour,
+          showSeconds: tool.showSeconds,
+          showDate: tool.showDate,
+          showMilliseconds: tool.showMilliseconds,
+          durationMs: Math.min(359_999_000, Math.max(0, tool.durationMs)),
+          baseTimeMs: Math.min(359_999_000, Math.max(0, tool.baseTimeMs)),
+          startedAt: Math.max(0, tool.startedAt),
+          running: tool.running,
+          completed: tool.completed,
+          countdownSound: tool.countdownSound,
+          completionSound: tool.completionSound,
+          soundVolume: Math.min(1, Math.max(0, tool.soundVolume)),
+          backgroundColor: safeColor(tool.backgroundColor, '#07111d'),
+          accentColor: safeColor(tool.accentColor, '#38bdf8'),
+          textColor: safeColor(tool.textColor, '#f8fafc'),
+        },
+      };
+    }
+  }
+
   if (
     state.mode === 'content' &&
     typeof state.title === 'string' &&
