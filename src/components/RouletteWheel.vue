@@ -94,6 +94,7 @@ let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
 let brakeSoundTimers: Array<ReturnType<typeof setTimeout>> = [];
 let spinAnimationFrame: number | null = null;
 let audioContext: AudioContext | null = null;
+let customWinnerAudio: HTMLAudioElement | null = null;
 const confettiColors = ['#38bdf8', '#facc15', '#fb7185', '#4ade80', '#c084fc', '#f8fafc'];
 const confettiPieces = Array.from({ length: 72 }, (_, index) => ({
   id: index,
@@ -258,6 +259,7 @@ onBeforeUnmount(() => {
   stopSpinSound();
   clearBrakeSounds();
   if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
+  customWinnerAudio?.pause();
   void audioContext?.close();
 });
 
@@ -301,6 +303,8 @@ function playTone(frequency: number, duration: number, strength = 1): void {
 
 function startSpinSound(): void {
   stopSpinSound();
+  customWinnerAudio?.pause();
+  customWinnerAudio = null;
   if (!props.playSounds || !props.roulette.soundEnabled) return;
   ensureAudioContext();
   if (props.roulette.spinSoundEnabled === false) return;
@@ -345,10 +349,55 @@ function playWinnerSound(): void {
     props.roulette.winnerSoundEnabled === false
   )
     return;
+  if (props.roulette.winnerSoundPreset === 'custom' && props.roulette.customWinnerSoundUrl) {
+    customWinnerAudio?.pause();
+    customWinnerAudio = new Audio(props.roulette.customWinnerSoundUrl);
+    customWinnerAudio.volume = Math.min(1, Math.max(0.05, props.roulette.soundVolume || 0.45));
+    void customWinnerAudio.play();
+    return;
+  }
+  if (props.roulette.winnerSoundPreset === 'crowd') {
+    playCrowdCelebration();
+    return;
+  }
   playTone(523.25, 0.28, 0.2);
   window.setTimeout(() => playTone(659.25, 0.3, 0.2), 120);
   window.setTimeout(() => playTone(783.99, 0.5, 0.24), 250);
 }
+
+function playCrowdCelebration(): void {
+  const context = ensureAudioContext();
+  if (!context) return;
+  const duration = 2.4;
+  const frameCount = Math.floor(context.sampleRate * duration);
+  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+  const samples = buffer.getChannelData(0);
+  for (let index = 0; index < frameCount; index += 1) {
+    const time = index / context.sampleRate;
+    const attack = Math.min(1, time * 8);
+    const release = Math.max(0, 1 - time / duration);
+    const applausePulse = 0.35 + Math.abs(Math.sin(time * 38)) * 0.65;
+    samples[index] = (Math.random() * 2 - 1) * attack * release * applausePulse;
+  }
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  const volume = Math.min(1, Math.max(0.05, props.roulette.soundVolume || 0.45));
+  filter.type = 'bandpass';
+  filter.frequency.value = 1150;
+  filter.Q.value = 0.7;
+  gain.gain.value = volume * 0.32;
+  source.buffer = buffer;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+  source.start();
+  playTone(520, 0.45, 0.14);
+  window.setTimeout(() => playTone(690, 0.55, 0.16), 180);
+  window.setTimeout(() => playTone(840, 0.7, 0.14), 420);
+}
+
+defineExpose({ previewWinnerSound: playWinnerSound });
 
 function optionLabel(label: string): string {
   if (props.roulette.labelMode === 'first-word') return label.split(/\s+/)[0] ?? label;
