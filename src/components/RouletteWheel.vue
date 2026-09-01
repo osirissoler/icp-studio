@@ -6,6 +6,7 @@
     <div class="wheel-shell">
       <span class="wheel-pointer"></span>
       <div
+        ref="wheelElement"
         class="roulette-wheel"
         :class="{ 'roulette-wheel--manual': roulette.spinning && !roulette.timedSpin }"
         :style="wheelStyle"
@@ -46,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { RoulettePresentationData } from '../shared/roulette';
 
 const props = withDefaults(
@@ -65,9 +66,10 @@ const winner = computed(() =>
 const displayedRotation = ref(
   props.roulette.spinning ? props.roulette.rotation - 2160 : props.roulette.rotation,
 );
-const animating = ref(false);
+const wheelElement = ref<HTMLElement | null>(null);
 const clockNow = ref(Date.now());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
+let spinAnimation: Animation | null = null;
 const wheelBackground = computed(() => {
   const count = Math.max(1, props.roulette.options.length);
   return `conic-gradient(${props.roulette.options
@@ -80,7 +82,7 @@ const wheelBackground = computed(() => {
 const wheelStyle = computed<Record<string, string>>(() => ({
   background: wheelBackground.value,
   transform: `rotate(${displayedRotation.value}deg)`,
-  transitionDuration: animating.value ? `${props.roulette.spinDuration}ms` : '0ms',
+  transitionDuration: '0ms',
 }));
 const labelFontSize = computed(() => {
   const count = props.roulette.options.length;
@@ -100,27 +102,51 @@ const remainingLabel = computed(() => {
   return minutes ? `${minutes}:${seconds}` : `${totalSeconds}s`;
 });
 
-async function animateToTarget(): Promise<void> {
-  if (!props.roulette.spinning) {
-    animating.value = false;
+function animateToTarget(): void {
+  spinAnimation?.cancel();
+  spinAnimation = null;
+  if (!props.roulette.spinning || !props.roulette.timedSpin) {
     displayedRotation.value = props.roulette.rotation;
     return;
   }
-  animating.value = false;
-  await nextTick();
+  const element = wheelElement.value;
+  if (!element) return;
+  const duration = Math.max(1000, props.roulette.spinDuration);
+  const elapsed = Math.min(duration - 50, Math.max(0, Date.now() - props.roulette.spinStartedAt));
+  const remaining = Math.max(50, duration - elapsed);
+  const slowdownDuration = Math.min(2000, duration * 0.4);
+  const cruiseDuration = Math.max(0, duration - slowdownDuration);
+  const cruiseRatio = Math.min(0.94, Math.max(0.05, cruiseDuration / duration));
+  const startRotation = displayedRotation.value;
+  const targetRotation = props.roulette.rotation;
+  const cruiseTarget = Math.max(startRotation, targetRotation - 720);
+
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      animating.value = true;
+    spinAnimation = element.animate(
+      [
+        { transform: `rotate(${startRotation}deg)`, easing: 'linear' },
+        {
+          offset: cruiseRatio,
+          transform: `rotate(${cruiseTarget}deg)`,
+          easing: 'cubic-bezier(0.12, 0.72, 0.08, 1)',
+        },
+        { transform: `rotate(${targetRotation}deg)` },
+      ],
+      { duration: remaining, fill: 'forwards' },
+    );
+    spinAnimation.onfinish = () => {
       displayedRotation.value = props.roulette.rotation;
-    });
+      spinAnimation?.cancel();
+      spinAnimation = null;
+    };
   });
 }
 
 watch(
   () => [props.roulette.rotation, props.roulette.spinning] as const,
-  () => void animateToTarget(),
+  () => animateToTarget(),
 );
-onMounted(() => void animateToTarget());
+onMounted(() => animateToTarget());
 watch(
   () => props.roulette.spinning,
   (spinning) => {
@@ -135,6 +161,7 @@ watch(
 );
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer);
+  spinAnimation?.cancel();
 });
 
 function optionLabel(label: string): string {
