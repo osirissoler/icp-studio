@@ -568,104 +568,62 @@
           </section>
 
           <aside class="operator-next-panel">
-            <div class="operator-panel-label"><span>Siguiente actividad</span></div>
-            <button
-              v-if="nextPresentedActivity"
-              type="button"
-              class="operator-next-card"
-              @click="sendActivityToLive(nextPresentedActivity, { openOperator: false })"
-            >
-              <div
-                class="operator-next-image"
-                :style="presentationBackground(nextPresentedActivity.imageUrl)"
-              >
-                <span>{{ dayNumber(nextPresentedActivity.date) }}</span>
-                <small>{{ shortMonth(nextPresentedActivity.date) }}</small>
-              </div>
-              <div>
-                <small>{{ categoryInfo(nextPresentedActivity.category).label }}</small>
-                <strong>{{ nextPresentedActivity.title }}</strong>
-                <span>{{ activityDateLabel(nextPresentedActivity) }}</span>
-              </div>
-              <q-icon name="arrow_forward" />
-            </button>
-            <div v-else class="operator-no-next">
-              <q-icon name="event_available" />
-              <strong>No hay otra actividad</strong>
-              <span>Esta es la última actividad programada.</span>
-            </div>
-
             <div class="operator-keyboard-help">
               <q-icon name="keyboard" />
               <div>
                 <strong>Control con el teclado</strong>
-                <span><kbd>←</kbd> Anterior <kbd>→</kbd> Siguiente</span>
+                <span><kbd>↑</kbd> Anterior <kbd>↓</kbd> Siguiente</span>
               </div>
             </div>
+
+            <section class="operator-active-content">
+              <header>
+                <div>
+                  <strong>Contenido activo</strong>
+                  <small>{{ presentableActivities.length }} actividades</small>
+                </div>
+                <span>Seleccionado</span>
+              </header>
+              <div ref="operatorActivityList" class="operator-activity-list">
+                <button
+                  v-for="(activity, activityIndex) in presentableActivities"
+                  :key="activity.id"
+                  type="button"
+                  class="operator-activity-item"
+                  :data-activity-id="activity.id"
+                  :class="{
+                    'operator-activity-item--active': activity.id === presentedActivity.id,
+                  }"
+                  @click="sendActivityToLive(activity, { openOperator: false, notify: false })"
+                >
+                  <span class="operator-activity-position">{{ activityIndex + 1 }}</span>
+                  <span class="operator-activity-details">
+                    <strong>{{ activity.title }}</strong>
+                    <small>{{ activityLiveBody(activity) }}</small>
+                  </span>
+                  <span
+                    class="operator-activity-thumbnail"
+                    :style="presentationBackground(activity.imageUrl)"
+                  >
+                    <q-icon v-if="!activity.imageUrl" name="event" />
+                  </span>
+                  <q-icon
+                    v-if="activity.id === presentedActivity.id"
+                    name="check_circle"
+                    color="primary"
+                    size="18px"
+                    aria-label="Actividad seleccionada"
+                  />
+                </button>
+              </div>
+            </section>
+
             <p>
               La previsualización de la izquierda representa la actividad que están viendo los
               hermanos en las pantallas externas.
             </p>
           </aside>
-
-          <section class="operator-timeline">
-            <header>
-              <div>
-                <strong>Secuencia de actividades</strong>
-                <small>Anteriores, actividad En vivo y próximas</small>
-              </div>
-              <span>Selecciona una tarjeta para enviarla inmediatamente.</span>
-            </header>
-            <div class="operator-timeline-track">
-              <button
-                v-for="activity in operatorTimelineActivities"
-                :key="activity.id"
-                type="button"
-                class="operator-timeline-card"
-                :class="{
-                  'operator-timeline-card--live': activity.id === presentedActivity.id,
-                  'operator-timeline-card--past':
-                    presentableActivities.findIndex((item) => item.id === activity.id) <
-                    presentedActivityIndex,
-                }"
-                @click="sendActivityToLive(activity, { openOperator: false, notify: false })"
-              >
-                <span class="timeline-card-state">{{ timelinePositionLabel(activity) }}</span>
-                <span
-                  class="timeline-card-color"
-                  :style="{ backgroundColor: categoryInfo(activity.category).color }"
-                ></span>
-                <strong>{{ activity.title }}</strong>
-                <small>{{ activityDateLabel(activity) }}</small>
-                <q-icon :name="activity.id === presentedActivity.id ? 'sensors' : 'arrow_upward'" />
-              </button>
-            </div>
-          </section>
         </main>
-
-        <footer class="operator-console-footer">
-          <q-btn
-            outline
-            no-caps
-            color="blue-grey-3"
-            icon="arrow_back"
-            :label="previousPresentedActivity?.title ?? 'Actividad anterior'"
-            class="app-action-button app-action-button--secondary"
-            :disable="!previousPresentedActivity"
-            @click="movePresentedActivity(-1)"
-          />
-          <span>Usa las flechas del teclado para cambiar la actividad En vivo.</span>
-          <q-btn
-            unelevated
-            no-caps
-            color="primary"
-            icon-right="arrow_forward"
-            :label="nextPresentedActivity?.title ?? 'Última actividad'"
-            class="app-action-button app-action-button--primary"
-            :disable="!nextPresentedActivity"
-            @click="movePresentedActivity(1)"
-          />
-        </footer>
       </q-card>
     </q-dialog>
 
@@ -986,7 +944,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
@@ -1048,6 +1006,7 @@ const categoriesDialogOpen = ref(false);
 const editingActivityId = ref<string | null>(null);
 const selectedActivity = ref<CalendarActivity | null>(null);
 const presentedActivityId = ref<string | null>(null);
+const operatorActivityList = ref<HTMLElement | null>(null);
 const selectedDayKey = ref('');
 const newCategoryName = ref('');
 const newCategoryColor = ref('#ef6464');
@@ -1125,21 +1084,6 @@ const presentedActivity = computed(() =>
     ? (presentableActivities.value[presentedActivityIndex.value] ?? null)
     : null,
 );
-const previousPresentedActivity = computed(() =>
-  presentedActivityIndex.value > 0
-    ? (presentableActivities.value[presentedActivityIndex.value - 1] ?? null)
-    : null,
-);
-const nextPresentedActivity = computed(() =>
-  presentedActivityIndex.value >= 0
-    ? (presentableActivities.value[presentedActivityIndex.value + 1] ?? null)
-    : null,
-);
-const operatorTimelineActivities = computed(() => {
-  if (presentedActivityIndex.value < 0) return [];
-  const start = Math.max(0, presentedActivityIndex.value - 3);
-  return presentableActivities.value.slice(start, presentedActivityIndex.value + 4);
-});
 const periodTitle = computed(() =>
   viewMode.value === 'month' ? `${monthNames[monthIndex.value]} ${year.value}` : `${year.value}`,
 );
@@ -1281,12 +1225,6 @@ function activityLongDateLabel(activity: CalendarActivity): string {
 function statusLabel(status: CalendarActivityStatus): string {
   return { pending: 'Pendiente', completed: 'Completada', cancelled: 'Cancelada' }[status];
 }
-function timelinePositionLabel(activity: CalendarActivity): string {
-  const activityIndex = presentableActivities.value.findIndex((item) => item.id === activity.id);
-  if (activityIndex < presentedActivityIndex.value) return 'Anterior';
-  if (activityIndex > presentedActivityIndex.value) return 'Siguiente';
-  return 'En vivo';
-}
 function presentationBackground(imageUrl: string): Record<string, string> {
   return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
 }
@@ -1386,10 +1324,10 @@ function stopActivityLive(): void {
 
 function handleOperatorKeyboard(event: KeyboardEvent): void {
   if (!operatorPresentationOpen.value) return;
-  if (event.key === 'ArrowLeft') {
+  if (event.key === 'ArrowUp') {
     event.preventDefault();
     movePresentedActivity(-1);
-  } else if (event.key === 'ArrowRight') {
+  } else if (event.key === 'ArrowDown') {
     event.preventDefault();
     movePresentedActivity(1);
   }
@@ -1588,6 +1526,13 @@ watch(
   (activityId) => {
     if (activePresentationItem.value?.type === 'activity') {
       presentedActivityId.value = activityId ?? null;
+      void nextTick(() => {
+        if (!activityId) return;
+        const selectedItem = operatorActivityList.value?.querySelector<HTMLElement>(
+          `[data-activity-id="${CSS.escape(activityId)}"]`,
+        );
+        selectedItem?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
     }
   },
   { immediate: true },
@@ -2607,12 +2552,11 @@ button {
 .operator-console {
   display: grid;
   min-height: 100%;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   color: #e7eef7;
   background: radial-gradient(circle at 8% 0%, rgb(37 99 235 / 18%), transparent 30%), #08111b;
 }
 .operator-console-header,
-.operator-console-footer,
 .operator-console-title,
 .operator-header-actions,
 .operator-panel-label,
@@ -2712,95 +2656,8 @@ button {
 }
 .operator-next-panel {
   display: flex;
+  min-height: 0;
   flex-direction: column;
-}
-.operator-next-card {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 9px;
-  color: #a9bbcc;
-  background: #111f2e;
-  border: 1px solid #2b4057;
-  border-radius: 10px;
-  text-align: left;
-  cursor: pointer;
-}
-.operator-next-card:hover {
-  background: #172b40;
-  border-color: #4a7198;
-}
-.operator-next-image {
-  display: flex;
-  height: 58px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  color: white;
-  background:
-    linear-gradient(rgb(8 17 27 / 38%), rgb(8 17 27 / 74%)),
-    linear-gradient(135deg, #3b5f86, #15283d);
-  background-position: center;
-  background-size: cover;
-  border-radius: 7px;
-}
-.operator-next-image span {
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-}
-.operator-next-image small {
-  margin-top: 3px;
-  font-size: 7px;
-  text-transform: uppercase;
-}
-.operator-next-card > div:nth-child(2) {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-.operator-next-card > div:nth-child(2) small {
-  color: #60a5fa;
-  font-size: 7px;
-  text-transform: uppercase;
-}
-.operator-next-card > div:nth-child(2) strong {
-  overflow: hidden;
-  margin-top: 3px;
-  color: #e0e9f2;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.operator-next-card > div:nth-child(2) span {
-  margin-top: 3px;
-  color: #778ba0;
-  font-size: 8px;
-}
-.operator-no-next {
-  display: flex;
-  min-height: 135px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 5px;
-  color: #71869a;
-  background: #0d1824;
-  border: 1px dashed #2a3e53;
-  border-radius: 10px;
-  text-align: center;
-}
-.operator-no-next .q-icon {
-  font-size: 30px;
-}
-.operator-no-next strong {
-  color: #aebdcc;
-  font-size: 10px;
-}
-.operator-no-next span {
-  font-size: 8px;
 }
 .operator-keyboard-help {
   display: flex;
@@ -2840,140 +2697,110 @@ button {
   border-radius: 4px;
   box-shadow: 0 2px #0a111a;
 }
+.operator-active-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 12px;
+  overflow: hidden;
+  background: #0d1824;
+  border: 1px solid #263a4f;
+  border-radius: 9px;
+}
+.operator-active-content > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 11px;
+  border-bottom: 1px solid #263a4f;
+}
+.operator-active-content > header > div {
+  display: flex;
+  flex-direction: column;
+}
+.operator-active-content > header strong {
+  color: #d5e1ec;
+  font-size: 10px;
+}
+.operator-active-content > header small,
+.operator-active-content > header > span {
+  color: #71879b;
+  font-size: 8px;
+}
+.operator-active-content > header > span {
+  color: #7dd3fc;
+}
+.operator-activity-list {
+  min-height: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.operator-activity-item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 22px minmax(0, 1fr) 54px 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  color: #8fa3b6;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #1e3042;
+  text-align: left;
+  cursor: pointer;
+}
+.operator-activity-item:hover {
+  background: #142536;
+}
+.operator-activity-item--active {
+  color: #e2edf7;
+  background: #173149;
+  box-shadow: inset 3px 0 #38a3e6;
+}
+.operator-activity-position {
+  color: #647b90;
+  font-size: 8px;
+  text-align: center;
+}
+.operator-activity-details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.operator-activity-details strong,
+.operator-activity-details small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operator-activity-details strong {
+  color: #d8e4ee;
+  font-size: 9px;
+}
+.operator-activity-details small {
+  margin-top: 3px;
+  color: #71869a;
+  font-size: 7px;
+}
+.operator-activity-thumbnail {
+  display: grid;
+  width: 54px;
+  height: 34px;
+  place-items: center;
+  color: #7790a7;
+  background: linear-gradient(135deg, #29445e, #132536);
+  background-position: center;
+  background-size: cover;
+  border-radius: 5px;
+}
 .operator-next-panel > p {
   margin: auto 0 0;
   padding-top: 18px;
   color: #61768b;
   font-size: 8px;
   line-height: 1.5;
-}
-.operator-timeline {
-  min-width: 0;
-  grid-column: 1 / -1;
-  padding-top: 3px;
-}
-.operator-timeline > header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.operator-timeline > header > div {
-  display: flex;
-  flex-direction: column;
-}
-.operator-timeline > header strong {
-  color: #cdd9e5;
-  font-size: 10px;
-}
-.operator-timeline > header small,
-.operator-timeline > header > span {
-  margin-top: 2px;
-  color: #667c91;
-  font-size: 8px;
-}
-.operator-timeline-track {
-  display: grid;
-  grid-auto-columns: minmax(175px, 1fr);
-  grid-auto-flow: column;
-  gap: 7px;
-  padding: 2px 2px 7px;
-  overflow-x: auto;
-}
-.operator-timeline-card {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  grid-template-columns: 5px minmax(0, 1fr) auto;
-  grid-template-rows: auto auto auto;
-  column-gap: 8px;
-  padding: 8px 9px;
-  color: #8fa3b6;
-  background: #0e1a27;
-  border: 1px solid #273b50;
-  border-radius: 8px;
-  text-align: left;
-  cursor: pointer;
-}
-.operator-timeline-card:hover {
-  background: #15283b;
-  border-color: #456889;
-}
-.operator-timeline-card--live {
-  background: linear-gradient(145deg, #16334b, #112235);
-  border-color: #4b9ad5;
-  box-shadow: inset 0 3px #38a3e6;
-}
-.operator-timeline-card--past {
-  opacity: 0.62;
-}
-.timeline-card-state {
-  grid-column: 2 / 3;
-  color: #6d8296;
-  font-size: 7px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.operator-timeline-card--live .timeline-card-state {
-  color: #7dd3fc;
-}
-.timeline-card-color {
-  width: 5px;
-  grid-column: 1;
-  grid-row: 1 / 4;
-  border-radius: 4px;
-}
-.operator-timeline-card strong {
-  overflow: hidden;
-  grid-column: 2 / 3;
-  margin-top: 4px;
-  color: #d6e1eb;
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.operator-timeline-card small {
-  overflow: hidden;
-  grid-column: 2 / 3;
-  margin-top: 3px;
-  color: #71869a;
-  font-size: 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.operator-timeline-card > .q-icon {
-  grid-column: 3;
-  grid-row: 1 / 4;
-  align-self: center;
-  color: #6f879c;
-}
-.operator-timeline-card--live > .q-icon {
-  color: #60a5fa;
-}
-.operator-console-footer {
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 18px;
-  background: #0d1824;
-  border-top: 1px solid #26394e;
-}
-.operator-console-footer > span {
-  color: #687d92;
-  font-size: 8px;
-  text-align: center;
-}
-.operator-console-footer .q-btn {
-  max-width: 34%;
-}
-.operator-console-footer :deep(.q-btn__content) {
-  flex-wrap: nowrap;
-}
-.operator-console-footer :deep(.block) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .day-dialog-list {
   display: flex;
@@ -3321,8 +3148,7 @@ button {
   .operator-console-header {
     align-items: flex-start;
   }
-  .operator-console-title small,
-  .operator-console-footer > span {
+  .operator-console-title small {
     display: none;
   }
   .operator-header-actions .q-btn:first-child :deep(.block) {
@@ -3330,13 +3156,6 @@ button {
   }
   .operator-console-body {
     padding: 10px;
-  }
-  .operator-console-footer {
-    gap: 8px;
-    padding: 9px 10px;
-  }
-  .operator-console-footer .q-btn {
-    max-width: 49%;
   }
   .fullscreen-operator-actions {
     right: 14px;
