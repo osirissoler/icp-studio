@@ -46,9 +46,15 @@ export interface ProjectionDocumentState {
 }
 
 import type { RoulettePresentationData } from './roulette';
+import type { TimeToolPresentationData } from './time-tool';
 
 export interface ProjectionRouletteState extends RoulettePresentationData {
   mode: 'roulette';
+}
+
+export interface ProjectionTimeToolState {
+  mode: 'time-tool';
+  tool: TimeToolPresentationData;
 }
 
 export interface MediaPlaybackCommand {
@@ -62,4 +68,5 @@ export type ProjectionState =
   | ProjectionDocumentState
   | ProjectionActivityState
   | ProjectionRouletteState
+  | ProjectionTimeToolState
   | ProjectionBlankState;
