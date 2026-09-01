@@ -140,8 +140,10 @@
                   :aria-checked="menuSide === option.value"
                   @click="updateMenuSide(option.value)"
                 >
-                  <q-icon :name="option.icon" />
-                  <span>{{ option.label }}</span>
+                  <span class="menu-side-option-main">
+                    <q-icon :name="option.icon" />
+                    <span>{{ option.label }}</span>
+                  </span>
                   <q-icon
                     :name="menuSide === option.value ? 'check_circle' : 'radio_button_unchecked'"
                     class="menu-side-option-state"
@@ -169,8 +171,10 @@
                   :aria-checked="toolbarPosition === option.value"
                   @click="updateToolbarPosition(option.value)"
                 >
-                  <q-icon :name="option.icon" />
-                  <span>{{ option.label }}</span>
+                  <span class="menu-side-option-main">
+                    <q-icon :name="option.icon" />
+                    <span>{{ option.label }}</span>
+                  </span>
                   <q-icon
                     :name="
                       toolbarPosition === option.value ? 'check_circle' : 'radio_button_unchecked'
@@ -1157,8 +1161,8 @@ const workspaceLayoutOptions: Array<{
 }).filter((option) => option.capacities.filter((capacity) => capacity === 2).length === 2);
 
 const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> = [
-  { label: 'Izquierda', value: 'left', icon: 'dock_to_left' },
-  { label: 'Derecha', value: 'right', icon: 'dock_to_right' },
+  { label: 'Izquierda', value: 'left', icon: 'west' },
+  { label: 'Derecha', value: 'right', icon: 'east' },
 ];
 
 const toolbarPositionOptions: Array<{
@@ -1987,10 +1991,10 @@ onBeforeUnmount(() => {
 }
 
 .menu-side-option {
-  display: grid;
+  display: flex;
   min-height: 54px;
   align-items: center;
-  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
   color: #9eacbd;
@@ -2017,8 +2021,22 @@ onBeforeUnmount(() => {
   border-color: #3b82c4;
 }
 
-.menu-side-option > .q-icon:first-child {
+.menu-side-option-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.menu-side-option-main > .q-icon {
+  flex: 0 0 auto;
   font-size: 22px;
+}
+
+.menu-side-option-main > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-side-option-state {
