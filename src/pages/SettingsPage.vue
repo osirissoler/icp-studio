@@ -76,8 +76,8 @@
             <q-separator dark />
             <q-card-section class="stacked-column-setting">
               <div>
-                <strong>Columna dividida</strong>
-                <small>Mueve la columna que contiene dos tarjetas.</small>
+                <strong>Panel compartido</strong>
+                <small>Elige dónde aparecerá el grupo de búsqueda y próximas actividades.</small>
               </div>
               <div
                 class="stacked-position-options"
@@ -1110,6 +1110,12 @@ const panelOptions: PanelOption[] = [
     label: 'Búsqueda y contenido',
     description: 'Biblioteca y herramientas del módulo.',
     icon: 'search',
+  },
+  {
+    id: 'upcomingActivities',
+    label: 'Próximas actividades',
+    description: 'Actividades pendientes desde hoy hasta finalizar el año.',
+    icon: 'event_upcoming',
   },
   {
     id: 'preview',
