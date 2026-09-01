@@ -3,8 +3,10 @@ import { defineStore } from 'pinia';
 import type { WorkspaceLayoutPreset, WorkspacePanelId } from '../shared/workspace';
 
 const STORAGE_KEY = 'icp-studio-workspace-settings';
+const WORKSPACE_SETTINGS_VERSION = 2;
 
 interface StoredWorkspaceSettings {
+  version?: number;
   visiblePanels?: Partial<Record<WorkspacePanelId, boolean>>;
   panelOrder?: WorkspacePanelId[];
   stackedTopPercent?: number;
@@ -26,7 +28,7 @@ const defaultVisibility: Record<WorkspacePanelId, boolean> = {
   preview: true,
   service: true,
   live: true,
-  monitors: true,
+  monitors: false,
 };
 
 const defaultPanelOrder: WorkspacePanelId[] = [
@@ -104,7 +106,14 @@ function loadSettings(): LoadedWorkspaceSettings {
         ? (storedLayoutPreset as WorkspaceLayoutPreset)
         : 'split-split-single');
     return {
-      visiblePanels: { ...defaultVisibility, ...parsed.visiblePanels },
+      visiblePanels: {
+        ...defaultVisibility,
+        ...parsed.visiblePanels,
+        monitors:
+          parsed.version === WORKSPACE_SETTINGS_VERSION
+            ? Boolean(parsed.visiblePanels?.monitors)
+            : false,
+      },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
       stackedTopPercent:
         typeof parsed.stackedTopPercent === 'number'
@@ -112,7 +121,9 @@ function loadSettings(): LoadedWorkspaceSettings {
           : 70,
       columnSplitPercents: Array.from({ length: 6 }, (_, index) => {
         const storedPercent = parsed.columnSplitPercents?.[index];
-        if (typeof storedPercent === 'number') return Math.min(80, Math.max(20, storedPercent));
+        if (typeof storedPercent === 'number') {
+          return Math.round(Math.min(80, Math.max(20, storedPercent)));
+        }
         return index === 0 ? 70 : 50;
       }),
       layoutPreset,
@@ -140,6 +151,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
+        version: WORKSPACE_SETTINGS_VERSION,
         visiblePanels,
         panelOrder: panelOrder.value,
         stackedTopPercent: stackedTopPercent.value,
@@ -183,7 +195,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
 
   function setColumnSplitPercent(columnIndex: number, percent: number): void {
     const nextPercents = [...columnSplitPercents.value];
-    nextPercents[columnIndex] = Math.min(80, Math.max(20, percent));
+    nextPercents[columnIndex] = Math.round(Math.min(80, Math.max(20, percent)));
     columnSplitPercents.value = nextPercents;
     save();
   }
