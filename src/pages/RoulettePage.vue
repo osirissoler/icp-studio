@@ -48,7 +48,7 @@
             </q-btn>
           </div>
         </div>
-        <div class="saved-list">
+        <div class="saved-list" :class="{ 'saved-list--empty': !savedRoulettes.length }">
           <article
             v-for="saved in savedRoulettes"
             :key="saved.id"
@@ -1050,6 +1050,14 @@ button {
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
+.saved-list--empty {
+  height: 82px;
+  min-height: 82px;
+  flex-basis: 82px;
+  padding-right: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
 .saved-roulette-card {
   flex: 0 0 auto;
   overflow: hidden;
@@ -1118,6 +1126,7 @@ button {
   flex-direction: column;
   gap: 5px;
   min-height: 72px;
+  flex: 1;
   padding: 10px;
   color: #667b90;
   border: 1px dashed #2a3d50;
