@@ -91,6 +91,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'ruleta',
+        component: () => import('../pages/RoulettePage.vue'),
+        meta: {
+          title: 'Ruleta',
+          description: 'Crea y presenta selecciones aleatorias para dinámicas y actividades.',
+          icon: 'donut_large',
+        },
+      },
+      {
         path: 'biblioteca',
         component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
