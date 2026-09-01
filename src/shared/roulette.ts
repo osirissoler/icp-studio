@@ -5,6 +5,8 @@ export interface RouletteOption {
 }
 
 export type RouletteLabelMode = 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden';
+export type RouletteWinnerTextSize = 'small' | 'medium' | 'large';
+export type RouletteConfettiIntensity = 'low' | 'medium' | 'high';
 
 export interface RoulettePresentationData {
   id: string;
@@ -21,6 +23,13 @@ export interface RoulettePresentationData {
   removeWinner: boolean;
   usedWinnerIds: string[];
   labelMode: RouletteLabelMode;
+  backgroundColor: string;
+  showTitle: boolean;
+  winnerTextSize: RouletteWinnerTextSize;
+  confettiEnabled: boolean;
+  confettiIntensity: RouletteConfettiIntensity;
+  soundEnabled: boolean;
+  soundVolume: number;
 }
 
 export interface SavedRoulette {
@@ -33,6 +42,13 @@ export interface SavedRoulette {
   durationValue: number;
   durationUnit: 'seconds' | 'minutes';
   useTimer: boolean;
+  backgroundColor: string;
+  showTitle: boolean;
+  winnerTextSize: RouletteWinnerTextSize;
+  confettiEnabled: boolean;
+  confettiIntensity: RouletteConfettiIntensity;
+  soundEnabled: boolean;
+  soundVolume: number;
   updatedAt: string;
 }
 
