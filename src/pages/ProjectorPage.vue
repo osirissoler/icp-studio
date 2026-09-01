@@ -5,14 +5,15 @@
         v-if="projectionState.mode === 'activity'"
         :key="projectionState.id"
         class="projector-activity"
+        :class="{ 'projector-activity--image-only': !projectionState.showOverlayText }"
         :style="activityBackground(projectionState.imageUrl)"
       >
-        <div class="activity-backdrop"></div>
-        <header class="activity-brand">
+        <div v-if="projectionState.showOverlayText" class="activity-backdrop"></div>
+        <header v-if="projectionState.showOverlayText" class="activity-brand">
           <span><q-icon name="church" /> ICP Studio</span>
           <small>Próxima actividad</small>
         </header>
-        <div class="activity-content">
+        <div v-if="projectionState.showOverlayText" class="activity-content">
           <span
             class="activity-category"
             :style="{ '--activity-color': projectionState.categoryColor }"
@@ -30,7 +31,7 @@
             {{ projectionState.description }}
           </p>
         </div>
-        <footer class="activity-footer">
+        <footer v-if="projectionState.showOverlayText" class="activity-footer">
           <span>Te esperamos</span>
           <i :style="{ backgroundColor: projectionState.categoryColor }"></i>
         </footer>
@@ -196,6 +197,14 @@ onBeforeUnmount(() => {
   background-position: center;
   background-size: cover;
   text-align: left;
+}
+
+.projector-activity--image-only {
+  padding: 0;
+  background-color: #000;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .activity-backdrop {
