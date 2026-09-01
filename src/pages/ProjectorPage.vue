@@ -14,6 +14,12 @@
         celebrate-winner
       />
 
+      <TimeToolDisplay
+        v-else-if="projectionState.mode === 'time-tool'"
+        :key="projectionState.tool.id"
+        :tool="projectionState.tool"
+      />
+
       <section
         v-else-if="projectionState.mode === 'content'"
         key="content"
@@ -83,6 +89,7 @@ import AudioVisualizer from '../components/AudioVisualizer.vue';
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
 import RouletteWheel from '../components/RouletteWheel.vue';
+import TimeToolDisplay from '../components/TimeToolDisplay.vue';
 import type { MediaPlaybackCommand, ProjectionState } from '@/shared/projection';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 
