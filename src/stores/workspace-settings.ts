@@ -1,6 +1,6 @@
 import { reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { WorkspacePanelId } from '../shared/workspace';
+import type { WorkspaceLayoutPreset, WorkspacePanelId } from '../shared/workspace';
 
 const STORAGE_KEY = 'icp-studio-workspace-settings';
 
@@ -8,12 +8,16 @@ interface StoredWorkspaceSettings {
   visiblePanels?: Partial<Record<WorkspacePanelId, boolean>>;
   panelOrder?: WorkspacePanelId[];
   stackedTopPercent?: number;
+  columnSplitPercents?: number[];
+  layoutPreset?: WorkspaceLayoutPreset;
 }
 
 interface LoadedWorkspaceSettings {
   visiblePanels: Record<WorkspacePanelId, boolean>;
   panelOrder: WorkspacePanelId[];
   stackedTopPercent: number;
+  columnSplitPercents: number[];
+  layoutPreset: WorkspaceLayoutPreset;
 }
 
 const defaultVisibility: Record<WorkspacePanelId, boolean> = {
@@ -78,6 +82,10 @@ function loadSettings(): LoadedWorkspaceSettings {
     if (!stored) throw new Error('No stored workspace settings');
 
     const parsed = JSON.parse(stored) as StoredWorkspaceSettings;
+    const layoutPreset: WorkspaceLayoutPreset =
+      parsed.layoutPreset === 'split-left-right' || parsed.layoutPreset === 'split-center-right'
+        ? parsed.layoutPreset
+        : 'split-left-center';
     return {
       visiblePanels: { ...defaultVisibility, ...parsed.visiblePanels },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
@@ -85,12 +93,20 @@ function loadSettings(): LoadedWorkspaceSettings {
         typeof parsed.stackedTopPercent === 'number'
           ? Math.min(80, Math.max(55, parsed.stackedTopPercent))
           : 70,
+      columnSplitPercents: Array.from({ length: 6 }, (_, index) => {
+        const storedPercent = parsed.columnSplitPercents?.[index];
+        if (typeof storedPercent === 'number') return Math.min(80, Math.max(20, storedPercent));
+        return index === 0 ? 70 : 50;
+      }),
+      layoutPreset,
     };
   } catch {
     return {
       visiblePanels: { ...defaultVisibility },
       panelOrder: [...defaultPanelOrder],
       stackedTopPercent: 70,
+      columnSplitPercents: [70, 50, 50, 50, 50, 50],
+      layoutPreset: 'split-left-center',
     };
   }
 }
@@ -100,6 +116,8 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
   const visiblePanels = reactive(initialSettings.visiblePanels);
   const panelOrder = ref<WorkspacePanelId[]>(initialSettings.panelOrder);
   const stackedTopPercent = ref(initialSettings.stackedTopPercent);
+  const columnSplitPercents = ref(initialSettings.columnSplitPercents);
+  const layoutPreset = ref<WorkspaceLayoutPreset>(initialSettings.layoutPreset);
 
   function save(): void {
     localStorage.setItem(
@@ -108,6 +126,8 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
         visiblePanels,
         panelOrder: panelOrder.value,
         stackedTopPercent: stackedTopPercent.value,
+        columnSplitPercents: columnSplitPercents.value,
+        layoutPreset: layoutPreset.value,
       }),
     );
   }
@@ -144,10 +164,24 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     save();
   }
 
+  function setColumnSplitPercent(columnIndex: number, percent: number): void {
+    const nextPercents = [...columnSplitPercents.value];
+    nextPercents[columnIndex] = Math.min(80, Math.max(20, percent));
+    columnSplitPercents.value = nextPercents;
+    save();
+  }
+
+  function setLayoutPreset(preset: WorkspaceLayoutPreset): void {
+    layoutPreset.value = preset;
+    save();
+  }
+
   function resetWorkspace(): void {
     Object.assign(visiblePanels, defaultVisibility);
     panelOrder.value = [...defaultPanelOrder];
     stackedTopPercent.value = 70;
+    columnSplitPercents.value = [70, 50, 50, 50, 50, 50];
+    layoutPreset.value = 'split-left-center';
     save();
   }
 
@@ -155,10 +189,14 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     visiblePanels,
     panelOrder,
     stackedTopPercent,
+    columnSplitPercents,
+    layoutPreset,
     isVisible,
     setPanelVisible,
     movePanel,
     setStackedTopPercent,
+    setColumnSplitPercent,
+    setLayoutPreset,
     resetWorkspace,
   };
 });
