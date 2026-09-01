@@ -17,9 +17,7 @@
           @dragend="stopDragging"
         >
           <div class="panel-heading">
-            <q-icon name="drag_indicator" class="drag-icon">
-              <q-tooltip>Arrastra para cambiar la posición del panel</q-tooltip>
-            </q-icon>
+            <span class="drag-dots" aria-hidden="true"></span>
             <q-icon :name="panel.id === 'search' ? icon : panel.icon" size="19px" />
             <span class="panel-title">{{ panel.id === 'search' ? title : panel.title }}</span>
             <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
@@ -550,8 +548,13 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.drag-icon {
-  color: #5e6c7e;
+.drag-dots {
+  width: 11px;
+  height: 18px;
+  flex: 0 0 11px;
+  background-image: radial-gradient(circle, #64768a 1.4px, transparent 1.6px);
+  background-position: 0 0;
+  background-size: 5px 5px;
 }
 
 .panel-context {
