@@ -177,18 +177,46 @@
         <div v-else-if="liveItem" class="frame-list" :style="activeContentStyle">
           <div class="item-title-row">
             <div class="item-title">{{ liveItem.title }}</div>
-            <q-btn
+            <div
               v-if="liveItem.type === 'game' && liveFrame?.roulette"
-              unelevated
-              no-caps
-              dense
-              size="sm"
-              color="primary"
-              icon="play_arrow"
-              :label="liveFrame.roulette.spinning ? 'Girando…' : 'Girar ruleta'"
-              :disable="liveFrame.roulette.spinning || liveFrame.roulette.options.length < 2"
-              @click="spinLiveRoulette"
-            />
+              class="roulette-live-actions"
+            >
+              <q-input
+                v-model.number="liveRouletteSeconds"
+                dark
+                outlined
+                dense
+                type="number"
+                min="1"
+                max="600"
+                suffix="seg"
+                :disable="liveFrame.roulette.spinning"
+                aria-label="Duración del giro en segundos"
+              />
+              <q-btn
+                v-if="!liveFrame.roulette.spinning"
+                unelevated
+                no-caps
+                dense
+                size="sm"
+                color="primary"
+                icon="play_arrow"
+                label="Girar"
+                :disable="liveFrame.roulette.options.length < 2"
+                @click="spinLiveRoulette"
+              />
+              <q-btn
+                v-else
+                unelevated
+                no-caps
+                dense
+                size="sm"
+                color="red-6"
+                icon="stop"
+                label="Detener"
+                @click="stopLiveRoulette"
+              />
+            </div>
           </div>
           <button
             v-for="(frame, frameIndex) in liveItem.frames"
@@ -254,8 +282,20 @@ const projectionSettings = useProjectionSettingsStore();
 const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
 const { audioVisualizer, activeContent, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
-const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame, spinLiveRoulette } =
-  presentationStore;
+const {
+  clearLive,
+  controlLiveMedia,
+  moveLiveFrame,
+  setLiveFrame,
+  spinLiveRoulette,
+  stopLiveRoulette,
+  setLiveRouletteDuration,
+} = presentationStore;
+
+const liveRouletteSeconds = computed({
+  get: () => Math.max(1, Math.round((liveFrame.value?.roulette?.spinDuration ?? 6000) / 1000)),
+  set: (seconds: number) => setLiveRouletteDuration(Number(seconds) * 1000),
+});
 
 const liveDisplayText = computed(() => {
   if (!liveFrame.value) return '';
@@ -596,6 +636,16 @@ onBeforeUnmount(() => {
   padding-bottom: 3px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.roulette-live-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+.roulette-live-actions .q-input {
+  width: 82px;
+  font-size: 9px;
 }
 
 .frame-item {
