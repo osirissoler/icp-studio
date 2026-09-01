@@ -6,14 +6,16 @@
     <div class="wheel-shell">
       <span class="wheel-pointer"></span>
       <div class="roulette-wheel" :style="wheelStyle">
-        <span
-          v-for="(option, index) in roulette.options"
-          :key="option.id"
-          class="wheel-label"
-          :style="labelStyle(index)"
-        >
-          <b>{{ option.label }}</b>
-        </span>
+        <template v-if="roulette.labelMode !== 'hidden'">
+          <span
+            v-for="(option, index) in roulette.options"
+            :key="option.id"
+            class="wheel-label"
+            :style="labelStyle(index)"
+          >
+            <b>{{ optionLabel(option.label) }}</b>
+          </span>
+        </template>
         <span class="wheel-center"><q-icon name="church" /></span>
       </div>
     </div>
@@ -81,6 +83,13 @@ onMounted(() => void animateToTarget());
 function labelStyle(index: number): Record<string, string> {
   const angle = (360 / Math.max(1, props.roulette.options.length)) * (index + 0.5);
   return { transform: `rotate(${angle}deg) translateY(-39%)` };
+}
+
+function optionLabel(label: string): string {
+  if (props.roulette.labelMode === 'first-word') return label.split(/\s+/)[0] ?? label;
+  if (props.roulette.labelMode === 'short' && label.length > 18)
+    return `${label.slice(0, 18).trim()}…`;
+  return label;
 }
 </script>
 
