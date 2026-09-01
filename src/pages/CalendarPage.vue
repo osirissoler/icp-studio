@@ -21,7 +21,7 @@
           color="red-6"
           icon="sensors"
           label="Control En vivo"
-          class="live-control-button"
+          class="app-action-button app-action-button--live live-control-button"
           @click="operatorPresentationOpen = true"
         />
         <q-btn
@@ -30,6 +30,7 @@
           color="blue-grey-3"
           icon="category"
           label="Categorías"
+          class="app-action-button app-action-button--secondary"
           @click="categoriesDialogOpen = true"
         />
         <q-btn
@@ -38,6 +39,7 @@
           color="primary"
           icon="add"
           label="Nueva actividad"
+          class="app-action-button app-action-button--primary"
           @click="openCreateActivity()"
         />
       </div>
@@ -354,23 +356,31 @@
         <q-card-section class="detail-content">
           <div
             class="presentation-preview"
+            :class="{
+              'presentation-preview--image-only':
+                !selectedActivity.showOverlayText && selectedActivity.imageUrl,
+            }"
             :style="presentationBackground(selectedActivity.imageUrl)"
           >
-            <div class="presentation-overlay"></div>
-            <div class="presentation-brand"><q-icon name="church" /> ICP Studio · Actividades</div>
-            <div class="presentation-copy">
-              <span
-                class="presentation-category"
-                :style="{ '--category-color': categoryInfo(selectedActivity.category).color }"
-              >
-                {{ categoryInfo(selectedActivity.category).label }}
-              </span>
-              <h2>{{ selectedActivity.title }}</h2>
-              <p>{{ activityLongDateLabel(selectedActivity) }}</p>
-              <small v-if="selectedActivity.location"
-                ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
-              >
-            </div>
+            <template v-if="selectedActivity.showOverlayText || !selectedActivity.imageUrl">
+              <div class="presentation-overlay"></div>
+              <div class="presentation-brand">
+                <q-icon name="church" /> ICP Studio · Actividades
+              </div>
+              <div class="presentation-copy">
+                <span
+                  class="presentation-category"
+                  :style="{ '--category-color': categoryInfo(selectedActivity.category).color }"
+                >
+                  {{ categoryInfo(selectedActivity.category).label }}
+                </span>
+                <h2>{{ selectedActivity.title }}</h2>
+                <p>{{ activityLongDateLabel(selectedActivity) }}</p>
+                <small v-if="selectedActivity.location"
+                  ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
+                >
+              </div>
+            </template>
           </div>
           <div class="detail-information">
             <div class="detail-status-row">
@@ -404,6 +414,7 @@
             color="blue-grey-3"
             icon="open_in_full"
             label="Vista previa grande"
+            class="app-action-button app-action-button--ghost"
             @click="presentationPreviewOpen = true"
           />
           <div>
@@ -414,6 +425,7 @@
               color="red-6"
               icon="live_tv"
               label="Enviar a En vivo"
+              class="app-action-button app-action-button--live"
               :disable="selectedActivity.status === 'cancelled'"
               @click="sendActivityToLive(selectedActivity)"
             >
@@ -427,6 +439,7 @@
               color="primary"
               icon="edit"
               label="Editar"
+              class="app-action-button app-action-button--primary"
               @click="editSelectedActivity"
             />
           </div>
@@ -454,28 +467,35 @@
             color="red-6"
             icon="live_tv"
             label="Enviar a En vivo"
+            class="app-action-button app-action-button--live"
             :disable="selectedActivity.status === 'cancelled'"
             @click="sendActivityToLive(selectedActivity)"
           />
         </div>
         <div
           class="presentation-preview presentation-preview--fullscreen"
+          :class="{
+            'presentation-preview--image-only':
+              !selectedActivity.showOverlayText && selectedActivity.imageUrl,
+          }"
           :style="presentationBackground(selectedActivity.imageUrl)"
         >
-          <div class="presentation-overlay"></div>
-          <div class="presentation-brand"><q-icon name="church" /> ICP Studio · Actividades</div>
-          <div class="presentation-copy">
-            <span
-              class="presentation-category"
-              :style="{ '--category-color': categoryInfo(selectedActivity.category).color }"
-              >{{ categoryInfo(selectedActivity.category).label }}</span
-            >
-            <h2>{{ selectedActivity.title }}</h2>
-            <p>{{ activityLongDateLabel(selectedActivity) }}</p>
-            <small v-if="selectedActivity.location"
-              ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
-            >
-          </div>
+          <template v-if="selectedActivity.showOverlayText || !selectedActivity.imageUrl">
+            <div class="presentation-overlay"></div>
+            <div class="presentation-brand"><q-icon name="church" /> ICP Studio · Actividades</div>
+            <div class="presentation-copy">
+              <span
+                class="presentation-category"
+                :style="{ '--category-color': categoryInfo(selectedActivity.category).color }"
+                >{{ categoryInfo(selectedActivity.category).label }}</span
+              >
+              <h2>{{ selectedActivity.title }}</h2>
+              <p>{{ activityLongDateLabel(selectedActivity) }}</p>
+              <small v-if="selectedActivity.location"
+                ><q-icon name="location_on" /> {{ selectedActivity.location }}</small
+              >
+            </div>
+          </template>
         </div>
       </q-card>
     </q-dialog>
@@ -497,6 +517,7 @@
               color="red-4"
               icon="tv_off"
               label="Limpiar En vivo"
+              class="app-action-button app-action-button--danger"
               @click="stopActivityLive"
             />
             <q-btn
@@ -517,26 +538,32 @@
             </div>
             <div
               class="presentation-preview operator-main-preview"
+              :class="{
+                'presentation-preview--image-only':
+                  !presentedActivity.showOverlayText && presentedActivity.imageUrl,
+              }"
               :style="presentationBackground(presentedActivity.imageUrl)"
             >
-              <div class="presentation-overlay"></div>
-              <div class="presentation-brand">
-                <q-icon name="church" /> ICP Studio · Actividades
-              </div>
-              <div class="presentation-copy">
-                <span
-                  class="presentation-category"
-                  :style="{
-                    '--category-color': categoryInfo(presentedActivity.category).color,
-                  }"
-                  >{{ categoryInfo(presentedActivity.category).label }}</span
-                >
-                <h2>{{ presentedActivity.title }}</h2>
-                <p>{{ activityLongDateLabel(presentedActivity) }}</p>
-                <small v-if="presentedActivity.location"
-                  ><q-icon name="location_on" /> {{ presentedActivity.location }}</small
-                >
-              </div>
+              <template v-if="presentedActivity.showOverlayText || !presentedActivity.imageUrl">
+                <div class="presentation-overlay"></div>
+                <div class="presentation-brand">
+                  <q-icon name="church" /> ICP Studio · Actividades
+                </div>
+                <div class="presentation-copy">
+                  <span
+                    class="presentation-category"
+                    :style="{
+                      '--category-color': categoryInfo(presentedActivity.category).color,
+                    }"
+                    >{{ categoryInfo(presentedActivity.category).label }}</span
+                  >
+                  <h2>{{ presentedActivity.title }}</h2>
+                  <p>{{ activityLongDateLabel(presentedActivity) }}</p>
+                  <small v-if="presentedActivity.location"
+                    ><q-icon name="location_on" /> {{ presentedActivity.location }}</small
+                  >
+                </div>
+              </template>
             </div>
             <div class="operator-current-metadata">
               <span class="status-pill" :class="`status-pill--${presentedActivity.status}`">
@@ -634,6 +661,7 @@
             color="blue-grey-3"
             icon="arrow_back"
             :label="previousPresentedActivity?.title ?? 'Actividad anterior'"
+            class="app-action-button app-action-button--secondary"
             :disable="!previousPresentedActivity"
             @click="movePresentedActivity(-1)"
           />
@@ -644,6 +672,7 @@
             color="primary"
             icon-right="arrow_forward"
             :label="nextPresentedActivity?.title ?? 'Última actividad'"
+            class="app-action-button app-action-button--primary"
             :disable="!nextPresentedActivity"
             @click="movePresentedActivity(1)"
           />
@@ -863,13 +892,34 @@
             />
           </div>
           <aside class="activity-image-panel">
-            <div class="form-preview" :style="presentationBackground(activityForm.imageUrl)">
-              <div class="presentation-overlay"></div>
-              <div class="form-preview-copy">
-                <small>{{ categoryInfo(activityForm.category).label }}</small>
-                <strong>{{ activityForm.title || 'Nombre de la actividad' }}</strong>
-                <span>{{ activityForm.date ? formDateLabel : 'Selecciona una fecha' }}</span>
-              </div>
+            <div
+              class="form-preview"
+              :class="{
+                'presentation-preview--image-only':
+                  !activityForm.showOverlayText && activityForm.imageUrl,
+              }"
+              :style="presentationBackground(activityForm.imageUrl)"
+            >
+              <template v-if="activityForm.showOverlayText || !activityForm.imageUrl">
+                <div class="presentation-overlay"></div>
+                <div class="form-preview-copy">
+                  <small>{{ categoryInfo(activityForm.category).label }}</small>
+                  <strong>{{ activityForm.title || 'Nombre de la actividad' }}</strong>
+                  <span>{{ activityForm.date ? formDateLabel : 'Selecciona una fecha' }}</span>
+                </div>
+              </template>
+            </div>
+            <div class="overlay-text-setting">
+              <q-toggle
+                v-model="activityForm.showOverlayText"
+                dark
+                color="primary"
+                label="Mostrar información sobre la imagen"
+                :disable="!activityForm.imageUrl"
+              />
+              <small>
+                Desactívalo cuando la imagen ya tenga su propio título, fecha y diseño.
+              </small>
             </div>
             <button type="button" class="image-picker" @click="chooseActivityImage">
               <q-icon name="add_photo_alternate" />
@@ -905,16 +955,25 @@
             color="red-4"
             icon="delete_outline"
             label="Eliminar"
+            class="app-action-button app-action-button--danger"
             @click="deleteCurrentActivity"
           />
           <span v-else></span>
           <div>
-            <q-btn v-close-popup flat no-caps color="blue-grey-4" label="Cancelar" /><q-btn
+            <q-btn
+              v-close-popup
+              flat
+              no-caps
+              color="blue-grey-4"
+              label="Cancelar"
+              class="app-action-button app-action-button--ghost"
+            /><q-btn
               unelevated
               no-caps
               color="primary"
               icon="save"
               label="Guardar actividad"
+              class="app-action-button app-action-button--primary"
               @click="saveActivity"
             />
           </div>
@@ -958,6 +1017,7 @@ interface ActivityForm {
   responsible: string;
   description: string;
   imageUrl: string;
+  showOverlayText: boolean;
 }
 
 type CalendarViewMode = 'month' | 'year' | 'agenda';
@@ -1132,6 +1192,7 @@ function emptyActivityForm(selectedDate: string): ActivityForm {
     responsible: '',
     description: '',
     imageUrl: '',
+    showOverlayText: true,
   };
 }
 
@@ -1283,6 +1344,7 @@ function sendActivityToLive(
     location: activity.location,
     description: activity.description,
     imageUrl: activity.imageUrl,
+    showOverlayText: activity.showOverlayText || !activity.imageUrl,
     categoryLabel: category.label,
     categoryColor: category.color,
   });
@@ -1450,6 +1512,7 @@ function saveActivity(): void {
     responsible: activityForm.responsible.trim(),
     description: activityForm.description.trim(),
     imageUrl: activityForm.imageUrl,
+    showOverlayText: activityForm.showOverlayText,
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };
@@ -1605,6 +1668,51 @@ button {
 .calendar-header-actions .q-btn {
   min-height: 39px;
   border-radius: 9px;
+}
+.app-action-button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 11px !important;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+.app-action-button:not(.disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.app-action-button--primary {
+  color: #f7fbff !important;
+  background: linear-gradient(135deg, #2f87c8, #1d5f9b) !important;
+  border-color: #4b9bd2 !important;
+  box-shadow: 0 7px 18px rgb(27 101 158 / 25%);
+}
+.app-action-button--live {
+  color: #fff7f7 !important;
+  background: linear-gradient(135deg, #ef565e, #b72539) !important;
+  border-color: #f2767d !important;
+  box-shadow: 0 7px 18px rgb(190 35 56 / 28%);
+}
+.app-action-button--danger {
+  color: #fecaca !important;
+  background: linear-gradient(135deg, #3f2029, #29151c) !important;
+  border-color: #793846 !important;
+}
+.app-action-button--secondary {
+  color: #d8e7f4 !important;
+  background: linear-gradient(135deg, #1a2c3f, #111d2b) !important;
+  border-color: #39536d !important;
+  box-shadow: 0 5px 14px rgb(3 9 16 / 24%);
+}
+.app-action-button--ghost {
+  color: #a9bfd3 !important;
+  background: #101d2a !important;
+  border-color: #2e4358 !important;
 }
 .live-control-button {
   box-shadow: 0 0 0 4px rgb(239 68 68 / 12%);
@@ -2303,6 +2411,12 @@ button {
   background-size: cover;
   border: 1px solid #39516c;
   border-radius: 10px;
+}
+.presentation-preview--image-only {
+  background-color: #000;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 .presentation-overlay {
   position: absolute;
@@ -3003,6 +3117,21 @@ button {
   color: #b9c9d8;
   font-size: 7px;
   text-transform: capitalize;
+}
+.overlay-text-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  background: #0e1a27;
+  border: 1px solid #2a4057;
+  border-radius: 9px;
+}
+.overlay-text-setting small {
+  padding: 0 10px 4px 42px;
+  color: #6f8499;
+  font-size: 8px;
+  line-height: 1.4;
 }
 .image-picker {
   display: flex;
