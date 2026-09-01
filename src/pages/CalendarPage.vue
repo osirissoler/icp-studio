@@ -722,13 +722,30 @@
               maxlength="120"
               ><template #prepend><q-icon name="title" /></template
             ></q-input>
-            <div class="form-grid form-grid--date">
-              <q-input v-model="activityForm.date" dark outlined dense type="date" label="Fecha *"
+            <div class="form-grid form-grid--dates">
+              <q-input
+                v-model="activityForm.date"
+                dark
+                outlined
+                dense
+                type="date"
+                label="Comienza *"
                 ><template #prepend><q-icon name="calendar_today" /></template
               ></q-input>
-              <q-toggle v-model="activityForm.allDay" dark color="primary" label="Todo el día" />
               <q-input
-                v-if="!activityForm.allDay"
+                v-model="activityForm.endDate"
+                dark
+                outlined
+                dense
+                type="date"
+                label="Termina *"
+                :min="activityForm.date"
+                ><template #prepend><q-icon name="event_available" /></template
+              ></q-input>
+              <q-toggle v-model="activityForm.allDay" dark color="primary" label="Todo el día" />
+            </div>
+            <div v-if="!activityForm.allDay" class="form-grid">
+              <q-input
                 v-model="activityForm.startTime"
                 dark
                 outlined
@@ -737,7 +754,6 @@
                 label="Inicia"
               />
               <q-input
-                v-if="!activityForm.allDay"
                 v-model="activityForm.endTime"
                 dark
                 outlined
@@ -874,6 +890,7 @@ interface CalendarDay {
 interface ActivityForm {
   title: string;
   date: string;
+  endDate: string;
   allDay: boolean;
   startTime: string;
   endTime: string;
@@ -942,9 +959,13 @@ const statusOptions: Array<{ label: string; value: CalendarActivityStatus }> = [
   { label: 'Cancelada', value: 'cancelled' },
 ];
 
-const yearActivities = computed(() =>
-  activities.value.filter((activity) => activity.date.startsWith(`${year.value}-`)),
-);
+const yearActivities = computed(() => {
+  const yearStart = `${year.value}-01-01`;
+  const yearEnd = `${year.value}-12-31`;
+  return activities.value.filter(
+    (activity) => activity.date <= yearEnd && activityEndDate(activity) >= yearStart,
+  );
+});
 const filteredActivities = computed(() => {
   const query = searchText.value.trim().toLocaleLowerCase('es');
   return yearActivities.value.filter((activity) => {
@@ -963,7 +984,7 @@ const completedActivities = computed(
 );
 const upcomingActivities = computed(() =>
   activities.value
-    .filter((activity) => activity.date >= todayKey && activity.status !== 'cancelled')
+    .filter((activity) => activityEndDate(activity) >= todayKey && activity.status !== 'cancelled')
     .sort(compareActivities)
     .slice(0, 6),
 );
@@ -993,7 +1014,9 @@ const nextPresentedActivity = computed(() =>
 const periodTitle = computed(() =>
   viewMode.value === 'month' ? `${monthNames[monthIndex.value]} ${year.value}` : `${year.value}`,
 );
-const formDateLabel = computed(() => formatLongDate(activityForm.date));
+const formDateLabel = computed(() =>
+  activityForm.date ? dateRangeLabel(activityForm.date, activityForm.endDate) : '',
+);
 const yearProgress = computed(() => {
   if (year.value < now.getFullYear()) return 1;
   if (year.value > now.getFullYear()) return 0;
@@ -1023,9 +1046,11 @@ function buildMonth(index: number, label: string) {
     index,
     label,
     days,
-    activityCount: filteredActivities.value.filter((activity) =>
-      activity.date.startsWith(`${year.value}-${String(index + 1).padStart(2, '0')}-`),
-    ).length,
+    activityCount: filteredActivities.value.filter((activity) => {
+      const monthStart = dateKey(year.value, index, 1);
+      const monthEnd = dateKey(year.value, index, daysInMonth);
+      return activity.date <= monthEnd && activityEndDate(activity) >= monthStart;
+    }).length,
     isCurrentMonth: year.value === now.getFullYear() && index === now.getMonth(),
   };
 }
@@ -1034,6 +1059,7 @@ function emptyActivityForm(selectedDate: string): ActivityForm {
   return {
     title: '',
     date: selectedDate,
+    endDate: selectedDate,
     allDay: false,
     startTime: '09:00',
     endTime: '11:00',
@@ -1054,6 +1080,10 @@ function compareActivities(first: CalendarActivity, second: CalendarActivity): n
   return `${first.date}T${first.startTime}`.localeCompare(`${second.date}T${second.startTime}`);
 }
 
+function activityEndDate(activity: CalendarActivity): string {
+  return activity.endDate || activity.date;
+}
+
 function categoryInfo(categoryId: CalendarActivityCategory): CalendarActivityCategoryDefinition {
   return (
     categories.value.find((category) => category.id === categoryId) ??
@@ -1063,7 +1093,9 @@ function categoryInfo(categoryId: CalendarActivityCategory): CalendarActivityCat
 
 function activitiesForDay(selectedDate: string): CalendarActivity[] {
   return filteredActivities.value
-    .filter((activity) => activity.date === selectedDate)
+    .filter(
+      (activity) => activity.date <= selectedDate && activityEndDate(activity) >= selectedDate,
+    )
     .sort(compareActivities);
 }
 
@@ -1090,18 +1122,30 @@ function formatLongDate(selectedDate: string): string {
     year: 'numeric',
   }).format(new Date(selectedYear ?? year.value, (selectedMonth ?? 1) - 1, selectedDay ?? 1));
 }
+function dateRangeLabel(startDate: string, endDate: string): string {
+  const safeEndDate = endDate || startDate;
+  if (safeEndDate === startDate) return formatLongDate(startDate);
+  return `${formatLongDate(startDate)} – ${formatLongDate(safeEndDate)}`;
+}
 function activityDateLabel(activity: CalendarActivity): string {
-  const shortDate = new Intl.DateTimeFormat('es-DO', {
+  const formatter = new Intl.DateTimeFormat('es-DO', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-  }).format(new Date(`${activity.date}T12:00:00`));
-  return activity.allDay ? shortDate : `${shortDate} · ${activity.startTime || 'Hora pendiente'}`;
+  });
+  const startLabel = formatter.format(new Date(`${activity.date}T12:00:00`));
+  const endDate = activityEndDate(activity);
+  const dateLabel =
+    endDate === activity.date
+      ? startLabel
+      : `${startLabel} – ${formatter.format(new Date(`${endDate}T12:00:00`))}`;
+  return activity.allDay ? dateLabel : `${dateLabel} · ${activity.startTime || 'Hora pendiente'}`;
 }
 function activityLongDateLabel(activity: CalendarActivity): string {
+  const rangeLabel = dateRangeLabel(activity.date, activityEndDate(activity));
   return activity.allDay
-    ? `${formatLongDate(activity.date)} · Todo el día`
-    : `${formatLongDate(activity.date)} · ${activity.startTime || 'Hora pendiente'}${activity.endTime ? ` – ${activity.endTime}` : ''}`;
+    ? `${rangeLabel} · Todo el día`
+    : `${rangeLabel} · ${activity.startTime || 'Hora pendiente'}${activity.endTime ? ` – ${activity.endTime}` : ''}`;
 }
 function statusLabel(status: CalendarActivityStatus): string {
   return { pending: 'Pendiente', completed: 'Completada', cancelled: 'Cancelada' }[status];
@@ -1297,8 +1341,20 @@ async function chooseActivityImage(): Promise<void> {
 
 function saveActivity(): void {
   const title = activityForm.title.trim();
-  if (!title || !activityForm.date) {
-    showAppNotification('Escribe el nombre y la fecha de la actividad.', 'warning', 'event_busy');
+  if (!title || !activityForm.date || !activityForm.endDate) {
+    showAppNotification(
+      'Escribe el nombre, la fecha de inicio y la fecha final.',
+      'warning',
+      'event_busy',
+    );
+    return;
+  }
+  if (activityForm.endDate < activityForm.date) {
+    showAppNotification(
+      'La fecha final no puede ser anterior a la fecha de inicio.',
+      'warning',
+      'date_range',
+    );
     return;
   }
   const existing = editingActivityId.value
@@ -1309,6 +1365,7 @@ function saveActivity(): void {
     id: existing?.id ?? crypto.randomUUID(),
     title,
     date: activityForm.date,
+    endDate: activityForm.endDate,
     allDay: activityForm.allDay,
     startTime: activityForm.allDay ? '' : activityForm.startTime,
     endTime: activityForm.allDay ? '' : activityForm.endTime,
@@ -2692,8 +2749,8 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.form-grid--date {
-  grid-template-columns: minmax(150px, 1.2fr) auto minmax(100px, 0.7fr) minmax(100px, 0.7fr);
+.form-grid--dates {
+  grid-template-columns: repeat(2, minmax(145px, 1fr)) auto;
   align-items: center;
 }
 .form-preview {
@@ -2851,7 +2908,7 @@ button {
   .months-grid,
   .calendar-sidebar,
   .form-grid,
-  .form-grid--date {
+  .form-grid--dates {
     grid-template-columns: 1fr;
   }
   .calendar-toolbar {
@@ -2880,7 +2937,7 @@ button {
   .new-category-row .q-btn {
     grid-column: 1/-1;
   }
-  .form-grid--date {
+  .form-grid--dates {
     align-items: stretch;
   }
   .operator-console-header {
