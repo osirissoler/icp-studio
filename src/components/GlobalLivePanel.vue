@@ -181,7 +181,17 @@
               v-if="liveItem.type === 'game' && liveFrame?.roulette"
               class="roulette-live-actions"
             >
+              <q-toggle
+                :model-value="liveFrame.roulette.timedSpin"
+                dark
+                dense
+                color="primary"
+                label="Tiempo"
+                :disable="liveFrame.roulette.spinning"
+                @update:model-value="setLiveRouletteTimed"
+              />
               <q-input
+                v-if="liveFrame.roulette.timedSpin"
                 v-model.number="liveRouletteSeconds"
                 dark
                 outlined
@@ -290,6 +300,7 @@ const {
   spinLiveRoulette,
   stopLiveRoulette,
   setLiveRouletteDuration,
+  setLiveRouletteTimed,
 } = presentationStore;
 
 const liveRouletteSeconds = computed({
