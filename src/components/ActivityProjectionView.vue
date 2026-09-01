@@ -212,7 +212,12 @@ const activityBackground = computed<Record<string, string>>(() =>
 }
 
 .activity-projection--compact .activity-brand {
+  justify-content: flex-end;
   font-size: clamp(7px, 1.2vw, 11px);
+}
+
+.activity-projection--compact .activity-brand > span {
+  display: none;
 }
 
 .activity-projection--compact .activity-category {
