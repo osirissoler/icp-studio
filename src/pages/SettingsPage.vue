@@ -1137,17 +1137,24 @@ const panelOptions: PanelOption[] = [
 const workspaceLayoutOptions: Array<{
   label: string;
   value: WorkspaceLayoutPreset;
-  capacities: [number, number, number];
-}> = [
-  { label: 'Tres columnas completas', value: 'single-single-single', capacities: [1, 1, 1] },
-  { label: 'División izquierda', value: 'split-single-single', capacities: [2, 1, 1] },
-  { label: 'División central', value: 'single-split-single', capacities: [1, 2, 1] },
-  { label: 'División derecha', value: 'single-single-split', capacities: [1, 1, 2] },
-  { label: 'Divisiones izquierda y centro', value: 'split-split-single', capacities: [2, 2, 1] },
-  { label: 'Divisiones izquierda y derecha', value: 'split-single-split', capacities: [2, 1, 2] },
-  { label: 'Divisiones centro y derecha', value: 'single-split-split', capacities: [1, 2, 2] },
-  { label: 'Todas las columnas divididas', value: 'split-split-split', capacities: [2, 2, 2] },
-];
+  capacities: [number, number, number, number];
+}> = Array.from({ length: 16 }, (_, mask) => {
+  const columnNames = ['primera', 'segunda', 'tercera', 'cuarta'];
+  const modes = columnNames.map((_, index) => (mask & (1 << index) ? 'split' : 'single'));
+  const dividedColumns = columnNames.filter((_, index) => modes[index] === 'split');
+  const label =
+    dividedColumns.length === 0
+      ? 'Todas completas'
+      : dividedColumns.length === 4
+        ? 'Todas divididas'
+        : `Dividida: ${dividedColumns.join(', ')}`;
+
+  return {
+    label,
+    value: modes.join('-') as WorkspaceLayoutPreset,
+    capacities: modes.map((mode) => (mode === 'split' ? 2 : 1)) as [number, number, number, number],
+  };
+}).filter((option) => option.capacities.filter((capacity) => capacity === 2).length === 2);
 
 const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> = [
   { label: 'Izquierda', value: 'left', icon: 'dock_to_left' },
@@ -1874,7 +1881,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 148px;
   height: 56px;
-  grid-template-columns: 0.8fr 0.8fr 1.15fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
   padding: 6px;
   background: #0b1520;
