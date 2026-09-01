@@ -297,6 +297,31 @@ function parseProjectionState(value: unknown): ProjectionState | null {
   }
 
   if (
+    state.mode === 'activity' &&
+    typeof state.id === 'string' &&
+    typeof state.title === 'string' &&
+    typeof state.dateLabel === 'string' &&
+    typeof state.location === 'string' &&
+    typeof state.description === 'string' &&
+    typeof state.imageUrl === 'string' &&
+    (state.imageUrl === '' || state.imageUrl.startsWith('icp-media://library/')) &&
+    typeof state.categoryLabel === 'string' &&
+    typeof state.categoryColor === 'string'
+  ) {
+    return {
+      mode: 'activity',
+      id: state.id.slice(0, 200),
+      title: state.title.slice(0, 300),
+      dateLabel: state.dateLabel.slice(0, 500),
+      location: state.location.slice(0, 500),
+      description: state.description.slice(0, 3000),
+      imageUrl: state.imageUrl,
+      categoryLabel: state.categoryLabel.slice(0, 100),
+      categoryColor: /^#[0-9a-f]{6}$/i.test(state.categoryColor) ? state.categoryColor : '#60a5fa',
+    };
+  }
+
+  if (
     state.mode === 'content' &&
     typeof state.title === 'string' &&
     typeof state.body === 'string'
