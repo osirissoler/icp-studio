@@ -18,7 +18,8 @@
           no-caps
           color="blue-grey-3"
           icon="save"
-          label="Guardar"
+          :label="hasUnsavedChanges ? 'Guardar cambios' : 'Guardado'"
+          :disable="!hasUnsavedChanges"
           class="app-action-button app-action-button--secondary"
           @click="saveCurrent"
         />
@@ -37,20 +38,77 @@
     <main class="roulette-layout">
       <aside class="roulette-editor">
         <div class="editor-title">
-          <strong>Mis ruletas</strong><q-btn flat round dense icon="add" @click="newRoulette" />
+          <span
+            ><strong>Mis ruletas</strong><small>{{ savedRoulettes.length }} guardadas</small></span
+          >
+          <div>
+            <q-badge v-if="hasUnsavedChanges" color="orange-7" label="Sin guardar" />
+            <q-btn flat round dense icon="add" @click="newRoulette">
+              <q-tooltip>Crear otra ruleta</q-tooltip>
+            </q-btn>
+          </div>
         </div>
         <div class="saved-list">
-          <button
+          <article
             v-for="saved in savedRoulettes"
             :key="saved.id"
-            :class="{ active: saved.id === roulette.id }"
-            @click="loadRoulette(saved)"
+            class="saved-roulette-card"
+            :class="{
+              'saved-roulette-card--active': saved.id === roulette.id,
+              'saved-roulette-card--live': activeLiveItem?.sourceId === saved.id,
+            }"
           >
-            <q-icon name="donut_large" /><span
-              ><strong>{{ saved.title }}</strong
-              ><small>{{ saved.options.length }} opciones</small></span
-            >
-          </button>
+            <button type="button" class="saved-roulette-main" @click="loadRoulette(saved)">
+              <q-icon name="donut_large" />
+              <span>
+                <strong>{{ saved.title }}</strong>
+                <small
+                  >{{ saved.options.length }} opciones · {{ updatedLabel(saved.updatedAt) }}</small
+                >
+              </span>
+              <q-badge v-if="activeLiveItem?.sourceId === saved.id" color="red-6" label="En vivo" />
+            </button>
+            <div class="saved-roulette-actions">
+              <q-btn flat round dense size="xs" icon="visibility" @click="loadRoulette(saved)">
+                <q-tooltip>Visualizar y configurar</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                icon="live_tv"
+                color="red-4"
+                @click="sendSavedLive(saved)"
+              >
+                <q-tooltip>Enviar esta ruleta a En vivo</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                icon="content_copy"
+                @click="duplicateRoulette(saved)"
+              >
+                <q-tooltip>Duplicar</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                icon="delete_outline"
+                color="red-4"
+                @click="deleteRoulette(saved)"
+              >
+                <q-tooltip>Eliminar</q-tooltip>
+              </q-btn>
+            </div>
+          </article>
+          <div v-if="!savedRoulettes.length" class="saved-list-empty">
+            <q-icon name="donut_large" /><span>Guarda tu primera ruleta para reutilizarla.</span>
+          </div>
         </div>
         <q-separator dark />
         <q-input
@@ -413,11 +471,13 @@ const spinStartedAt = ref(0);
 const operatorConsoleOpen = ref(false);
 const liveDurationUnit = ref<'seconds' | 'minutes'>('seconds');
 const history = ref<RouletteOption[]>([]);
+const savedBaseline = ref(rouletteSignature(roulette));
 let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
 const winner = computed(
   () => roulette.options.find((option) => option.id === winnerId.value) ?? null,
 );
+const hasUnsavedChanges = computed(() => rouletteSignature(roulette) !== savedBaseline.value);
 const liveResults = computed(() =>
   liveRouletteResults.value.filter((result) => result.rouletteId === roulette.id),
 );
@@ -498,14 +558,38 @@ function loadSaved(): SavedRoulette[] {
 function persist(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(savedRoulettes.value));
 }
+function rouletteSignature(value: SavedRoulette): string {
+  return JSON.stringify({
+    id: value.id,
+    title: value.title,
+    options: value.options,
+    allowRepeats: value.allowRepeats,
+    removeWinner: value.removeWinner,
+    labelMode: value.labelMode,
+    durationValue: value.durationValue,
+    durationUnit: value.durationUnit,
+    useTimer: value.useTimer,
+  });
+}
+function canReplaceCurrent(): boolean {
+  return (
+    !hasUnsavedChanges.value ||
+    window.confirm('Tienes cambios sin guardar. ¿Quieres descartarlos y continuar?')
+  );
+}
 function newRoulette(): void {
+  if (!canReplaceCurrent()) return;
   Object.assign(roulette, createRoulette());
   optionsText.value = roulette.options.map((o) => o.label).join('\n');
+  savedBaseline.value = '';
   resetGame();
 }
 function loadRoulette(saved: SavedRoulette): void {
+  if (saved.id === roulette.id && !hasUnsavedChanges.value) return;
+  if (!canReplaceCurrent()) return;
   Object.assign(roulette, structuredClone(saved));
   optionsText.value = roulette.options.map((o) => o.label).join('\n');
+  savedBaseline.value = rouletteSignature(roulette);
   resetGame();
 }
 function saveCurrent(): void {
@@ -516,7 +600,52 @@ function saveCurrent(): void {
   if (index >= 0) savedRoulettes.value[index] = copy;
   else savedRoulettes.value = [...savedRoulettes.value, copy];
   persist();
+  savedBaseline.value = rouletteSignature(roulette);
   showAppNotification('La ruleta fue guardada.', 'positive', 'save');
+}
+function sendSavedLive(saved: SavedRoulette): void {
+  if (saved.id !== roulette.id) {
+    if (!canReplaceCurrent()) return;
+    Object.assign(roulette, structuredClone(saved));
+    optionsText.value = roulette.options.map((option) => option.label).join('\n');
+    savedBaseline.value = rouletteSignature(roulette);
+    resetGame();
+  }
+  sendLive();
+}
+function duplicateRoulette(saved: SavedRoulette): void {
+  const duplicate = structuredClone(saved);
+  duplicate.id = crypto.randomUUID();
+  duplicate.title = `${saved.title} · copia`;
+  duplicate.options = duplicate.options.map((option) => ({
+    ...option,
+    id: crypto.randomUUID(),
+  }));
+  duplicate.updatedAt = new Date().toISOString();
+  savedRoulettes.value = [...savedRoulettes.value, duplicate];
+  persist();
+  showAppNotification(`${saved.title} fue duplicada.`, 'positive', 'content_copy');
+}
+function deleteRoulette(saved: SavedRoulette): void {
+  if (!window.confirm(`¿Eliminar la ruleta “${saved.title}”?`)) return;
+  savedRoulettes.value = savedRoulettes.value.filter((item) => item.id !== saved.id);
+  persist();
+  if (roulette.id === saved.id) {
+    const next = savedRoulettes.value[0];
+    Object.assign(roulette, next ? structuredClone(next) : createRoulette());
+    optionsText.value = roulette.options.map((option) => option.label).join('\n');
+    savedBaseline.value = next ? rouletteSignature(roulette) : '';
+    resetGame();
+  }
+  showAppNotification(`${saved.title} fue eliminada.`, 'info', 'delete_outline');
+}
+function updatedLabel(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sin fecha';
+  return new Intl.DateTimeFormat('es-DO', {
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
 }
 function applyOptionsText(): void {
   const labels = optionsText.value
@@ -830,36 +959,98 @@ button {
   align-items: center;
   justify-content: space-between;
 }
-.saved-list {
+.editor-title > span {
   display: flex;
-  max-height: 125px;
   flex-direction: column;
-  gap: 4px;
-  overflow-y: auto;
 }
-.saved-list button {
+.editor-title > span small {
+  color: #708499;
+  font-size: 8px;
+}
+.editor-title > div {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px;
-  color: #8da1b5;
-  background: #0d1723;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  text-align: left;
+  gap: 4px;
 }
-.saved-list button.active {
-  color: #dbeafe;
+.saved-list {
+  display: flex;
+  max-height: 230px;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+.saved-roulette-card {
+  overflow: hidden;
+  background: #0d1723;
+  border: 1px solid #223549;
+  border-radius: 8px;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+}
+.saved-roulette-card--active {
   background: #17314a;
   border-color: #3b82c4;
+  box-shadow: inset 3px 0 #60a5fa;
 }
-.saved-list button span {
+.saved-roulette-card--live {
+  border-color: #9f3d4a;
+}
+.saved-roulette-main {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  color: #8da1b5;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.saved-roulette-card--active .saved-roulette-main {
+  color: #dbeafe;
+}
+.saved-roulette-main > span {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
 }
-.saved-list small {
+.saved-roulette-main strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-roulette-main small {
+  color: #71859a;
   font-size: 7px;
+}
+.saved-roulette-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1px;
+  padding: 0 5px 5px;
+  color: #8295a8;
+  border-top: 1px solid rgb(62 85 108 / 35%);
+}
+.saved-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 72px;
+  padding: 10px;
+  color: #667b90;
+  border: 1px dashed #2a3d50;
+  border-radius: 8px;
+  font-size: 8px;
+  text-align: center;
+}
+.saved-list-empty .q-icon {
+  font-size: 22px;
 }
 .editor-toggles {
   display: flex;
