@@ -74,43 +74,18 @@
               </q-item>
             </q-list>
             <q-separator dark />
-            <q-card-section class="stacked-column-setting">
+            <q-card-section class="workspace-structure-summary">
               <div>
-                <strong>Panel compartido</strong>
-                <small>Elige dónde aparecerá el grupo de búsqueda y próximas actividades.</small>
-              </div>
-              <div
-                class="stacked-position-options"
-                role="radiogroup"
-                aria-label="Posición de la columna dividida"
-              >
-                <button
-                  v-for="option in stackedColumnOptions"
-                  :key="option.value"
-                  type="button"
-                  role="radio"
-                  class="stacked-position-option"
-                  :class="{
-                    'stacked-position-option--active': stackedColumnPosition === option.value,
-                  }"
-                  :aria-checked="stackedColumnPosition === option.value"
-                  @click="workspaceSettings.setStackedColumnPosition(option.value)"
+                <strong>Estructura del espacio</strong>
+                <small
+                  >Dos paneles en la primera columna, dos en el centro y áreas completas al
+                  final.</small
                 >
-                  <span class="workspace-layout-preview" aria-hidden="true">
-                    <span
-                      v-for="columnIndex in 3"
-                      :key="columnIndex"
-                      class="workspace-layout-column"
-                      :class="{
-                        'workspace-layout-column--stacked': columnIndex - 1 === option.previewIndex,
-                      }"
-                    >
-                      <i></i>
-                      <i v-if="columnIndex - 1 === option.previewIndex"></i>
-                    </span>
-                  </span>
-                  <span>{{ option.label }}</span>
-                </button>
+              </div>
+              <div class="workspace-structure-preview" aria-hidden="true">
+                <span><i></i><i></i></span>
+                <span><i></i><i></i></span>
+                <span><i></i></span>
               </div>
             </q-card-section>
             <q-separator dark />
@@ -1038,7 +1013,7 @@ import type {
   ThemeHorizontalAlign,
   ThemeVerticalAlign,
 } from '../shared/theme';
-import type { StackedColumnPosition, WorkspacePanelId } from '../shared/workspace';
+import type { WorkspacePanelId } from '../shared/workspace';
 import type { MenuSide, NavigationItemId, ToolbarPosition } from '../shared/navigation';
 import { useNavigationSettingsStore } from '../stores/navigation-settings';
 import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
@@ -1157,16 +1132,6 @@ const toolbarPositionOptions: Array<{
   { label: 'Abajo', value: 'bottom', icon: 'vertical_align_bottom' },
 ];
 
-const stackedColumnOptions: Array<{
-  label: string;
-  value: StackedColumnPosition;
-  previewIndex: number;
-}> = [
-  { label: 'Primera', value: 'start', previewIndex: 0 },
-  { label: 'Centro', value: 'center', previewIndex: 1 },
-  { label: 'Última', value: 'end', previewIndex: 2 },
-];
-
 const libraryViewModules: Array<{
   id: LibraryViewModule;
   label: string;
@@ -1193,7 +1158,6 @@ const workspaceSettings = useWorkspaceSettingsStore();
 const navigationSettings = useNavigationSettingsStore();
 const libraryViewSettings = useLibraryViewSettingsStore();
 const { views: libraryViews } = storeToRefs(libraryViewSettings);
-const { stackedColumnPosition } = storeToRefs(workspaceSettings);
 const {
   side: menuSide,
   orderedItems: orderedNavigationItems,
@@ -1819,6 +1783,68 @@ onBeforeUnmount(() => {
 .stacked-column-setting small {
   color: #8492a6;
   font-size: 11px;
+}
+
+.workspace-structure-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.workspace-structure-summary > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-structure-summary strong {
+  color: #dbe7f2;
+  font-size: 12px;
+}
+
+.workspace-structure-summary small {
+  max-width: 360px;
+  margin-top: 4px;
+  color: #71869a;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.workspace-structure-preview {
+  display: grid;
+  width: 148px;
+  height: 70px;
+  flex: 0 0 148px;
+  grid-template-columns: 0.8fr 0.8fr 1.15fr;
+  gap: 5px;
+  padding: 6px;
+  background: #0b1520;
+  border: 1px solid #2a4055;
+  border-radius: 9px;
+}
+
+.workspace-structure-preview > span {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: 1fr 0.45fr;
+  gap: 4px;
+}
+
+.workspace-structure-preview > span:last-child {
+  display: block;
+}
+
+.workspace-structure-preview i {
+  display: block;
+  min-height: 0;
+  background: linear-gradient(145deg, #234866, #172b3e);
+  border: 1px solid #3b6382;
+  border-radius: 4px;
+}
+
+.workspace-structure-preview > span:last-child i {
+  height: 100%;
+  background: linear-gradient(145deg, #1e5279, #17334b);
 }
 
 .stacked-position-options {
