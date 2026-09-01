@@ -11,6 +11,7 @@
         v-else-if="projectionState.mode === 'roulette'"
         :key="projectionState.id"
         :roulette="projectionState"
+        celebrate-winner
       />
 
       <section
