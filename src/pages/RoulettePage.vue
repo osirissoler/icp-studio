@@ -146,17 +146,14 @@
           :options="labelModeOptions"
           @update:model-value="changeLabelMode"
         />
-        <q-expansion-item
-          dark
-          dense
-          dense-toggle
-          default-opened
-          icon="palette"
-          label="Configuración de apariencia y sonido"
-          caption="Colores, título, confeti y audio"
-          header-class="roulette-settings-header"
-          class="roulette-settings-panel"
-        >
+        <section class="roulette-settings-panel">
+          <div class="roulette-settings-title">
+            <q-icon name="palette" />
+            <span
+              ><strong>Configuración de apariencia y sonido</strong
+              ><small>Colores, título, confeti y audio</small></span
+            >
+          </div>
           <div class="roulette-settings-content">
             <div class="setting-block">
               <span class="setting-label">Paleta de colores</span>
@@ -213,38 +210,74 @@
                 label="Celebrar ganador con confeti"
               />
             </div>
-            <q-select
-              v-if="roulette.confettiEnabled"
-              v-model="roulette.confettiIntensity"
-              dark
-              outlined
-              dense
-              emit-value
-              map-options
-              label="Cantidad de confeti"
-              :options="confettiIntensityOptions"
-            />
+            <div v-if="roulette.confettiEnabled" class="setting-block setting-block--row">
+              <q-select
+                v-model="roulette.confettiIntensity"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Cantidad de confeti"
+                :options="confettiIntensityOptions"
+              />
+              <q-select
+                v-model="roulette.confettiDuration"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Duración del confeti"
+                :options="confettiDurationOptions"
+              />
+            </div>
             <div class="sound-settings">
               <q-toggle
                 v-model="roulette.soundEnabled"
                 dark
                 color="primary"
-                label="Sonido durante el giro y al ganar"
+                label="Activar sonido"
               />
-              <div v-if="roulette.soundEnabled">
-                <span>Volumen</span>
-                <q-slider
-                  v-model="roulette.soundVolume"
-                  :min="0.05"
-                  :max="1"
-                  :step="0.05"
-                  color="light-blue-5"
-                />
-                <small>{{ Math.round(roulette.soundVolume * 100) }}%</small>
+              <div v-if="roulette.soundEnabled" class="sound-settings-content">
+                <div class="sound-options">
+                  <q-toggle
+                    v-model="roulette.spinSoundEnabled"
+                    dark
+                    dense
+                    color="light-blue-5"
+                    label="Sonido mientras gira"
+                  />
+                  <q-toggle
+                    v-model="roulette.brakeSoundEnabled"
+                    dark
+                    dense
+                    color="light-blue-5"
+                    label="Sonido de frenado"
+                  />
+                  <q-toggle
+                    v-model="roulette.winnerSoundEnabled"
+                    dark
+                    dense
+                    color="light-blue-5"
+                    label="Sonido del ganador"
+                  />
+                </div>
+                <div class="sound-volume-control">
+                  <span>Volumen</span>
+                  <q-slider
+                    v-model="roulette.soundVolume"
+                    :min="0.05"
+                    :max="1"
+                    :step="0.05"
+                    color="light-blue-5"
+                  />
+                  <small>{{ Math.round(roulette.soundVolume * 100) }}%</small>
+                </div>
               </div>
             </div>
           </div>
-        </q-expansion-item>
+        </section>
         <div class="editor-toggles">
           <q-toggle
             v-model="roulette.allowRepeats"
@@ -588,6 +621,12 @@ const confettiIntensityOptions = [
   { label: 'Normal', value: 'medium' },
   { label: 'Abundante', value: 'high' },
 ];
+const confettiDurationOptions = [
+  { label: 'Hasta cambiar la pantalla', value: 0 },
+  { label: '3 segundos', value: 3 },
+  { label: '5 segundos', value: 5 },
+  { label: '10 segundos', value: 10 },
+];
 const paletteOptions = [
   { id: 'vibrant', label: 'Vibrante', colors },
   {
@@ -709,8 +748,12 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   winnerTextSize: roulette.winnerTextSize,
   confettiEnabled: roulette.confettiEnabled,
   confettiIntensity: roulette.confettiIntensity,
+  confettiDuration: roulette.confettiDuration,
   soundEnabled: roulette.soundEnabled,
   soundVolume: roulette.soundVolume,
+  spinSoundEnabled: roulette.spinSoundEnabled,
+  brakeSoundEnabled: roulette.brakeSoundEnabled,
+  winnerSoundEnabled: roulette.winnerSoundEnabled,
 }));
 const spinDuration = computed(() => {
   const value = Math.max(1, Number(roulette.durationValue) || 1);
@@ -737,8 +780,12 @@ function createRoulette(): SavedRoulette {
     winnerTextSize: 'medium',
     confettiEnabled: true,
     confettiIntensity: 'medium',
+    confettiDuration: 0,
     soundEnabled: false,
     soundVolume: 0.45,
+    spinSoundEnabled: true,
+    brakeSoundEnabled: true,
+    winnerSoundEnabled: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -771,8 +818,14 @@ function cloneRoulette(value: SavedRoulette): SavedRoulette {
     winnerTextSize: winnerTextSize(value.winnerTextSize),
     confettiEnabled: value.confettiEnabled ?? true,
     confettiIntensity: confettiIntensity(value.confettiIntensity),
+    confettiDuration: [0, 3, 5, 10].includes(Number(value.confettiDuration))
+      ? Number(value.confettiDuration)
+      : 0,
     soundEnabled: value.soundEnabled ?? false,
     soundVolume: Math.min(1, Math.max(0.05, Number(value.soundVolume) || 0.45)),
+    spinSoundEnabled: value.spinSoundEnabled ?? true,
+    brakeSoundEnabled: value.brakeSoundEnabled ?? true,
+    winnerSoundEnabled: value.winnerSoundEnabled ?? true,
     updatedAt: value.updatedAt || new Date().toISOString(),
   };
 }
@@ -813,8 +866,12 @@ function rouletteSignature(value: SavedRoulette): string {
     winnerTextSize: value.winnerTextSize,
     confettiEnabled: value.confettiEnabled,
     confettiIntensity: value.confettiIntensity,
+    confettiDuration: value.confettiDuration,
     soundEnabled: value.soundEnabled,
     soundVolume: value.soundVolume,
+    spinSoundEnabled: value.spinSoundEnabled,
+    brakeSoundEnabled: value.brakeSoundEnabled,
+    winnerSoundEnabled: value.winnerSoundEnabled,
   });
 }
 function validateCurrent(action: 'guardar' | 'enviar'): boolean {
@@ -1383,11 +1440,35 @@ button {
   border: 1px solid #293d51;
   border-radius: 9px;
 }
+.roulette-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  color: #d7e6f4;
+  background: #142538;
+  border-bottom: 1px solid #2b4054;
+}
+.roulette-settings-title > .q-icon {
+  color: #7dd3fc;
+  font-size: 21px;
+}
+.roulette-settings-title > span {
+  display: flex;
+  flex-direction: column;
+}
+.roulette-settings-title strong {
+  font-size: 10px;
+}
+.roulette-settings-title small {
+  color: #7890a7;
+  font-size: 8px;
+}
 .roulette-settings-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 5px 11px 12px;
+  padding: 11px;
 }
 .setting-block {
   display: flex;
@@ -1402,7 +1483,7 @@ button {
 }
 .setting-label,
 .background-color-control > span:first-child,
-.sound-settings > div > span:first-child {
+.sound-volume-control > span:first-child {
   color: #8da1b5;
   font-size: 9px;
 }
@@ -1484,12 +1565,24 @@ button {
   padding-top: 4px;
   border-top: 1px solid #24384b;
 }
-.sound-settings > div {
+.sound-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 9px 8px;
+}
+.sound-options {
+  display: flex;
+  flex-direction: column;
+  padding-left: 5px;
+  border-left: 2px solid #294b67;
+}
+.sound-volume-control {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
-  padding: 0 9px;
+  padding: 0;
 }
 .sound-settings small {
   color: #7dd3fc;
