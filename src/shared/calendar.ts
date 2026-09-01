@@ -32,6 +32,7 @@ export interface CalendarActivity {
   responsible: string;
   description: string;
   imageUrl: string;
+  showOverlayText: boolean;
   createdAt: string;
   updatedAt: string;
 }
