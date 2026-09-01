@@ -352,157 +352,208 @@
           <q-tab name="sound" icon="volume_up" label="Sonido" />
         </q-tabs>
 
-        <q-tab-panels v-model="settingsTab" animated class="roulette-settings-panels">
-          <q-tab-panel name="appearance">
-            <div class="roulette-settings-content">
-              <div class="setting-block">
-                <span class="setting-label">Paletas predeterminadas</span>
-                <div class="palette-options">
-                  <button
-                    v-for="palette in paletteOptions"
-                    :key="palette.id"
-                    type="button"
-                    class="palette-button"
-                    :aria-label="`Aplicar paleta ${palette.label}`"
-                    @click="applyPalette(palette.colors)"
-                  >
-                    <span>
-                      <i
-                        v-for="color in palette.colors.slice(0, 5)"
-                        :key="color"
-                        :style="{ backgroundColor: color }"
-                      ></i>
-                    </span>
-                    <small>{{ palette.label }}</small>
-                  </button>
+        <div class="roulette-settings-dialog-body">
+          <section class="roulette-settings-controls">
+            <q-tab-panels v-model="settingsTab" animated class="roulette-settings-panels">
+              <q-tab-panel name="appearance">
+                <div class="roulette-settings-content">
+                  <div class="setting-block">
+                    <span class="setting-label">Paletas predeterminadas</span>
+                    <div class="palette-options">
+                      <button
+                        v-for="palette in paletteOptions"
+                        :key="palette.id"
+                        type="button"
+                        class="palette-button"
+                        :aria-label="`Aplicar paleta ${palette.label}`"
+                        @click="applyPalette(palette.colors)"
+                      >
+                        <span>
+                          <i
+                            v-for="color in palette.colors.slice(0, 5)"
+                            :key="color"
+                            :style="{ backgroundColor: color }"
+                          ></i>
+                        </span>
+                        <small>{{ palette.label }}</small>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="setting-block setting-block--row">
+                    <label class="background-color-control">
+                      <span>Color del fondo</span>
+                      <span>
+                        <input v-model="roulette.backgroundColor" type="color" />
+                        <code>{{ roulette.backgroundColor }}</code>
+                      </span>
+                    </label>
+                    <q-select
+                      v-model="roulette.winnerTextSize"
+                      dark
+                      outlined
+                      dense
+                      emit-value
+                      map-options
+                      label="Tamaño del ganador"
+                      :options="winnerTextSizeOptions"
+                    />
+                  </div>
+                  <q-toggle
+                    v-model="roulette.showTitle"
+                    dark
+                    color="primary"
+                    label="Mostrar título en la proyección"
+                  />
+                  <div class="setting-block">
+                    <span class="setting-label">Colores individuales</span>
+                    <div class="settings-option-colors">
+                      <label v-for="option in roulette.options" :key="option.id">
+                        <input v-model="option.color" type="color" />
+                        <span>{{ option.label }}</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="setting-block setting-block--row">
-                <label class="background-color-control">
-                  <span>Color del fondo</span>
-                  <span>
-                    <input v-model="roulette.backgroundColor" type="color" />
-                    <code>{{ roulette.backgroundColor }}</code>
-                  </span>
-                </label>
-                <q-select
-                  v-model="roulette.winnerTextSize"
-                  dark
-                  outlined
-                  dense
-                  emit-value
-                  map-options
-                  label="Tamaño del ganador"
-                  :options="winnerTextSizeOptions"
-                />
-              </div>
-              <q-toggle
-                v-model="roulette.showTitle"
-                dark
-                color="primary"
-                label="Mostrar título en la proyección"
-              />
-              <div class="setting-block">
-                <span class="setting-label">Colores individuales</span>
-                <div class="settings-option-colors">
-                  <label v-for="option in roulette.options" :key="option.id">
-                    <input v-model="option.color" type="color" />
-                    <span>{{ option.label }}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </q-tab-panel>
+              </q-tab-panel>
 
-          <q-tab-panel name="celebration">
-            <div class="roulette-settings-content">
-              <q-toggle
-                v-model="roulette.confettiEnabled"
-                dark
-                color="primary"
-                label="Celebrar ganador con confeti"
-              />
-              <div v-if="roulette.confettiEnabled" class="setting-block setting-block--row">
-                <q-select
-                  v-model="roulette.confettiIntensity"
-                  dark
-                  outlined
-                  dense
-                  emit-value
-                  map-options
-                  label="Cantidad de confeti"
-                  :options="confettiIntensityOptions"
-                />
-                <q-select
-                  v-model="roulette.confettiDuration"
-                  dark
-                  outlined
-                  dense
-                  emit-value
-                  map-options
-                  label="Duración del confeti"
-                  :options="confettiDurationOptions"
-                />
-              </div>
-              <div class="settings-explanation">
-                <q-icon name="info_outline" />
-                <span
-                  >La celebración solo aparece cuando esta ruleta selecciona un ganador en En
-                  vivo.</span
-                >
-              </div>
-            </div>
-          </q-tab-panel>
+              <q-tab-panel name="celebration">
+                <div class="roulette-settings-content">
+                  <q-toggle
+                    v-model="roulette.confettiEnabled"
+                    dark
+                    color="primary"
+                    label="Celebrar ganador con confeti"
+                  />
+                  <div v-if="roulette.confettiEnabled" class="setting-block setting-block--row">
+                    <q-select
+                      v-model="roulette.confettiIntensity"
+                      dark
+                      outlined
+                      dense
+                      emit-value
+                      map-options
+                      label="Cantidad de confeti"
+                      :options="confettiIntensityOptions"
+                    />
+                    <q-select
+                      v-model="roulette.confettiDuration"
+                      dark
+                      outlined
+                      dense
+                      emit-value
+                      map-options
+                      label="Duración del confeti"
+                      :options="confettiDurationOptions"
+                    />
+                  </div>
+                  <div class="settings-explanation">
+                    <q-icon name="info_outline" />
+                    <span
+                      >La celebración solo aparece cuando esta ruleta selecciona un ganador en En
+                      vivo.</span
+                    >
+                  </div>
+                </div>
+              </q-tab-panel>
 
-          <q-tab-panel name="sound">
-            <div class="roulette-settings-content">
-              <q-toggle
-                v-model="roulette.soundEnabled"
-                dark
-                color="primary"
-                label="Activar sonido"
-              />
-              <template v-if="roulette.soundEnabled">
-                <div class="sound-options">
+              <q-tab-panel name="sound">
+                <div class="roulette-settings-content">
                   <q-toggle
-                    v-model="roulette.spinSoundEnabled"
+                    v-model="roulette.soundEnabled"
                     dark
-                    color="light-blue-5"
-                    label="Sonido mientras gira"
+                    color="primary"
+                    label="Activar sonido"
                   />
-                  <q-toggle
-                    v-model="roulette.brakeSoundEnabled"
-                    dark
-                    color="light-blue-5"
-                    label="Sonido de frenado"
-                  />
-                  <q-toggle
-                    v-model="roulette.winnerSoundEnabled"
-                    dark
-                    color="light-blue-5"
-                    label="Sonido del ganador"
-                  />
+                  <template v-if="roulette.soundEnabled">
+                    <div class="sound-options">
+                      <q-toggle
+                        v-model="roulette.spinSoundEnabled"
+                        dark
+                        color="light-blue-5"
+                        label="Sonido mientras gira"
+                      />
+                      <q-toggle
+                        v-model="roulette.brakeSoundEnabled"
+                        dark
+                        color="light-blue-5"
+                        label="Sonido de frenado"
+                      />
+                      <q-toggle
+                        v-model="roulette.winnerSoundEnabled"
+                        dark
+                        color="light-blue-5"
+                        label="Sonido del ganador"
+                      />
+                    </div>
+                    <div class="sound-volume-control">
+                      <span>Volumen</span>
+                      <q-slider
+                        v-model="roulette.soundVolume"
+                        :min="0.05"
+                        :max="1"
+                        :step="0.05"
+                        color="light-blue-5"
+                      />
+                      <small>{{ Math.round(roulette.soundVolume * 100) }}%</small>
+                    </div>
+                  </template>
+                  <div v-else class="settings-explanation">
+                    <q-icon name="volume_off" /><span
+                      >Esta ruleta funcionará completamente en silencio.</span
+                    >
+                  </div>
                 </div>
-                <div class="sound-volume-control">
-                  <span>Volumen</span>
-                  <q-slider
-                    v-model="roulette.soundVolume"
-                    :min="0.05"
-                    :max="1"
-                    :step="0.05"
-                    color="light-blue-5"
-                  />
-                  <small>{{ Math.round(roulette.soundVolume * 100) }}%</small>
-                </div>
-              </template>
-              <div v-else class="settings-explanation">
-                <q-icon name="volume_off" /><span
-                  >Esta ruleta funcionará completamente en silencio.</span
-                >
-              </div>
+              </q-tab-panel>
+            </q-tab-panels>
+          </section>
+
+          <aside class="roulette-settings-preview">
+            <div class="roulette-settings-preview-header">
+              <span><i></i> Previsualización</span>
+              <small>Los cambios se muestran aquí</small>
             </div>
-          </q-tab-panel>
-        </q-tab-panels>
+            <div class="roulette-settings-preview-stage">
+              <RouletteWheel
+                :key="`settings-${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
+                :roulette="presentationData"
+                celebrate-winner
+                show-timer
+              />
+            </div>
+            <div class="roulette-settings-preview-controls">
+              <q-btn
+                unelevated
+                no-caps
+                color="primary"
+                icon="play_arrow"
+                :label="spinning ? 'Girando…' : 'Probar giro'"
+                :disable="spinning || roulette.options.length < 2"
+                @click="spin"
+              />
+              <q-btn
+                v-if="spinning && !roulette.useTimer"
+                unelevated
+                no-caps
+                color="red-6"
+                icon="stop"
+                label="Detener"
+                @click="stopSpin"
+              />
+              <q-btn
+                outline
+                no-caps
+                color="blue-grey-3"
+                icon="restart_alt"
+                label="Reiniciar"
+                :disable="spinning"
+                @click="resetGame"
+              />
+            </div>
+            <small class="roulette-settings-preview-note"
+              >El confeti y el sonido del ganador aparecen al terminar una prueba.</small
+            >
+          </aside>
+        </div>
 
         <footer class="roulette-settings-dialog-footer">
           <span v-if="hasUnsavedChanges"><q-icon name="edit" /> Cambios sin guardar</span>
@@ -1516,8 +1567,8 @@ button {
   font-size: 9px;
 }
 .roulette-settings-dialog {
-  width: min(760px, 94vw);
-  max-width: 760px;
+  width: min(1120px, 96vw);
+  max-width: 1120px;
   max-height: 88vh;
   overflow: hidden;
   color: #e2edf7;
@@ -1570,11 +1621,82 @@ button {
   border-bottom: 1px solid #263c50;
 }
 .roulette-settings-panels {
-  min-height: 420px;
-  max-height: calc(88vh - 190px);
+  min-height: 470px;
+  height: 100%;
   overflow-y: auto;
   color: #dce8f3;
   background: #0d1723;
+}
+.roulette-settings-dialog-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(350px, 0.8fr) minmax(480px, 1.2fr);
+}
+.roulette-settings-controls,
+.roulette-settings-preview {
+  min-width: 0;
+  min-height: 0;
+}
+.roulette-settings-controls {
+  max-height: calc(88vh - 190px);
+  overflow-y: auto;
+  border-right: 1px solid #2b4054;
+}
+.roulette-settings-preview {
+  display: flex;
+  max-height: calc(88vh - 190px);
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #0a131e;
+}
+.roulette-settings-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #8ba1b6;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.roulette-settings-preview-header > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.roulette-settings-preview-header i {
+  width: 7px;
+  height: 7px;
+  background: #22c55e;
+  border-radius: 50%;
+}
+.roulette-settings-preview-stage {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid #314a62;
+  border-radius: 10px;
+}
+.roulette-settings-preview-stage :deep(.roulette-stage) {
+  min-height: 460px;
+  padding: 18px;
+}
+.roulette-settings-preview-stage :deep(.wheel-shell) {
+  width: min(58%, 330px);
+}
+.roulette-settings-preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+.roulette-settings-preview-controls .q-btn {
+  min-height: 34px;
+  font-size: 9px;
+}
+.roulette-settings-preview-note {
+  color: #71879b;
+  font-size: 8px;
+  text-align: center;
 }
 .roulette-settings-panels :deep(.q-tab-panel) {
   padding: 16px;
@@ -1636,6 +1758,23 @@ button {
   border: 1px solid #29445d;
   border-radius: 8px;
   font-size: 9px;
+}
+@media (max-width: 900px) {
+  .roulette-settings-dialog-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .roulette-settings-controls,
+  .roulette-settings-preview {
+    max-height: none;
+  }
+  .roulette-settings-controls {
+    border-right: 0;
+    border-bottom: 1px solid #2b4054;
+  }
+  .roulette-settings-preview {
+    min-height: 540px;
+  }
 }
 .roulette-settings-panel {
   overflow: hidden;
