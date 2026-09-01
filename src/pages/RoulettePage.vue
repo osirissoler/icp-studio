@@ -1040,9 +1040,10 @@ button {
 }
 .saved-list {
   display: flex;
-  height: clamp(170px, 25vh, 270px);
-  min-height: 170px;
-  flex: 0 0 clamp(170px, 25vh, 270px);
+  height: auto;
+  min-height: 0;
+  max-height: clamp(170px, 25vh, 270px);
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 6px;
   padding-right: 4px;
@@ -1053,6 +1054,7 @@ button {
 .saved-list--empty {
   height: 82px;
   min-height: 82px;
+  max-height: 82px;
   flex-basis: 82px;
   padding-right: 0;
   overflow: hidden;
