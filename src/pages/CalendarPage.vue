@@ -15,6 +15,16 @@
 
       <div class="calendar-header-actions">
         <q-btn
+          v-if="presentedActivity"
+          unelevated
+          no-caps
+          color="red-6"
+          icon="sensors"
+          label="Control En vivo"
+          class="live-control-button"
+          @click="operatorPresentationOpen = true"
+        />
+        <q-btn
           outline
           no-caps
           color="blue-grey-3"
@@ -434,6 +444,20 @@
           class="fullscreen-close"
           aria-label="Cerrar presentación"
         />
+        <div class="fullscreen-operator-actions">
+          <span>
+            <q-icon name="visibility" /> Vista previa del operador · Todavía no está En vivo
+          </span>
+          <q-btn
+            unelevated
+            no-caps
+            color="red-6"
+            icon="live_tv"
+            label="Enviar a En vivo"
+            :disable="selectedActivity.status === 'cancelled'"
+            @click="sendActivityToLive(selectedActivity)"
+          />
+        </div>
         <div
           class="presentation-preview presentation-preview--fullscreen"
           :style="presentationBackground(selectedActivity.imageUrl)"
@@ -1582,6 +1606,9 @@ button {
   min-height: 39px;
   border-radius: 9px;
 }
+.live-control-button {
+  box-shadow: 0 0 0 4px rgb(239 68 68 / 12%);
+}
 .calendar-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(145px, 0.72fr)) minmax(260px, 1.35fr);
@@ -2250,9 +2277,14 @@ button {
   font-size: 8px;
 }
 .dialog-actions {
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 9px 12px;
 }
 .dialog-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 7px;
 }
 .detail-content {
@@ -2413,6 +2445,29 @@ button {
   right: 16px;
   color: white;
   background: rgb(9 18 29 / 84%);
+}
+.fullscreen-operator-actions {
+  position: fixed;
+  z-index: 5;
+  right: 72px;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: #a9bfd3;
+  background: rgb(9 18 29 / 90%);
+  border: 1px solid #344d67;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+.fullscreen-operator-actions > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
 }
 .operator-console {
   display: grid;
@@ -3058,7 +3113,7 @@ button {
   }
   .calendar-header-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   }
   .calendar-summary,
   .months-grid,
@@ -3115,6 +3170,17 @@ button {
   }
   .operator-console-footer .q-btn {
     max-width: 49%;
+  }
+  .fullscreen-operator-actions {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+  }
+  .fullscreen-operator-actions > span {
+    display: none;
+  }
+  .fullscreen-operator-actions .q-btn {
+    width: 100%;
   }
 }
 </style>
