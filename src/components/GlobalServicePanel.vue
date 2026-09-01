@@ -107,6 +107,7 @@ function itemIcon(type: PresentationItemType): string {
     document: 'description',
     presentation: 'co_present',
     game: 'sports_esports',
+    'time-tool': 'schedule',
     activity: 'event',
   };
 
