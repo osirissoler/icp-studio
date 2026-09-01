@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import type { WorkspaceLayoutPreset, WorkspacePanelId } from '../shared/workspace';
 
 const STORAGE_KEY = 'icp-studio-workspace-settings';
-const WORKSPACE_SETTINGS_VERSION = 2;
+const WORKSPACE_SETTINGS_VERSION = 3;
 
 interface StoredWorkspaceSettings {
   version?: number;
@@ -28,7 +28,7 @@ const defaultVisibility: Record<WorkspacePanelId, boolean> = {
   preview: true,
   service: true,
   live: true,
-  monitors: false,
+  monitors: true,
 };
 
 const defaultPanelOrder: WorkspacePanelId[] = [
@@ -84,27 +84,27 @@ function loadSettings(): LoadedWorkspaceSettings {
     if (!stored) throw new Error('No stored workspace settings');
 
     const parsed = JSON.parse(stored) as StoredWorkspaceSettings;
-    const validLayoutPresets = new Set<WorkspaceLayoutPreset>([
-      'single-single-single',
-      'split-single-single',
-      'single-split-single',
-      'single-single-split',
-      'split-split-single',
-      'split-single-split',
-      'single-split-split',
-      'split-split-split',
-    ]);
+    const isValidLayoutPreset = (value: string): value is WorkspaceLayoutPreset =>
+      /^(?:single|split)-(?:single|split)-(?:single|split)-(?:single|split)$/.test(value);
     const legacyLayoutPresets: Record<string, WorkspaceLayoutPreset> = {
-      'split-left-center': 'split-split-single',
-      'split-left-right': 'split-single-split',
-      'split-center-right': 'single-split-split',
+      'split-left-center': 'split-split-single-single',
+      'split-left-right': 'split-single-split-single',
+      'split-center-right': 'single-split-split-single',
+      'single-single-single': 'single-single-single-single',
+      'split-single-single': 'split-single-single-single',
+      'single-split-single': 'single-split-single-single',
+      'single-single-split': 'single-single-split-single',
+      'split-split-single': 'split-split-single-single',
+      'split-single-split': 'split-single-split-single',
+      'single-split-split': 'single-split-split-single',
+      'split-split-split': 'split-split-split-single',
     };
     const storedLayoutPreset = parsed.layoutPreset as string | undefined;
     const layoutPreset =
       (storedLayoutPreset && legacyLayoutPresets[storedLayoutPreset]) ||
-      (storedLayoutPreset && validLayoutPresets.has(storedLayoutPreset as WorkspaceLayoutPreset)
-        ? (storedLayoutPreset as WorkspaceLayoutPreset)
-        : 'split-split-single');
+      (storedLayoutPreset && isValidLayoutPreset(storedLayoutPreset)
+        ? storedLayoutPreset
+        : 'split-split-single-single');
     return {
       visiblePanels: {
         ...defaultVisibility,
@@ -112,7 +112,7 @@ function loadSettings(): LoadedWorkspaceSettings {
         monitors:
           parsed.version === WORKSPACE_SETTINGS_VERSION
             ? Boolean(parsed.visiblePanels?.monitors)
-            : false,
+            : true,
       },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
       stackedTopPercent:
@@ -134,7 +134,7 @@ function loadSettings(): LoadedWorkspaceSettings {
       panelOrder: [...defaultPanelOrder],
       stackedTopPercent: 70,
       columnSplitPercents: [70, 50, 50, 50, 50, 50],
-      layoutPreset: 'split-split-single',
+      layoutPreset: 'split-split-single-single',
     };
   }
 }
@@ -210,7 +210,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     panelOrder.value = [...defaultPanelOrder];
     stackedTopPercent.value = 70;
     columnSplitPercents.value = [70, 50, 50, 50, 50, 50];
-    layoutPreset.value = 'split-split-single';
+    layoutPreset.value = 'split-split-single-single';
     save();
   }
 
