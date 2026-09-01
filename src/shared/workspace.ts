@@ -1,15 +1,10 @@
 export type WorkspacePanelId =
   'search' | 'upcomingActivities' | 'preview' | 'service' | 'live' | 'monitors';
 
+type WorkspaceColumnLayout = 'single' | 'split';
+
 export type WorkspaceLayoutPreset =
-  | 'single-single-single'
-  | 'split-single-single'
-  | 'single-split-single'
-  | 'single-single-split'
-  | 'split-split-single'
-  | 'split-single-split'
-  | 'single-split-split'
-  | 'split-split-split';
+  `${WorkspaceColumnLayout}-${WorkspaceColumnLayout}-${WorkspaceColumnLayout}-${WorkspaceColumnLayout}`;
 
 export const WORKSPACE_PANEL_LABELS: Record<WorkspacePanelId, string> = {
   search: 'Búsqueda y contenido',
