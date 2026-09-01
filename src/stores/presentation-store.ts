@@ -142,6 +142,7 @@ export const usePresentationStore = defineStore('presentation', () => {
         mode: 'roulette',
         ...roulette,
         options: roulette.options.map((option) => ({ ...option })),
+        usedWinnerIds: [...roulette.usedWinnerIds],
       });
       return;
     }
