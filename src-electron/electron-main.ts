@@ -406,6 +406,20 @@ function parseProjectionState(value: unknown): ProjectionState | null {
           typeof state.brakeSoundEnabled === 'boolean' ? state.brakeSoundEnabled : true,
         winnerSoundEnabled:
           typeof state.winnerSoundEnabled === 'boolean' ? state.winnerSoundEnabled : true,
+        winnerSoundPreset:
+          state.winnerSoundPreset === 'crowd' || state.winnerSoundPreset === 'custom'
+            ? state.winnerSoundPreset
+            : 'chime',
+        customWinnerSoundUrl:
+          typeof state.customWinnerSoundUrl === 'string' &&
+          (state.customWinnerSoundUrl === '' ||
+            state.customWinnerSoundUrl.startsWith('icp-media://library/audio/'))
+            ? state.customWinnerSoundUrl
+            : '',
+        customWinnerSoundName:
+          typeof state.customWinnerSoundName === 'string'
+            ? state.customWinnerSoundName.slice(0, 200)
+            : '',
       };
     }
   }
