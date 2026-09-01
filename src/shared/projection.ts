@@ -32,6 +32,7 @@ export interface ProjectionActivityState {
   description: string;
   imageUrl: string;
   showOverlayText: boolean;
+  showDescriptionOnImage: boolean;
   categoryLabel: string;
   categoryColor: string;
 }
