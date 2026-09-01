@@ -41,6 +41,7 @@ function loadActivities(): CalendarActivity[] {
           typeof activity.endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(activity.endDate)
             ? activity.endDate
             : activity.date,
+        showOverlayText: activity.showOverlayText !== false,
         status: normalizedStatus(activity.status),
       }));
   } catch {
