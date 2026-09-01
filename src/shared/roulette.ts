@@ -12,8 +12,10 @@ export interface RoulettePresentationData {
   options: RouletteOption[];
   rotation: number;
   winnerId: string;
+  pendingWinnerId: string;
   spinning: boolean;
   spinDuration: number;
+  spinStartedAt: number;
   labelMode: RouletteLabelMode;
 }
 
@@ -24,5 +26,7 @@ export interface SavedRoulette {
   allowRepeats: boolean;
   removeWinner: boolean;
   labelMode: RouletteLabelMode;
+  durationValue: number;
+  durationUnit: 'seconds' | 'minutes';
   updatedAt: string;
 }
