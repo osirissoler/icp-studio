@@ -337,6 +337,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.spinning === 'boolean' &&
     typeof state.spinDuration === 'number' &&
     typeof state.spinStartedAt === 'number' &&
+    typeof state.timedSpin === 'boolean' &&
     ['full', 'first-word', 'short', 'colors-text', 'hidden'].includes(String(state.labelMode))
   ) {
     const options = state.options
@@ -366,6 +367,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
         spinning: state.spinning,
         spinDuration: Math.min(600000, Math.max(1000, state.spinDuration)),
         spinStartedAt: Math.max(0, state.spinStartedAt),
+        timedSpin: state.timedSpin,
         labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden',
       };
     }
