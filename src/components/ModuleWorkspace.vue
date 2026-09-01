@@ -202,7 +202,7 @@ const workspaceElement = ref<HTMLElement | null>(null);
 const columnSizes = reactive<number[]>([0.9, 1.15, 1.15, 0.9]);
 const panelDefinitions: WorkspacePanel[] = [
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
-  { id: 'upcomingActivities', title: 'Próximas actividades', icon: 'event_upcoming' },
+  { id: 'upcomingActivities', title: 'Próximas actividades', icon: 'calendar_month' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
   { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
