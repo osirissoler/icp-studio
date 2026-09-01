@@ -1,9 +1,13 @@
 <template>
   <q-page class="roulette-page">
     <header class="roulette-page-header">
-      <div>
-        <q-icon name="donut_large" />
+      <div class="roulette-heading">
+        <button type="button" class="back-button" @click="router.push('/herramientas')">
+          <q-icon name="arrow_back" />
+        </button>
+        <span class="roulette-heading-icon"><q-icon name="donut_large" /></span>
         <div>
+          <span class="roulette-eyebrow">Herramientas · Dinámicas interactivas</span>
           <h1>Ruleta</h1>
           <p>Crea, guarda y presenta selecciones al azar.</p>
         </div>
@@ -15,6 +19,7 @@
           color="blue-grey-3"
           icon="save"
           label="Guardar"
+          class="app-action-button app-action-button--secondary"
           @click="saveCurrent"
         />
         <q-btn
@@ -23,6 +28,7 @@
           color="red-6"
           icon="live_tv"
           label="Enviar a En vivo"
+          class="app-action-button app-action-button--live"
           @click="sendLive"
         />
       </div>
@@ -148,6 +154,7 @@
             icon="play_arrow"
             :label="spinning ? 'Girando…' : 'Girar ruleta'"
             :disable="spinning || roulette.options.length < 2"
+            class="app-action-button app-action-button--primary"
             @click="spin"
           />
           <q-btn
@@ -157,6 +164,7 @@
             color="red-6"
             icon="stop"
             label="Detener"
+            class="app-action-button app-action-button--live"
             @click="stopSpin"
           />
           <q-btn
@@ -166,6 +174,7 @@
             icon="restart_alt"
             label="Reiniciar"
             :disable="spinning"
+            class="app-action-button app-action-button--secondary"
             @click="resetGame"
           />
           <q-btn
@@ -176,6 +185,7 @@
             icon="person_remove"
             label="Retirar ganador"
             :disable="spinning"
+            class="app-action-button app-action-button--ghost"
             @click="removeWinner"
           />
         </div>
@@ -239,6 +249,7 @@
               color="red-4"
               icon="tv_off"
               label="Limpiar En vivo"
+              class="app-action-button app-action-button--danger"
               @click="stopLive"
             />
             <q-btn
@@ -307,6 +318,7 @@
               icon="play_arrow"
               :label="liveRoulette.spinning ? 'Girando…' : 'Girar ruleta'"
               :disable="liveRoulette.spinning || liveRoulette.options.length < 2"
+              class="app-action-button app-action-button--primary"
               @click="spinLiveRoulette"
             />
             <q-btn
@@ -316,6 +328,7 @@
               color="red-6"
               icon="stop"
               label="Detener"
+              class="app-action-button app-action-button--live"
               @click="stopLiveRoulette"
             />
             <q-btn
@@ -325,6 +338,7 @@
               icon="restart_alt"
               label="Reiniciar"
               :disable="liveRoulette.spinning"
+              class="app-action-button app-action-button--secondary"
               @click="resetLiveRoulette"
             />
             <div v-if="liveWinner" class="console-result">
@@ -340,6 +354,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router';
 import RouletteWheel from '../components/RouletteWheel.vue';
 import { showAppNotification } from '../services/app-notification';
 import type { ServicePresentationItem } from '../shared/presentation';
@@ -347,6 +362,7 @@ import type { RouletteOption, RoulettePresentationData, SavedRoulette } from '..
 import { usePresentationStore } from '../stores/presentation-store';
 
 const STORAGE_KEY = 'icp-studio-roulettes';
+const router = useRouter();
 const colors = [
   '#2563eb',
   '#db2777',
@@ -667,12 +683,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .roulette-page {
   min-height: 100%;
-  padding: 18px;
-  color: #dce7f2;
-  background: #0b141f;
+  padding: 20px;
+  color: #e7eef7;
+  background: radial-gradient(circle at 78% -15%, rgb(31 82 123 / 22%), transparent 34%), #0b121b;
+}
+button {
+  font: inherit;
 }
 .roulette-page-header,
-.roulette-page-header > div,
+.roulette-heading,
 .header-actions,
 .operator-label,
 .roulette-history header {
@@ -681,30 +700,107 @@ onBeforeUnmount(() => {
 }
 .roulette-page-header {
   justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 18px;
+  margin-bottom: 16px;
 }
-.roulette-page-header > div:first-child {
-  gap: 11px;
+.roulette-heading {
+  min-width: 0;
+  gap: 12px;
 }
-.roulette-page-header > div:first-child > .q-icon {
-  padding: 10px;
-  color: #7dd3fc;
-  background: #12314a;
-  border-radius: 11px;
-  font-size: 28px;
+.roulette-heading > div {
+  min-width: 0;
 }
-.roulette-page h1 {
-  margin: 0;
-  font-size: 23px;
+.back-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: #9badc1;
+  background: #111c29;
+  border: 1px solid #2a3b4f;
+  border-radius: 9px;
+  cursor: pointer;
 }
-.roulette-page p {
-  margin: 2px 0 0;
-  color: #71869a;
-  font-size: 10px;
+.back-button:hover {
+  color: #dbeafe;
+  border-color: #4d7199;
+}
+.roulette-heading-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  color: #93c5fd;
+  background: #112f4a;
+  border: 1px solid #285a82;
+  border-radius: 13px;
+  font-size: 25px;
+}
+.roulette-eyebrow {
+  display: block;
+  color: #6e839a;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.roulette-heading h1 {
+  margin: 1px 0 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+.roulette-heading p {
+  margin: 3px 0 0;
+  color: #8190a3;
+  font-size: 11px;
 }
 .header-actions {
   gap: 8px;
+}
+.header-actions .q-btn {
+  min-height: 39px;
+  border-radius: 9px;
+}
+.app-action-button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+.app-action-button:not(.disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+.app-action-button--primary {
+  color: #f7fbff !important;
+  background: #2479ad !important;
+  box-shadow: 0 5px 14px rgb(20 91 137 / 24%);
+}
+.app-action-button--live {
+  color: #fff7f7 !important;
+  background: #d6424f !important;
+  box-shadow: 0 5px 14px rgb(173 38 53 / 25%);
+}
+.app-action-button--danger {
+  color: #f28c96 !important;
+  background: rgb(163 49 63 / 13%) !important;
+}
+.app-action-button--secondary {
+  color: #c5d5e4 !important;
+  background: #1a2a39 !important;
+  box-shadow: none;
+}
+.app-action-button--ghost {
+  color: #91a6ba !important;
+  background: transparent !important;
 }
 .roulette-layout {
   display: grid;
@@ -842,6 +938,7 @@ onBeforeUnmount(() => {
 }
 .spin-controls {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
 }
@@ -1026,12 +1123,35 @@ onBeforeUnmount(() => {
   font-size: 20px;
 }
 @media (max-width: 820px) {
+  .roulette-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
   .roulette-console-body {
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
   .roulette-console-preview {
     min-height: 640px;
+  }
+}
+@media (max-width: 560px) {
+  .roulette-page {
+    padding: 14px;
+  }
+  .roulette-heading {
+    align-items: flex-start;
+  }
+  .roulette-heading-icon {
+    display: none;
+  }
+  .header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
 @media (max-width: 1000px) {
