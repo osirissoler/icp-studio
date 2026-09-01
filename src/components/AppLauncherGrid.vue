@@ -5,7 +5,7 @@
         <strong>{{ heading }}</strong>
         <span>{{ description }}</span>
       </div>
-      <q-chip dense color="blue-grey-9" text-color="blue-grey-3">
+      <q-chip dense color="blue-grey-9" text-color="blue-grey-3" class="launcher-count">
         {{ items.length }} {{ items.length === 1 ? 'opción' : 'opciones' }}
       </q-chip>
     </div>
@@ -105,6 +105,20 @@ function selectItem(item: LauncherItem): void {
   color: #7f8da1;
   font-size: 11px;
   line-height: 1.45;
+}
+
+.launcher-count {
+  min-height: 22px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.launcher-count :deep(.q-chip__content) {
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .app-grid {
