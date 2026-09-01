@@ -16,6 +16,7 @@ export interface RoulettePresentationData {
   spinning: boolean;
   spinDuration: number;
   spinStartedAt: number;
+  timedSpin: boolean;
   labelMode: RouletteLabelMode;
 }
 
@@ -28,5 +29,6 @@ export interface SavedRoulette {
   labelMode: RouletteLabelMode;
   durationValue: number;
   durationUnit: 'seconds' | 'minutes';
+  useTimer: boolean;
   updatedAt: string;
 }
