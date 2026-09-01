@@ -83,9 +83,8 @@ export function buildRemotePage(): string {
     </div>
   </section>
   <script>
-    const token = new URLSearchParams(location.search).get('token') || '';
     const status = document.getElementById('status');
-    const events = new EventSource('/events?token=' + encodeURIComponent(token));
+    const events = new EventSource('/events');
     events.onopen = () => { status.textContent = 'Conectado'; };
     events.onerror = () => { status.textContent = 'Reconectando…'; };
     events.addEventListener('state', (event) => updateState(JSON.parse(event.data)));
@@ -109,7 +108,7 @@ export function buildRemotePage(): string {
     let catalogRequest = 0;
     let selectedResult = null;
 
-    function apiUrl(path,params){const url=new URL(path,location.origin);url.searchParams.set('token',token);Object.entries(params||{}).forEach(([key,value])=>url.searchParams.set(key,String(value)));return url.toString()}
+    function apiUrl(path,params){const url=new URL(path,location.origin);Object.entries(params||{}).forEach(([key,value])=>url.searchParams.set(key,String(value)));return url.toString()}
     async function api(path,options,params){const response=await fetch(apiUrl(path,params),options);const data=await response.json();if(!response.ok)throw new Error(data.error||'No se pudo completar la solicitud.');return data}
     function mediaUrl(path){return path?apiUrl(path):''}
     function setDrawer(open){drawer.classList.toggle('open',open);backdrop.classList.toggle('open',open)}
