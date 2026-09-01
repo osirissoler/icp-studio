@@ -1,5 +1,14 @@
 <template>
-  <section class="roulette-stage" :class="{ 'roulette-stage--compact': compact }">
+  <section
+    class="roulette-stage"
+    :class="{
+      'roulette-stage--compact': compact,
+      'roulette-stage--celebrating': showCelebration,
+    }"
+  >
+    <div v-if="showCelebration" class="winner-confetti" aria-hidden="true">
+      <i v-for="piece in confettiPieces" :key="piece.id" :style="piece.style"></i>
+    </div>
     <header v-if="showTitle">
       <small>Ruleta</small><strong>{{ roulette.title }}</strong>
     </header>
@@ -54,10 +63,11 @@ const props = withDefaults(
   defineProps<{
     roulette: RoulettePresentationData;
     compact?: boolean;
+    celebrateWinner?: boolean;
     showTitle?: boolean;
     showTimer?: boolean;
   }>(),
-  { compact: false, showTitle: true, showTimer: false },
+  { compact: false, celebrateWinner: false, showTitle: true, showTimer: false },
 );
 
 const winner = computed(() =>
@@ -68,8 +78,22 @@ const displayedRotation = ref(
 );
 const wheelElement = ref<HTMLElement | null>(null);
 const clockNow = ref(Date.now());
+const showCelebration = ref(false);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
+let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
 let spinAnimation: Animation | null = null;
+const confettiColors = ['#38bdf8', '#facc15', '#fb7185', '#4ade80', '#c084fc', '#f8fafc'];
+const confettiPieces = Array.from({ length: 64 }, (_, index) => ({
+  id: index,
+  style: {
+    '--confetti-x': `${(index * 37) % 100}%`,
+    '--confetti-delay': `${(index % 13) * 45}ms`,
+    '--confetti-duration': `${2300 + (index % 8) * 170}ms`,
+    '--confetti-color': confettiColors[index % confettiColors.length]!,
+    '--confetti-drift': `${((index * 29) % 120) - 60}px`,
+    '--confetti-rotation': `${360 + (index % 5) * 180}deg`,
+  },
+}));
 const wheelBackground = computed(() => {
   const count = Math.max(1, props.roulette.options.length);
   return `conic-gradient(${props.roulette.options
@@ -150,6 +174,7 @@ onMounted(() => animateToTarget());
 watch(
   () => props.roulette.spinning,
   (spinning) => {
+    if (spinning) stopCelebration();
     if (clockTimer) clearInterval(clockTimer);
     clockTimer = null;
     if (spinning) {
@@ -159,10 +184,39 @@ watch(
   },
   { immediate: true },
 );
+watch(
+  () => props.roulette.winnerId,
+  (winnerId, previousWinnerId) => {
+    if (
+      props.celebrateWinner &&
+      winnerId &&
+      winnerId !== previousWinnerId &&
+      !props.roulette.spinning
+    ) {
+      startCelebration();
+    }
+  },
+);
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer);
+  if (celebrationTimer) clearTimeout(celebrationTimer);
   spinAnimation?.cancel();
 });
+
+function startCelebration(): void {
+  if (celebrationTimer) clearTimeout(celebrationTimer);
+  showCelebration.value = false;
+  requestAnimationFrame(() => {
+    showCelebration.value = true;
+    celebrationTimer = setTimeout(stopCelebration, 4200);
+  });
+}
+
+function stopCelebration(): void {
+  if (celebrationTimer) clearTimeout(celebrationTimer);
+  celebrationTimer = null;
+  showCelebration.value = false;
+}
 
 function optionLabel(label: string): string {
   if (props.roulette.labelMode === 'first-word') return label.split(/\s+/)[0] ?? label;
@@ -183,6 +237,7 @@ function labelPosition(index: number): { x: number; y: number; transform: string
 
 <style scoped>
 .roulette-stage {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
@@ -197,6 +252,38 @@ function labelPosition(index: number): { x: number; y: number; transform: string
   background:
     radial-gradient(circle at 50% 42%, rgb(35 89 132 / 55%), transparent 38%),
     linear-gradient(145deg, #0b1d2e, #050b12);
+}
+.winner-confetti {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.winner-confetti i {
+  position: absolute;
+  top: -8%;
+  left: var(--confetti-x);
+  width: clamp(7px, 0.8vw, 14px);
+  height: clamp(12px, 1.4vw, 22px);
+  background: var(--confetti-color);
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.3, 1)
+    var(--confetti-delay) forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, -5vh, 0) rotate(0deg);
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-drift), 112vh, 0) rotate(var(--confetti-rotation));
+  }
 }
 .roulette-stage header {
   display: flex;
@@ -285,6 +372,8 @@ function labelPosition(index: number): { x: number; y: number; transform: string
   transform: translate(-50%, -50%);
 }
 .winner-banner {
+  position: relative;
+  z-index: 21;
   display: flex;
   min-width: min(440px, 80%);
   align-items: center;
@@ -294,6 +383,26 @@ function labelPosition(index: number): { x: number; y: number; transform: string
   border: 1px solid #38bdf8;
   border-radius: 12px;
   box-shadow: 0 12px 32px #0008;
+}
+.roulette-stage--celebrating .winner-banner {
+  border-color: #facc15;
+  box-shadow:
+    0 12px 32px #0008,
+    0 0 34px rgb(250 204 21 / 35%);
+  animation: winner-celebration 650ms ease-out;
+}
+@keyframes winner-celebration {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  65% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .winner-banner small {
   color: #7dd3fc;
@@ -347,5 +456,13 @@ function labelPosition(index: number): { x: number; y: number; transform: string
 .winner-leave-to {
   opacity: 0;
   transform: scale(0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .winner-confetti {
+    display: none;
+  }
+  .roulette-stage--celebrating .winner-banner {
+    animation: none;
+  }
 }
 </style>
