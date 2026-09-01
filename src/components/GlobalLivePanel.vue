@@ -52,7 +52,7 @@
           class="technical-screen"
           :class="{
             'technical-screen--activity':
-              liveItem?.type === 'activity' || Boolean(liveFrame?.roulette),
+              liveItem?.type === 'activity' || Boolean(liveFrame?.roulette || liveFrame?.timeTool),
           }"
           :style="[surfaceStyle, contentLayoutStyle]"
         >
@@ -68,6 +68,12 @@
               compact
               play-sounds
               show-timer
+            />
+            <TimeToolDisplay
+              v-else-if="liveItem?.type === 'time-tool' && liveFrame.timeTool"
+              :tool="liveFrame.timeTool"
+              compact
+              play-sounds
             />
             <img
               v-else-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
@@ -158,13 +164,23 @@
             />
             <FittedTechnicalText v-else :text="liveDisplayText" :min-size="10" :max-size="26" />
             <span
-              v-if="liveFrame && liveItem?.type !== 'activity' && !liveFrame.roulette"
+              v-if="
+                liveFrame &&
+                liveItem?.type !== 'activity' &&
+                !liveFrame.roulette &&
+                !liveFrame.timeTool
+              "
               class="technical-selection"
             >
               {{ liveFrame.label }} · Seleccionado
             </span>
             <span
-              v-if="!liveFrame.mediaType && liveItem?.type !== 'activity' && !liveFrame.roulette"
+              v-if="
+                !liveFrame.mediaType &&
+                liveItem?.type !== 'activity' &&
+                !liveFrame.roulette &&
+                !liveFrame.timeTool
+              "
               class="screen-footer"
             >
               {{ liveItem?.footer }}
@@ -229,6 +245,40 @@
                 @click="stopLiveRoulette"
               />
             </div>
+            <div
+              v-else-if="liveItem.type === 'time-tool' && liveFrame?.timeTool"
+              class="time-live-actions"
+            >
+              <q-badge color="blue-grey-8" :label="timeToolModeLabel" />
+              <template v-if="liveFrame.timeTool.mode !== 'clock'">
+                <q-btn
+                  v-if="!liveFrame.timeTool.running"
+                  unelevated
+                  no-caps
+                  dense
+                  size="sm"
+                  color="primary"
+                  icon="play_arrow"
+                  label="Iniciar"
+                  @click="startLiveTimeTool"
+                />
+                <q-btn
+                  v-else
+                  unelevated
+                  no-caps
+                  dense
+                  size="sm"
+                  color="orange-7"
+                  icon="pause"
+                  label="Pausar"
+                  @click="pauseLiveTimeTool"
+                />
+                <q-btn flat round dense size="sm" icon="restart_alt" @click="resetLiveTimeTool">
+                  <q-tooltip>Reiniciar</q-tooltip>
+                </q-btn>
+              </template>
+              <q-badge v-else color="positive" label="Funcionando" />
+            </div>
           </div>
           <button
             v-for="(frame, frameIndex) in liveItem.frames"
@@ -283,6 +333,7 @@ import FittedTechnicalText from './FittedTechnicalText.vue';
 import DocumentViewer from './DocumentViewer.vue';
 import DocumentThumbnail from './DocumentThumbnail.vue';
 import RouletteWheel from './RouletteWheel.vue';
+import TimeToolDisplay from './TimeToolDisplay.vue';
 import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
@@ -303,7 +354,17 @@ const {
   stopLiveRoulette,
   setLiveRouletteDuration,
   setLiveRouletteTimed,
+  startLiveTimeTool,
+  pauseLiveTimeTool,
+  resetLiveTimeTool,
 } = presentationStore;
+
+const timeToolModeLabel = computed(() => {
+  const mode = liveFrame.value?.timeTool?.mode;
+  if (mode === 'timer') return 'Temporizador';
+  if (mode === 'stopwatch') return 'Cronómetro';
+  return 'Reloj';
+});
 
 const liveRouletteSeconds = computed({
   get: () => Math.max(1, Math.round((liveFrame.value?.roulette?.spinDuration ?? 6000) / 1000)),
@@ -651,6 +712,12 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .roulette-live-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+.time-live-actions {
   display: flex;
   min-width: 0;
   align-items: center;
