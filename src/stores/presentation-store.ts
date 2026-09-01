@@ -347,6 +347,32 @@ export const usePresentationStore = defineStore('presentation', () => {
     projectCurrentFrame();
   }
 
+  function resetLiveRoulette(): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const roulette = item?.frames[frameIndex]?.roulette;
+    if (!item || !roulette) return;
+    liveItem.value = {
+      ...item,
+      frames: item.frames.map((frame, index) =>
+        index === frameIndex
+          ? {
+              ...frame,
+              roulette: {
+                ...roulette,
+                rotation: 0,
+                winnerId: '',
+                pendingWinnerId: '',
+                spinning: false,
+                spinStartedAt: 0,
+              },
+            }
+          : frame,
+      ),
+    };
+    projectCurrentFrame();
+  }
+
   function clearLive(): void {
     liveItem.value = null;
     liveFrameIndex.value = 0;
@@ -382,6 +408,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     stopLiveRoulette,
     setLiveRouletteDuration,
     setLiveRouletteTimed,
+    resetLiveRoulette,
     controlLiveMedia,
     setLiveMediaPlaying,
     updateLiveMediaDuration,
