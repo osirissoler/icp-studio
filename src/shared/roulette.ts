@@ -28,8 +28,12 @@ export interface RoulettePresentationData {
   winnerTextSize: RouletteWinnerTextSize;
   confettiEnabled: boolean;
   confettiIntensity: RouletteConfettiIntensity;
+  confettiDuration: number;
   soundEnabled: boolean;
   soundVolume: number;
+  spinSoundEnabled: boolean;
+  brakeSoundEnabled: boolean;
+  winnerSoundEnabled: boolean;
 }
 
 export interface SavedRoulette {
@@ -47,8 +51,12 @@ export interface SavedRoulette {
   winnerTextSize: RouletteWinnerTextSize;
   confettiEnabled: boolean;
   confettiIntensity: RouletteConfettiIntensity;
+  confettiDuration: number;
   soundEnabled: boolean;
   soundVolume: number;
+  spinSoundEnabled: boolean;
+  brakeSoundEnabled: boolean;
+  winnerSoundEnabled: boolean;
   updatedAt: string;
 }
 
