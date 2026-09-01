@@ -224,11 +224,9 @@ const visiblePanels = computed(() =>
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
-const columnCapacities = computed(() => {
-  if (workspaceSettings.layoutPreset === 'split-left-right') return [2, 1, 2];
-  if (workspaceSettings.layoutPreset === 'split-center-right') return [1, 2, 2];
-  return [2, 2, 1];
-});
+const columnCapacities = computed(() =>
+  workspaceSettings.layoutPreset.split('-').map((columnType) => (columnType === 'split' ? 2 : 1)),
+);
 
 const panelColumns = computed(() => {
   const columns: WorkspacePanel[][] = [];
@@ -275,7 +273,7 @@ const workspaceGridStyle = computed(() => {
   const columnCount = layoutColumnCount.value;
   const columns = Array.from(
     { length: columnCount },
-    (_, index) => `minmax(220px, ${columnSizes[index] ?? 1}fr)`,
+    (_, index) => `minmax(170px, ${columnSizes[index] ?? 1}fr)`,
   ).join(' 12px ');
 
   return {
@@ -368,7 +366,7 @@ function startColumnResize(event: PointerEvent, leftIndex: number): void {
   const totalSize = columnSizes
     .slice(0, layoutColumnCount.value)
     .reduce((sum, size) => sum + size, 0);
-  const minimumSize = Math.max(0.45, (220 / containerWidth) * totalSize);
+  const minimumSize = Math.max(0.4, (170 / containerWidth) * totalSize);
 
   beginResize(
     event,
@@ -428,7 +426,8 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(220px, 0.9fr) 12px minmax(220px, 1.15fr) 12px minmax(220px, 1.15fr);
   grid-template-rows: minmax(0, 1fr) 12px minmax(0, 1fr);
   gap: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .workspace-panel {
