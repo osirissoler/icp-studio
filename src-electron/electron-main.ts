@@ -335,7 +335,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.winnerId === 'string' &&
     typeof state.spinning === 'boolean' &&
     typeof state.spinDuration === 'number' &&
-    ['full', 'first-word', 'short', 'hidden'].includes(String(state.labelMode))
+    ['full', 'first-word', 'short', 'colors-text', 'hidden'].includes(String(state.labelMode))
   ) {
     const options = state.options
       .slice(0, 40)
@@ -362,7 +362,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
         winnerId: state.winnerId.slice(0, 200),
         spinning: state.spinning,
         spinDuration: Math.min(15000, Math.max(500, state.spinDuration)),
-        labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'hidden',
+        labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden',
       };
     }
   }
