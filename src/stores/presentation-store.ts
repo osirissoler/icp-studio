@@ -111,6 +111,11 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
+    if (item.type === 'game' && frame.roulette) {
+      window.icpStudio?.projection.setState({ mode: 'roulette', ...frame.roulette });
+      return;
+    }
+
     if (frame.mediaType && frame.mediaUrl) {
       if (frame.mediaType === 'document') {
         if (frame.documentFormat) {
