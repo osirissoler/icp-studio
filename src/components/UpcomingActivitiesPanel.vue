@@ -27,7 +27,7 @@
         type="button"
         class="upcoming-item"
         :style="{ '--activity-accent': categoryColor(activity.category) }"
-        @click="openCalendar(activity.id)"
+        @click="selectedActivity = activity"
       >
         <span class="activity-date">
           <strong>{{ dayNumber(activity.date) }}</strong>
@@ -50,11 +50,52 @@
       <span>Tu calendario está libre hasta finalizar el año.</span>
       <q-btn flat no-caps color="primary" label="Abrir calendario" @click="openCalendar()" />
     </div>
+
+    <q-dialog :model-value="Boolean(selectedActivity)" @hide="selectedActivity = null">
+      <q-card v-if="selectedActivity" class="activity-detail-card">
+        <div class="activity-detail-hero" :style="activityBackground(selectedActivity.imageUrl)">
+          <div class="activity-detail-overlay"></div>
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            aria-label="Cerrar detalle"
+            @click="selectedActivity = null"
+          />
+          <div>
+            <small>{{ categoryLabel(selectedActivity.category) }}</small>
+            <strong>{{ selectedActivity.title }}</strong>
+          </div>
+        </div>
+        <q-card-section class="activity-detail-info">
+          <span><q-icon name="schedule" /> {{ activityDateTime(selectedActivity) }}</span>
+          <span v-if="selectedActivity.location">
+            <q-icon name="location_on" /> {{ selectedActivity.location }}
+          </span>
+          <span v-if="selectedActivity.responsible">
+            <q-icon name="person" /> {{ selectedActivity.responsible }}
+          </span>
+          <p v-if="selectedActivity.description">{{ selectedActivity.description }}</p>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps color="blue-grey-3" label="Cerrar" @click="selectedActivity = null" />
+          <q-btn
+            unelevated
+            no-caps
+            color="primary"
+            icon="calendar_month"
+            label="Ver en calendario"
+            @click="openCalendar(selectedActivity.id)"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import type { CalendarActivity } from '../shared/calendar';
@@ -63,6 +104,7 @@ import { useCalendarActivitiesStore } from '../stores/calendar-activities';
 const router = useRouter();
 const calendarStore = useCalendarActivitiesStore();
 const { activities, categories } = storeToRefs(calendarStore);
+const selectedActivity = ref<CalendarActivity | null>(null);
 
 const today = new Date();
 const todayKey = localDateKey(today);
@@ -104,7 +146,30 @@ function categoryColor(categoryId: string): string {
   return categories.value.find((category) => category.id === categoryId)?.color ?? '#38bdf8';
 }
 
+function categoryLabel(categoryId: string): string {
+  return categories.value.find((category) => category.id === categoryId)?.label ?? 'Actividad';
+}
+
+function activityDateTime(activity: CalendarActivity): string {
+  const start = new Intl.DateTimeFormat('es-DO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${activity.date}T12:00:00`));
+  const endDate = activity.endDate || activity.date;
+  const end =
+    endDate === activity.date
+      ? ''
+      : ` – ${new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long' }).format(new Date(`${endDate}T12:00:00`))}`;
+  return `${start}${end} · ${activityTime(activity)}`;
+}
+
+function activityBackground(imageUrl: string): Record<string, string> {
+  return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
+}
+
 function openCalendar(activityId?: string): void {
+  selectedActivity.value = null;
   void router.push({ path: '/calendario', query: activityId ? { activity: activityId } : {} });
 }
 </script>
@@ -269,5 +334,82 @@ function openCalendar(activityId?: string): void {
   max-width: 220px;
   margin: 4px 0 5px;
   font-size: 8px;
+}
+
+.activity-detail-card {
+  width: min(540px, 92vw);
+  overflow: hidden;
+  color: #dce7f1;
+  background: #101b28;
+  border: 1px solid #30465b;
+  border-radius: 14px;
+}
+
+.activity-detail-hero {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  justify-content: space-between;
+  flex-direction: column;
+  padding: 12px;
+  background: linear-gradient(135deg, #254a68, #101d2b);
+  background-position: center;
+  background-size: cover;
+}
+
+.activity-detail-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgb(5 12 20 / 92%), rgb(5 12 20 / 12%));
+}
+
+.activity-detail-hero > .q-btn,
+.activity-detail-hero > div:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+.activity-detail-hero > .q-btn {
+  align-self: flex-end;
+  color: white;
+  background: rgb(3 10 17 / 48%);
+}
+
+.activity-detail-hero > div:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-detail-hero small {
+  color: #7dd3fc;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.activity-detail-hero strong {
+  margin-top: 5px;
+  color: white;
+  font-size: 24px;
+}
+
+.activity-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #9fb2c4;
+  font-size: 11px;
+}
+
+.activity-detail-info span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-detail-info p {
+  margin: 5px 0 0;
+  color: #c8d5e1;
+  line-height: 1.55;
 }
 </style>
