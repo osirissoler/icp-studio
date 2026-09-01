@@ -23,6 +23,18 @@ export interface ProjectionBlankState {
   mode: 'blank';
 }
 
+export interface ProjectionActivityState {
+  mode: 'activity';
+  id: string;
+  title: string;
+  dateLabel: string;
+  location: string;
+  description: string;
+  imageUrl: string;
+  categoryLabel: string;
+  categoryColor: string;
+}
+
 export interface ProjectionDocumentState {
   mode: 'document';
   url: string;
@@ -37,4 +49,8 @@ export interface MediaPlaybackCommand {
 }
 
 export type ProjectionState =
-  ProjectionContentState | ProjectionMediaState | ProjectionDocumentState | ProjectionBlankState;
+  | ProjectionContentState
+  | ProjectionMediaState
+  | ProjectionDocumentState
+  | ProjectionActivityState
+  | ProjectionBlankState;
