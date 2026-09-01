@@ -77,15 +77,31 @@
             <q-card-section class="workspace-structure-summary">
               <div>
                 <strong>Estructura del espacio</strong>
-                <small
-                  >Dos paneles en la primera columna, dos en el centro y áreas completas al
-                  final.</small
-                >
+                <small>Selecciona cómo se distribuyen los paneles dobles y completos.</small>
               </div>
-              <div class="workspace-structure-preview" aria-hidden="true">
-                <span><i></i><i></i></span>
-                <span><i></i><i></i></span>
-                <span><i></i></span>
+              <div class="workspace-preset-options">
+                <button
+                  v-for="option in workspaceLayoutOptions"
+                  :key="option.value"
+                  type="button"
+                  class="workspace-preset-option"
+                  :class="{
+                    'workspace-preset-option--active':
+                      workspaceSettings.layoutPreset === option.value,
+                  }"
+                  @click="workspaceSettings.setLayoutPreset(option.value)"
+                >
+                  <span class="workspace-structure-preview" aria-hidden="true">
+                    <span
+                      v-for="(capacity, columnIndex) in option.capacities"
+                      :key="columnIndex"
+                      :class="{ 'workspace-preview-column--split': capacity === 2 }"
+                    >
+                      <i></i><i v-if="capacity === 2"></i>
+                    </span>
+                  </span>
+                  <span>{{ option.label }}</span>
+                </button>
               </div>
             </q-card-section>
             <q-separator dark />
@@ -1013,7 +1029,7 @@ import type {
   ThemeHorizontalAlign,
   ThemeVerticalAlign,
 } from '../shared/theme';
-import type { WorkspacePanelId } from '../shared/workspace';
+import type { WorkspaceLayoutPreset, WorkspacePanelId } from '../shared/workspace';
 import type { MenuSide, NavigationItemId, ToolbarPosition } from '../shared/navigation';
 import { useNavigationSettingsStore } from '../stores/navigation-settings';
 import { useLibraryViewSettingsStore } from '../stores/library-view-settings';
@@ -1116,6 +1132,16 @@ const panelOptions: PanelOption[] = [
     description: 'Salidas de proyección activas.',
     icon: 'display_settings',
   },
+];
+
+const workspaceLayoutOptions: Array<{
+  label: string;
+  value: WorkspaceLayoutPreset;
+  capacities: [number, number, number];
+}> = [
+  { label: 'Dobles izquierda y centro', value: 'split-left-center', capacities: [2, 2, 1] },
+  { label: 'Dobles izquierda y derecha', value: 'split-left-right', capacities: [2, 1, 2] },
+  { label: 'Dobles centro y derecha', value: 'split-center-right', capacities: [1, 2, 2] },
 ];
 
 const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> = [
@@ -1787,8 +1813,8 @@ onBeforeUnmount(() => {
 
 .workspace-structure-summary {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  flex-direction: column;
   gap: 18px;
 }
 
@@ -1810,11 +1836,39 @@ onBeforeUnmount(() => {
   line-height: 1.45;
 }
 
+.workspace-preset-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-preset-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+  color: #8fa2b5;
+  background: #0d1723;
+  border: 1px solid #2a4055;
+  border-radius: 9px;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.workspace-preset-option:hover,
+.workspace-preset-option--active {
+  color: #dbeafe;
+  background: #142b45;
+  border-color: #4384c4;
+}
+
 .workspace-structure-preview {
   display: grid;
-  width: 148px;
-  height: 70px;
-  flex: 0 0 148px;
+  width: 100%;
+  max-width: 148px;
+  height: 56px;
   grid-template-columns: 0.8fr 0.8fr 1.15fr;
   gap: 5px;
   padding: 6px;
@@ -1824,14 +1878,14 @@ onBeforeUnmount(() => {
 }
 
 .workspace-structure-preview > span {
-  display: grid;
+  display: block;
   min-width: 0;
-  grid-template-rows: 1fr 0.45fr;
-  gap: 4px;
 }
 
-.workspace-structure-preview > span:last-child {
-  display: block;
+.workspace-structure-preview > .workspace-preview-column--split {
+  display: grid;
+  grid-template-rows: 1fr 0.45fr;
+  gap: 4px;
 }
 
 .workspace-structure-preview i {
@@ -1842,7 +1896,7 @@ onBeforeUnmount(() => {
   border-radius: 4px;
 }
 
-.workspace-structure-preview > span:last-child i {
+.workspace-structure-preview > span:not(.workspace-preview-column--split) i {
   height: 100%;
   background: linear-gradient(145deg, #1e5279, #17334b);
 }
