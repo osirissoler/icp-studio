@@ -184,25 +184,40 @@
       <aside class="roulette-history">
         <header>
           <div>
-            <strong>Resultados</strong><small>{{ history.length }} selecciones</small>
+            <strong>Resultados en vivo</strong><small>{{ liveResults.length }} selecciones</small>
           </div>
           <q-btn
             flat
             round
             dense
             icon="delete_sweep"
-            :disable="!history.length"
-            @click="history = []"
+            :disable="!liveResults.length"
+            @click="clearCurrentLiveResults"
           />
         </header>
-        <div v-if="history.length" class="history-list">
-          <div v-for="(result, index) in history" :key="`${result.id}-${index}`">
-            <span>{{ history.length - index }}</span
-            ><i :style="{ backgroundColor: result.color }"></i><strong>{{ result.label }}</strong>
+        <div v-if="liveResults.length" class="history-list">
+          <div v-for="(result, index) in liveResults" :key="result.id">
+            <span>{{ liveResults.length - index }}</span
+            ><i :style="{ backgroundColor: result.color }"></i>
+            <span class="history-result-details">
+              <strong>{{ result.label }}</strong
+              ><small>{{ resultDateLabel(result.createdAt) }}</small>
+            </span>
+            <q-btn
+              flat
+              round
+              dense
+              size="xs"
+              icon="close"
+              aria-label="Eliminar resultado"
+              @click="removeLiveRouletteResult(result.id)"
+            />
           </div>
         </div>
         <div v-else class="history-empty">
-          <q-icon name="history" /><span>Los resultados aparecerán aquí.</span>
+          <q-icon name="history" /><span
+            >Los resultados de las presentaciones en vivo aparecerán aquí.</span
+          >
         </div>
       </aside>
     </main>
@@ -360,12 +375,15 @@ const durationUnitOptions = [
 const presentationStore = usePresentationStore();
 const { liveFrame: activeLiveFrame, liveItem: activeLiveItem } = storeToRefs(presentationStore);
 const {
+  clearLiveRouletteResults,
+  removeLiveRouletteResult,
   resetLiveRoulette,
   setLiveRouletteDuration,
   setLiveRouletteTimed,
   spinLiveRoulette,
   stopLiveRoulette,
 } = presentationStore;
+const { liveRouletteResults } = storeToRefs(presentationStore);
 const savedRoulettes = ref(loadSaved());
 const roulette = reactive<SavedRoulette>(
   savedRoulettes.value[0] ? structuredClone(savedRoulettes.value[0]) : createRoulette(),
@@ -383,6 +401,9 @@ let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
 const winner = computed(
   () => roulette.options.find((option) => option.id === winnerId.value) ?? null,
+);
+const liveResults = computed(() =>
+  liveRouletteResults.value.filter((result) => result.rouletteId === roulette.id),
 );
 const liveRoulette = computed(() => activeLiveFrame.value?.roulette ?? null);
 const liveWinner = computed(() =>
@@ -412,6 +433,9 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   spinDuration: spinDuration.value,
   spinStartedAt: spinStartedAt.value,
   timedSpin: roulette.useTimer,
+  allowRepeats: roulette.allowRepeats,
+  removeWinner: roulette.removeWinner,
+  usedWinnerIds: [],
   labelMode: roulette.labelMode,
 }));
 const spinDuration = computed(() => {
@@ -621,6 +645,17 @@ function stopLive(): void {
   presentationStore.clearLive();
   operatorConsoleOpen.value = false;
 }
+function clearCurrentLiveResults(): void {
+  clearLiveRouletteResults(roulette.id);
+}
+function resultDateLabel(value: string): string {
+  return new Intl.DateTimeFormat('es-DO', {
+    day: '2-digit',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
 onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
 });
@@ -828,11 +863,20 @@ onBeforeUnmount(() => {
 }
 .history-list > div {
   display: grid;
-  grid-template-columns: 22px 6px minmax(0, 1fr);
+  grid-template-columns: 22px 6px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 8px 4px;
   border-bottom: 1px solid #233548;
+}
+.history-result-details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.history-result-details small {
+  color: #70859a;
+  font-size: 8px;
 }
 .history-list span {
   color: #61778c;
