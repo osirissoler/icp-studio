@@ -393,11 +393,24 @@
             no-caps
             color="blue-grey-3"
             icon="open_in_full"
-            label="Vista de presentación"
+            label="Vista previa grande"
             @click="presentationPreviewOpen = true"
           />
           <div>
             <q-btn v-close-popup flat no-caps color="blue-grey-3" label="Cerrar" />
+            <q-btn
+              unelevated
+              no-caps
+              color="red-6"
+              icon="live_tv"
+              label="Enviar a En vivo"
+              :disable="selectedActivity.status === 'cancelled'"
+              @click="sendActivityToLive(selectedActivity)"
+            >
+              <q-tooltip v-if="selectedActivity.status === 'cancelled'">
+                Cambia el estado antes de presentar esta actividad.
+              </q-tooltip>
+            </q-btn>
             <q-btn
               unelevated
               no-caps
@@ -440,6 +453,143 @@
             >
           </div>
         </div>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="operatorPresentationOpen" maximized>
+      <q-card v-if="presentedActivity" class="operator-console">
+        <header class="operator-console-header">
+          <div class="operator-console-title">
+            <span class="operator-live-dot"></span>
+            <div>
+              <strong>Control de actividades · En vivo</strong>
+              <small>Esta pantalla es únicamente para el operador.</small>
+            </div>
+          </div>
+          <div class="operator-header-actions">
+            <q-btn
+              outline
+              no-caps
+              color="red-4"
+              icon="tv_off"
+              label="Limpiar En vivo"
+              @click="stopActivityLive"
+            />
+            <q-btn
+              flat
+              round
+              icon="close"
+              aria-label="Cerrar control del operador"
+              @click="operatorPresentationOpen = false"
+            />
+          </div>
+        </header>
+
+        <main class="operator-console-body">
+          <section class="operator-current-panel">
+            <div class="operator-panel-label">
+              <span><i></i> Ahora En vivo</span>
+              <small>{{ presentedActivityIndex + 1 }} de {{ presentableActivities.length }}</small>
+            </div>
+            <div
+              class="presentation-preview operator-main-preview"
+              :style="presentationBackground(presentedActivity.imageUrl)"
+            >
+              <div class="presentation-overlay"></div>
+              <div class="presentation-brand">
+                <q-icon name="church" /> ICP Studio · Actividades
+              </div>
+              <div class="presentation-copy">
+                <span
+                  class="presentation-category"
+                  :style="{
+                    '--category-color': categoryInfo(presentedActivity.category).color,
+                  }"
+                  >{{ categoryInfo(presentedActivity.category).label }}</span
+                >
+                <h2>{{ presentedActivity.title }}</h2>
+                <p>{{ activityLongDateLabel(presentedActivity) }}</p>
+                <small v-if="presentedActivity.location"
+                  ><q-icon name="location_on" /> {{ presentedActivity.location }}</small
+                >
+              </div>
+            </div>
+            <div class="operator-current-metadata">
+              <span class="status-pill" :class="`status-pill--${presentedActivity.status}`">
+                {{ statusLabel(presentedActivity.status) }}
+              </span>
+              <span v-if="presentedActivity.responsible">
+                <q-icon name="person" /> {{ presentedActivity.responsible }}
+              </span>
+              <span v-if="presentedActivity.location">
+                <q-icon name="location_on" /> {{ presentedActivity.location }}
+              </span>
+            </div>
+          </section>
+
+          <aside class="operator-next-panel">
+            <div class="operator-panel-label"><span>Siguiente actividad</span></div>
+            <button
+              v-if="nextPresentedActivity"
+              type="button"
+              class="operator-next-card"
+              @click="sendActivityToLive(nextPresentedActivity, { openOperator: false })"
+            >
+              <div
+                class="operator-next-image"
+                :style="presentationBackground(nextPresentedActivity.imageUrl)"
+              >
+                <span>{{ dayNumber(nextPresentedActivity.date) }}</span>
+                <small>{{ shortMonth(nextPresentedActivity.date) }}</small>
+              </div>
+              <div>
+                <small>{{ categoryInfo(nextPresentedActivity.category).label }}</small>
+                <strong>{{ nextPresentedActivity.title }}</strong>
+                <span>{{ activityDateLabel(nextPresentedActivity) }}</span>
+              </div>
+              <q-icon name="arrow_forward" />
+            </button>
+            <div v-else class="operator-no-next">
+              <q-icon name="event_available" />
+              <strong>No hay otra actividad</strong>
+              <span>Esta es la última actividad programada.</span>
+            </div>
+
+            <div class="operator-keyboard-help">
+              <q-icon name="keyboard" />
+              <div>
+                <strong>Control con el teclado</strong>
+                <span><kbd>←</kbd> Anterior <kbd>→</kbd> Siguiente</span>
+              </div>
+            </div>
+            <p>
+              La apariencia final que verán los miembros se configurará en la próxima etapa. Este
+              panel continuará siendo el control privado del operador.
+            </p>
+          </aside>
+        </main>
+
+        <footer class="operator-console-footer">
+          <q-btn
+            outline
+            no-caps
+            color="blue-grey-3"
+            icon="arrow_back"
+            :label="previousPresentedActivity?.title ?? 'Actividad anterior'"
+            :disable="!previousPresentedActivity"
+            @click="movePresentedActivity(-1)"
+          />
+          <span>Usa las flechas del teclado para cambiar la actividad En vivo.</span>
+          <q-btn
+            unelevated
+            no-caps
+            color="primary"
+            icon-right="arrow_forward"
+            :label="nextPresentedActivity?.title ?? 'Última actividad'"
+            :disable="!nextPresentedActivity"
+            @click="movePresentedActivity(1)"
+          />
+        </footer>
       </q-card>
     </q-dialog>
 
@@ -701,7 +851,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import { showAppNotification } from '../services/app-notification';
@@ -711,7 +861,9 @@ import type {
   CalendarActivityCategoryDefinition,
   CalendarActivityStatus,
 } from '../shared/calendar';
+import type { ServicePresentationItem } from '../shared/presentation';
 import { useCalendarActivitiesStore } from '../stores/calendar-activities';
+import { usePresentationStore } from '../stores/presentation-store';
 
 interface CalendarDay {
   day: number;
@@ -737,6 +889,7 @@ type CalendarViewMode = 'month' | 'year' | 'agenda';
 
 const router = useRouter();
 const calendarStore = useCalendarActivitiesStore();
+const presentationStore = usePresentationStore();
 const { activities, categories } = storeToRefs(calendarStore);
 const now = new Date();
 const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
@@ -748,10 +901,12 @@ const activeCategory = ref<string>('all');
 const activityDialogOpen = ref(false);
 const activityDetailDialogOpen = ref(false);
 const presentationPreviewOpen = ref(false);
+const operatorPresentationOpen = ref(false);
 const dayActivitiesDialogOpen = ref(false);
 const categoriesDialogOpen = ref(false);
 const editingActivityId = ref<string | null>(null);
 const selectedActivity = ref<CalendarActivity | null>(null);
+const presentedActivityId = ref<string | null>(null);
 const selectedDayKey = ref('');
 const newCategoryName = ref('');
 const newCategoryColor = ref('#ef6464');
@@ -814,6 +969,27 @@ const upcomingActivities = computed(() =>
 );
 const nextActivity = computed(() => upcomingActivities.value[0] ?? null);
 const agendaActivities = computed(() => [...filteredActivities.value].sort(compareActivities));
+const presentableActivities = computed(() =>
+  activities.value.filter((activity) => activity.status !== 'cancelled').sort(compareActivities),
+);
+const presentedActivityIndex = computed(() =>
+  presentableActivities.value.findIndex((activity) => activity.id === presentedActivityId.value),
+);
+const presentedActivity = computed(() =>
+  presentedActivityIndex.value >= 0
+    ? (presentableActivities.value[presentedActivityIndex.value] ?? null)
+    : null,
+);
+const previousPresentedActivity = computed(() =>
+  presentedActivityIndex.value > 0
+    ? (presentableActivities.value[presentedActivityIndex.value - 1] ?? null)
+    : null,
+);
+const nextPresentedActivity = computed(() =>
+  presentedActivityIndex.value >= 0
+    ? (presentableActivities.value[presentedActivityIndex.value + 1] ?? null)
+    : null,
+);
 const periodTitle = computed(() =>
   viewMode.value === 'month' ? `${monthNames[monthIndex.value]} ${year.value}` : `${year.value}`,
 );
@@ -932,6 +1108,108 @@ function statusLabel(status: CalendarActivityStatus): string {
 }
 function presentationBackground(imageUrl: string): Record<string, string> {
   return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
+}
+
+function activityPresentationItem(activity: CalendarActivity): ServicePresentationItem {
+  const existingItem = presentationStore.serviceItems.find(
+    (item) => item.type === 'activity' && item.sourceId === activity.id,
+  );
+  return {
+    id: existingItem?.id ?? `service-activity-${activity.id}`,
+    sourceId: activity.id,
+    type: 'activity',
+    title: activity.title,
+    footer: categoryInfo(activity.category).label,
+    frames: [
+      {
+        id: `activity-frame-${activity.id}`,
+        label: activity.title,
+        text: activityLiveBody(activity),
+      },
+    ],
+  };
+}
+
+function activityLiveBody(activity: CalendarActivity): string {
+  return [
+    activityLongDateLabel(activity),
+    activity.location ? `Lugar: ${activity.location}` : '',
+    activity.description,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function sendActivityToLive(
+  activity: CalendarActivity,
+  options: { openOperator?: boolean; notify?: boolean } = {},
+): void {
+  if (activity.status === 'cancelled') {
+    showAppNotification(
+      'Una actividad cancelada no se puede enviar a En vivo.',
+      'warning',
+      'event_busy',
+    );
+    return;
+  }
+
+  const item = activityPresentationItem(activity);
+  const alreadyInService = presentationStore.serviceItems.some(
+    (serviceItem) => serviceItem.id === item.id,
+  );
+  if (alreadyInService) presentationStore.updateServiceItem(item);
+  else presentationStore.addToService(item);
+
+  presentationStore.activateServiceItem(item.id);
+  window.icpStudio?.projection.setState({
+    mode: 'content',
+    title: activity.title,
+    body: activityLiveBody(activity),
+    footer: categoryInfo(activity.category).label,
+  });
+
+  selectedActivity.value = activity;
+  presentedActivityId.value = activity.id;
+  if (options.openOperator ?? true) {
+    activityDetailDialogOpen.value = false;
+    presentationPreviewOpen.value = false;
+    operatorPresentationOpen.value = true;
+  }
+  if (options.notify ?? true) {
+    showAppNotification(`${activity.title} está ahora En vivo.`, 'positive', 'live_tv');
+  }
+}
+
+function movePresentedActivity(direction: -1 | 1): void {
+  const nextIndex = presentedActivityIndex.value + direction;
+  const activity = presentableActivities.value[nextIndex];
+  if (!activity) {
+    showAppNotification(
+      direction > 0 ? 'No hay otra actividad después de esta.' : 'Esta es la primera actividad.',
+      'info',
+      'event',
+    );
+    return;
+  }
+  sendActivityToLive(activity, { openOperator: false, notify: false });
+}
+
+function stopActivityLive(): void {
+  presentationStore.clearLive();
+  operatorPresentationOpen.value = false;
+  presentedActivityId.value = null;
+  showAppNotification('La salida En vivo quedó limpia.', 'info', 'tv_off');
+}
+
+function handleOperatorKeyboard(event: KeyboardEvent): void {
+  if (!operatorPresentationOpen.value) return;
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    movePresentedActivity(-1);
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    movePresentedActivity(1);
+  }
 }
 
 function goToCurrentPeriod(): void {
@@ -1104,6 +1382,9 @@ function deleteCategory(categoryId: string): void {
   if (activeCategory.value === categoryId) activeCategory.value = 'all';
   showAppNotification('La categoría fue eliminada.', 'positive', 'delete_outline');
 }
+
+onMounted(() => window.addEventListener('keydown', handleOperatorKeyboard));
+onBeforeUnmount(() => window.removeEventListener('keydown', handleOperatorKeyboard));
 </script>
 
 <style scoped>
@@ -2025,6 +2306,267 @@ button {
   color: white;
   background: rgb(9 18 29 / 84%);
 }
+.operator-console {
+  display: grid;
+  min-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  color: #e7eef7;
+  background: radial-gradient(circle at 8% 0%, rgb(37 99 235 / 18%), transparent 30%), #08111b;
+}
+.operator-console-header,
+.operator-console-footer,
+.operator-console-title,
+.operator-header-actions,
+.operator-panel-label,
+.operator-current-metadata {
+  display: flex;
+  align-items: center;
+}
+.operator-console-header {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: #0d1824;
+  border-bottom: 1px solid #26394e;
+}
+.operator-console-title {
+  gap: 10px;
+}
+.operator-console-title > div {
+  display: flex;
+  flex-direction: column;
+}
+.operator-console-title strong {
+  font-size: 14px;
+}
+.operator-console-title small {
+  margin-top: 2px;
+  color: #71869c;
+  font-size: 8px;
+}
+.operator-live-dot {
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgb(239 68 68 / 14%);
+  animation: operator-live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes operator-live-pulse {
+  50% {
+    box-shadow: 0 0 0 9px rgb(239 68 68 / 4%);
+  }
+}
+.operator-header-actions {
+  gap: 8px;
+}
+.operator-console-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.7fr) minmax(270px, 0.7fr);
+  gap: 16px;
+  padding: 18px;
+  overflow-y: auto;
+}
+.operator-current-panel,
+.operator-next-panel {
+  min-width: 0;
+}
+.operator-panel-label {
+  min-height: 27px;
+  justify-content: space-between;
+  color: #8296ab;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.operator-panel-label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.operator-panel-label i {
+  width: 6px;
+  height: 6px;
+  background: #ef4444;
+  border-radius: 50%;
+}
+.operator-main-preview {
+  max-height: calc(100vh - 230px);
+}
+.operator-current-metadata {
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  color: #8498ac;
+  font-size: 9px;
+}
+.operator-current-metadata > span:not(.status-pill) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.operator-next-panel {
+  display: flex;
+  flex-direction: column;
+}
+.operator-next-card {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  color: #a9bbcc;
+  background: #111f2e;
+  border: 1px solid #2b4057;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.operator-next-card:hover {
+  background: #172b40;
+  border-color: #4a7198;
+}
+.operator-next-image {
+  display: flex;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: white;
+  background:
+    linear-gradient(rgb(8 17 27 / 38%), rgb(8 17 27 / 74%)),
+    linear-gradient(135deg, #3b5f86, #15283d);
+  background-position: center;
+  background-size: cover;
+  border-radius: 7px;
+}
+.operator-next-image span {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+.operator-next-image small {
+  margin-top: 3px;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.operator-next-card > div:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.operator-next-card > div:nth-child(2) small {
+  color: #60a5fa;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.operator-next-card > div:nth-child(2) strong {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #e0e9f2;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operator-next-card > div:nth-child(2) span {
+  margin-top: 3px;
+  color: #778ba0;
+  font-size: 8px;
+}
+.operator-no-next {
+  display: flex;
+  min-height: 135px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  color: #71869a;
+  background: #0d1824;
+  border: 1px dashed #2a3e53;
+  border-radius: 10px;
+  text-align: center;
+}
+.operator-no-next .q-icon {
+  font-size: 30px;
+}
+.operator-no-next strong {
+  color: #aebdcc;
+  font-size: 10px;
+}
+.operator-no-next span {
+  font-size: 8px;
+}
+.operator-keyboard-help {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px;
+  color: #91a7bb;
+  background: #101c29;
+  border: 1px solid #263a4f;
+  border-radius: 9px;
+}
+.operator-keyboard-help > .q-icon {
+  font-size: 24px;
+}
+.operator-keyboard-help > div {
+  display: flex;
+  flex-direction: column;
+}
+.operator-keyboard-help strong {
+  font-size: 9px;
+}
+.operator-keyboard-help span {
+  margin-top: 5px;
+  color: #71879b;
+  font-size: 8px;
+}
+.operator-keyboard-help kbd {
+  display: inline-grid;
+  min-width: 24px;
+  height: 20px;
+  margin: 0 3px;
+  place-items: center;
+  color: #dbeafe;
+  background: #1d3146;
+  border: 1px solid #3c5874;
+  border-radius: 4px;
+  box-shadow: 0 2px #0a111a;
+}
+.operator-next-panel > p {
+  margin: auto 0 0;
+  padding-top: 18px;
+  color: #61768b;
+  font-size: 8px;
+  line-height: 1.5;
+}
+.operator-console-footer {
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 18px;
+  background: #0d1824;
+  border-top: 1px solid #26394e;
+}
+.operator-console-footer > span {
+  color: #687d92;
+  font-size: 8px;
+  text-align: center;
+}
+.operator-console-footer .q-btn {
+  max-width: 34%;
+}
+.operator-console-footer :deep(.q-btn__content) {
+  flex-wrap: nowrap;
+}
+.operator-console-footer :deep(.block) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .day-dialog-list {
   display: flex;
   max-height: 58vh;
@@ -2282,6 +2824,15 @@ button {
   .activity-dialog-body {
     grid-template-columns: 1fr;
   }
+  .operator-console-body {
+    grid-template-columns: 1fr;
+  }
+  .operator-main-preview {
+    max-height: none;
+  }
+  .operator-next-panel > p {
+    margin-top: 12px;
+  }
 }
 @media (max-width: 620px) {
   .calendar-header {
@@ -2331,6 +2882,26 @@ button {
   }
   .form-grid--date {
     align-items: stretch;
+  }
+  .operator-console-header {
+    align-items: flex-start;
+  }
+  .operator-console-title small,
+  .operator-console-footer > span {
+    display: none;
+  }
+  .operator-header-actions .q-btn:first-child :deep(.block) {
+    display: none;
+  }
+  .operator-console-body {
+    padding: 10px;
+  }
+  .operator-console-footer {
+    gap: 8px;
+    padding: 9px 10px;
+  }
+  .operator-console-footer .q-btn {
+    max-width: 49%;
   }
 }
 </style>
