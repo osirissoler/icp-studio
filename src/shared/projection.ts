@@ -45,6 +45,12 @@ export interface ProjectionDocumentState {
   pageIndex: number;
 }
 
+import type { RoulettePresentationData } from './roulette';
+
+export interface ProjectionRouletteState extends RoulettePresentationData {
+  mode: 'roulette';
+}
+
 export interface MediaPlaybackCommand {
   action: 'play' | 'pause' | 'seek';
   time?: number;
@@ -55,4 +61,5 @@ export type ProjectionState =
   | ProjectionMediaState
   | ProjectionDocumentState
   | ProjectionActivityState
+  | ProjectionRouletteState
   | ProjectionBlankState;
