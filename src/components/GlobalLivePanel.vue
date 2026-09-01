@@ -50,11 +50,17 @@
         <div
           v-if="section === 'screen'"
           class="technical-screen"
+          :class="{ 'technical-screen--activity': liveItem?.type === 'activity' }"
           :style="[surfaceStyle, contentLayoutStyle]"
         >
           <template v-if="liveFrame">
+            <ActivityProjectionView
+              v-if="liveItem?.type === 'activity' && liveFrame.activity"
+              :activity="liveFrame.activity"
+              compact
+            />
             <img
-              v-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
+              v-else-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
               :src="liveFrame.mediaUrl"
               :alt="liveItem?.title"
               class="live-media"
@@ -141,11 +147,14 @@
               :page-index="liveFrame.pageIndex ?? 0"
             />
             <FittedTechnicalText v-else :text="liveDisplayText" :min-size="10" :max-size="26" />
-            <span v-if="liveFrame" class="technical-selection">
+            <span v-if="liveFrame && liveItem?.type !== 'activity'" class="technical-selection">
               <q-icon name="check_circle" />
               {{ liveFrame.label }} · Seleccionado
             </span>
-            <span v-if="!liveFrame.mediaType" class="screen-footer">
+            <span
+              v-if="!liveFrame.mediaType && liveItem?.type !== 'activity'"
+              class="screen-footer"
+            >
               {{ liveItem?.footer }}
             </span>
           </template>
@@ -181,6 +190,13 @@
               :format="frame.documentFormat"
               :page-index="frame.pageIndex ?? 0"
             />
+            <div
+              v-else-if="liveItem.type === 'activity' && frame.activity"
+              class="activity-frame-thumbnail"
+              :style="activityThumbnail(frame.activity.imageUrl)"
+            >
+              <q-icon v-if="!frame.activity.imageUrl" name="event" />
+            </div>
             <q-icon
               v-if="liveFrameIndex === frameIndex"
               name="check_circle"
@@ -205,6 +221,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import AudioVisualizer from './AudioVisualizer.vue';
+import ActivityProjectionView from './ActivityProjectionView.vue';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import DocumentViewer from './DocumentViewer.vue';
 import DocumentThumbnail from './DocumentThumbnail.vue';
@@ -240,6 +257,10 @@ const activeContentStyle = computed<Record<string, string>>(() => ({
 function displayFrameLabel(frame: PresentationFrame): string {
   if (liveItem.value?.type !== 'bible') return frame.label;
   return frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label;
+}
+
+function activityThumbnail(imageUrl: string): Record<string, string> {
+  return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
 }
 
 const panelElement = ref<HTMLElement | null>(null);
@@ -449,6 +470,10 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
+.technical-screen--activity {
+  padding: 0;
+}
+
 .technical-selection {
   position: absolute;
   top: 7px;
@@ -591,6 +616,20 @@ onBeforeUnmount(() => {
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: var(--active-content-lines, 2);
+}
+
+.activity-frame-thumbnail {
+  display: grid;
+  width: 58px;
+  height: 34px;
+  flex: 0 0 58px;
+  overflow: hidden;
+  place-items: center;
+  color: #7690a8;
+  background: radial-gradient(circle at 70% 30%, #2d506f, transparent 40%), #101d2a;
+  background-position: center;
+  background-size: cover;
+  border-radius: 4px;
 }
 
 .frame-item small {
