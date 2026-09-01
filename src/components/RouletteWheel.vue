@@ -301,13 +301,9 @@ function playTone(frequency: number, duration: number, strength = 1): void {
 
 function startSpinSound(): void {
   stopSpinSound();
-  clearBrakeSounds();
-  if (
-    !props.playSounds ||
-    !props.roulette.soundEnabled ||
-    props.roulette.spinSoundEnabled === false
-  )
-    return;
+  if (!props.playSounds || !props.roulette.soundEnabled) return;
+  ensureAudioContext();
+  if (props.roulette.spinSoundEnabled === false) return;
   playTone(150, 0.035, 0.12);
   spinSoundTimer = setInterval(() => playTone(150, 0.035, 0.12), 170);
 }
