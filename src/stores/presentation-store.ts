@@ -232,6 +232,45 @@ export const usePresentationStore = defineStore('presentation', () => {
     projectCurrentFrame();
   }
 
+  function spinLiveRoulette(): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const frame = item?.frames[frameIndex];
+    const roulette = frame?.roulette;
+    if (!item || !frame || !roulette || roulette.spinning || roulette.options.length < 2) return;
+
+    const randomValues = new Uint32Array(2);
+    crypto.getRandomValues(randomValues);
+    const selectedIndex = (randomValues[0] ?? 0) % roulette.options.length;
+    const selected = roulette.options[selectedIndex];
+    if (!selected) return;
+    const center = (360 / roulette.options.length) * (selectedIndex + 0.5);
+    const current = ((roulette.rotation % 360) + 360) % 360;
+    const rotation =
+      roulette.rotation +
+      360 * (6 + ((randomValues[1] ?? 0) % 3)) +
+      ((360 - center - current + 360) % 360);
+    const spinDuration = roulette.spinDuration;
+
+    const updateRoulette = (nextRoulette: typeof roulette): void => {
+      if (liveItem.value?.id !== item.id) return;
+      liveItem.value = {
+        ...liveItem.value,
+        frames: liveItem.value.frames.map((currentFrame, index) =>
+          index === frameIndex ? { ...currentFrame, roulette: nextRoulette } : currentFrame,
+        ),
+      };
+      projectCurrentFrame();
+    };
+
+    updateRoulette({ ...roulette, rotation, winnerId: '', spinning: true });
+    window.setTimeout(() => {
+      const currentRoulette = liveItem.value?.frames[frameIndex]?.roulette;
+      if (!currentRoulette || currentRoulette.rotation !== rotation) return;
+      updateRoulette({ ...currentRoulette, winnerId: selected.id, spinning: false });
+    }, spinDuration);
+  }
+
   function clearLive(): void {
     liveItem.value = null;
     liveFrameIndex.value = 0;
@@ -263,6 +302,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     setLiveItem,
     setLiveFrame,
     moveLiveFrame,
+    spinLiveRoulette,
     controlLiveMedia,
     setLiveMediaPlaying,
     updateLiveMediaDuration,
