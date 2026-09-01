@@ -265,7 +265,7 @@ const splitColumns = computed(() =>
     .map((column, renderedIndex) => ({
       ...column,
       renderedIndex,
-      splitPercent: workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50,
+      splitPercent: Math.round(workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50),
     }))
     .filter((column) => column.panels.length === 2),
 );
@@ -292,7 +292,7 @@ function panelGridPosition(panel: WorkspacePanel): Record<string, string> {
   if (column.panels.length === 1) {
     return { gridColumn: String(renderedColumnIndex * 2 + 1), gridRow: '1 / 101' };
   }
-  const splitPercent = workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50;
+  const splitPercent = Math.round(workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50);
   return {
     gridColumn: String(renderedColumnIndex * 2 + 1),
     gridRow: panelIndex === 0 ? `1 / ${splitPercent}` : `${splitPercent + 1} / 101`,
