@@ -305,6 +305,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.description === 'string' &&
     typeof state.imageUrl === 'string' &&
     (state.imageUrl === '' || state.imageUrl.startsWith('icp-media://library/')) &&
+    typeof state.showOverlayText === 'boolean' &&
     typeof state.categoryLabel === 'string' &&
     typeof state.categoryColor === 'string'
   ) {
@@ -316,6 +317,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       location: state.location.slice(0, 500),
       description: state.description.slice(0, 3000),
       imageUrl: state.imageUrl,
+      showOverlayText: state.showOverlayText,
       categoryLabel: state.categoryLabel.slice(0, 100),
       categoryColor: /^#[0-9a-f]{6}$/i.test(state.categoryColor) ? state.categoryColor : '#60a5fa',
     };
