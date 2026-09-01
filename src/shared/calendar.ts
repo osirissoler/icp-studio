@@ -22,6 +22,7 @@ export interface CalendarActivity {
   id: string;
   title: string;
   date: string;
+  endDate: string;
   allDay: boolean;
   startTime: string;
   endTime: string;
