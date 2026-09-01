@@ -13,11 +13,7 @@
       </q-chip>
     </div>
 
-    <div
-      v-if="serviceItems.length"
-      ref="serviceListElement"
-      class="service-list"
-    >
+    <div v-if="serviceItems.length" ref="serviceListElement" class="service-list">
       <button
         v-for="(item, index) in serviceItems"
         :key="item.id"
@@ -63,13 +59,8 @@ import { usePresentationStore } from '../stores/presentation-store';
 
 const serviceListElement = ref<HTMLElement | null>(null);
 const presentationStore = usePresentationStore();
-const { serviceItems, selectedServiceItemId } =
-  storeToRefs(presentationStore);
-const {
-  activateServiceItem,
-  removeFromService,
-  selectServiceItem,
-} = presentationStore;
+const { serviceItems, selectedServiceItemId } = storeToRefs(presentationStore);
+const { activateServiceItem, removeFromService, selectServiceItem } = presentationStore;
 
 function moveServiceSelection(direction: -1 | 1): void {
   if (serviceItems.value.length === 0) {
@@ -82,10 +73,7 @@ function moveServiceSelection(direction: -1 | 1): void {
   const nextIndex =
     currentIndex < 0
       ? 0
-      : Math.min(
-          serviceItems.value.length - 1,
-          Math.max(0, currentIndex + direction),
-        );
+      : Math.min(serviceItems.value.length - 1, Math.max(0, currentIndex + direction));
   const nextItem = serviceItems.value[nextIndex];
 
   if (!nextItem) {
@@ -102,9 +90,7 @@ function moveServiceSelection(direction: -1 | 1): void {
 }
 
 function activateSelectedServiceItem(): void {
-  const selectedItem = serviceItems.value.find(
-    (item) => item.id === selectedServiceItemId.value,
-  );
+  const selectedItem = serviceItems.value.find((item) => item.id === selectedServiceItemId.value);
 
   if (selectedItem) {
     activateServiceItem(selectedItem.id);
@@ -121,6 +107,7 @@ function itemIcon(type: PresentationItemType): string {
     document: 'description',
     presentation: 'co_present',
     game: 'sports_esports',
+    activity: 'event',
   };
 
   return icons[type];
