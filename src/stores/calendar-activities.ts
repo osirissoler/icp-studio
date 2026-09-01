@@ -35,7 +35,14 @@ function loadActivities(): CalendarActivity[] {
           typeof (activity as CalendarActivity).title === 'string' &&
           /^\d{4}-\d{2}-\d{2}$/.test((activity as CalendarActivity).date),
       )
-      .map((activity) => ({ ...activity, status: normalizedStatus(activity.status) }));
+      .map((activity) => ({
+        ...activity,
+        endDate:
+          typeof activity.endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(activity.endDate)
+            ? activity.endDate
+            : activity.date,
+        status: normalizedStatus(activity.status),
+      }));
   } catch {
     return [];
   }
