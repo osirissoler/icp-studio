@@ -100,6 +100,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'reloj-tiempo',
+        component: () => import('../pages/TimeToolPage.vue'),
+        meta: {
+          title: 'Reloj y tiempo',
+          description: 'Presenta relojes, temporizadores y cronómetros en vivo.',
+          icon: 'schedule',
+        },
+      },
+      {
         path: 'biblioteca',
         component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
