@@ -460,7 +460,7 @@ const {
 const { liveRouletteResults } = storeToRefs(presentationStore);
 const savedRoulettes = ref(loadSaved());
 const roulette = reactive<SavedRoulette>(
-  savedRoulettes.value[0] ? structuredClone(savedRoulettes.value[0]) : createRoulette(),
+  savedRoulettes.value[0] ? cloneRoulette(savedRoulettes.value[0]) : createRoulette(),
 );
 const optionsText = ref(roulette.options.map((option) => option.label).join('\n'));
 const rotation = ref(0);
@@ -537,6 +537,24 @@ function createRoulette(): SavedRoulette {
     updatedAt: new Date().toISOString(),
   };
 }
+function cloneRoulette(value: SavedRoulette): SavedRoulette {
+  return {
+    id: String(value.id),
+    title: String(value.title),
+    options: value.options.map((option) => ({
+      id: String(option.id),
+      label: String(option.label),
+      color: String(option.color),
+    })),
+    allowRepeats: Boolean(value.allowRepeats),
+    removeWinner: Boolean(value.removeWinner),
+    labelMode: value.labelMode,
+    durationValue: Number(value.durationValue),
+    durationUnit: value.durationUnit,
+    useTimer: Boolean(value.useTimer),
+    updatedAt: String(value.updatedAt),
+  };
+}
 function loadSaved(): SavedRoulette[] {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as SavedRoulette[];
@@ -555,8 +573,14 @@ function loadSaved(): SavedRoulette[] {
     return [];
   }
 }
-function persist(): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedRoulettes.value));
+function persist(): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedRoulettes.value));
+    return true;
+  } catch {
+    showAppNotification('No se pudieron guardar las ruletas.', 'negative', 'error_outline');
+    return false;
+  }
 }
 function rouletteSignature(value: SavedRoulette): string {
   return JSON.stringify({
@@ -587,7 +611,7 @@ function newRoulette(): void {
 function loadRoulette(saved: SavedRoulette): void {
   if (saved.id === roulette.id && !hasUnsavedChanges.value) return;
   if (!canReplaceCurrent()) return;
-  Object.assign(roulette, structuredClone(saved));
+  Object.assign(roulette, cloneRoulette(saved));
   optionsText.value = roulette.options.map((o) => o.label).join('\n');
   savedBaseline.value = rouletteSignature(roulette);
   resetGame();
@@ -596,17 +620,24 @@ function saveCurrent(): void {
   applyOptionsText();
   roulette.updatedAt = new Date().toISOString();
   const index = savedRoulettes.value.findIndex((item) => item.id === roulette.id);
-  const copy = structuredClone(roulette);
-  if (index >= 0) savedRoulettes.value[index] = copy;
-  else savedRoulettes.value = [...savedRoulettes.value, copy];
-  persist();
+  const previous = savedRoulettes.value;
+  const copy = cloneRoulette(roulette);
+  if (index >= 0) {
+    savedRoulettes.value = savedRoulettes.value.map((item, itemIndex) =>
+      itemIndex === index ? copy : item,
+    );
+  } else savedRoulettes.value = [...savedRoulettes.value, copy];
+  if (!persist()) {
+    savedRoulettes.value = previous;
+    return;
+  }
   savedBaseline.value = rouletteSignature(roulette);
   showAppNotification('La ruleta fue guardada.', 'positive', 'save');
 }
 function sendSavedLive(saved: SavedRoulette): void {
   if (saved.id !== roulette.id) {
     if (!canReplaceCurrent()) return;
-    Object.assign(roulette, structuredClone(saved));
+    Object.assign(roulette, cloneRoulette(saved));
     optionsText.value = roulette.options.map((option) => option.label).join('\n');
     savedBaseline.value = rouletteSignature(roulette);
     resetGame();
@@ -614,7 +645,7 @@ function sendSavedLive(saved: SavedRoulette): void {
   sendLive();
 }
 function duplicateRoulette(saved: SavedRoulette): void {
-  const duplicate = structuredClone(saved);
+  const duplicate = cloneRoulette(saved);
   duplicate.id = crypto.randomUUID();
   duplicate.title = `${saved.title} · copia`;
   duplicate.options = duplicate.options.map((option) => ({
@@ -632,7 +663,7 @@ function deleteRoulette(saved: SavedRoulette): void {
   persist();
   if (roulette.id === saved.id) {
     const next = savedRoulettes.value[0];
-    Object.assign(roulette, next ? structuredClone(next) : createRoulette());
+    Object.assign(roulette, next ? cloneRoulette(next) : createRoulette());
     optionsText.value = roulette.options.map((option) => option.label).join('\n');
     savedBaseline.value = next ? rouletteSignature(roulette) : '';
     resetGame();
