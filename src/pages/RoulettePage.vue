@@ -1,5 +1,5 @@
 <template>
-  <q-page class="roulette-page" @keydown.space.prevent="spin">
+  <q-page class="roulette-page">
     <header class="roulette-page-header">
       <div>
         <q-icon name="donut_large" />
@@ -60,9 +60,9 @@
           dark
           outlined
           type="textarea"
-          autogrow
+          class="roulette-options-input"
           label="Opciones · una por línea"
-          hint="También puedes pegar una lista completa"
+          hint="Puedes pegar una lista y ampliar este campo hacia abajo"
           @update:model-value="applyOptionsText"
         />
         <q-select
@@ -133,7 +133,6 @@
             @click="removeWinner"
           />
         </div>
-        <span class="keyboard-tip"><kbd>Espacio</kbd> Girar</span>
       </section>
 
       <aside class="roulette-history">
@@ -165,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import RouletteWheel from '../components/RouletteWheel.vue';
 import { showAppNotification } from '../services/app-notification';
 import type { ServicePresentationItem } from '../shared/presentation';
@@ -356,12 +355,12 @@ function spin(): void {
   rotation.value += 360 * (6 + randomIndex(3)) + ((360 - center - current + 360) % 360);
   winnerId.value = '';
   spinning.value = true;
-  publishLive();
+  if (liveSent.value) publishLive();
   finishTimer = setTimeout(() => {
     spinning.value = false;
     winnerId.value = selected.id;
     history.value = [selected, ...history.value];
-    publishLive();
+    if (liveSent.value) publishLive();
   }, 5200);
 }
 function removeWinner(): void {
@@ -381,18 +380,12 @@ function resetGame(): void {
 onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
 });
-function handleKeyboard(event: KeyboardEvent): void {
-  if (
-    event.code !== 'Space' ||
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLTextAreaElement
-  )
-    return;
-  event.preventDefault();
-  spin();
-}
-onMounted(() => window.addEventListener('keydown', handleKeyboard));
-onBeforeUnmount(() => window.removeEventListener('keydown', handleKeyboard));
+watch(
+  () => [roulette.title, roulette.labelMode] as const,
+  () => {
+    if (liveSent.value && !spinning.value) publishLive();
+  },
+);
 </script>
 
 <style scoped>
@@ -441,7 +434,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeyboard));
   display: grid;
   height: calc(100vh - 150px);
   min-height: 610px;
-  grid-template-columns: minmax(235px, 0.65fr) minmax(420px, 1.55fr) minmax(210px, 0.55fr);
+  grid-template-columns: minmax(300px, 0.8fr) minmax(420px, 1.45fr) minmax(210px, 0.55fr);
   gap: 12px;
 }
 .roulette-editor,
@@ -500,6 +493,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeyboard));
   display: flex;
   flex-direction: column;
 }
+.roulette-options-input :deep(textarea) {
+  min-height: 150px !important;
+  max-height: 420px;
+  resize: vertical !important;
+}
 .option-preview-list {
   display: flex;
   flex-direction: column;
@@ -553,19 +551,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeyboard));
   display: flex;
   justify-content: center;
   gap: 8px;
-}
-.keyboard-tip {
-  margin-top: 8px;
-  color: #64798d;
-  font-size: 8px;
-  text-align: center;
-}
-.keyboard-tip kbd {
-  padding: 2px 6px;
-  color: #cfe8ff;
-  background: #1a3044;
-  border: 1px solid #3b5872;
-  border-radius: 4px;
 }
 .roulette-history {
   display: flex;
