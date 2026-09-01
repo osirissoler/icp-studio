@@ -2,11 +2,11 @@
   <section class="workspace-shell">
     <div ref="workspaceElement" class="workspace-panels" :style="workspaceGridStyle">
       <article
-        v-for="(panel, index) in visiblePanels"
+        v-for="panel in visiblePanels"
         :key="panel.id"
         class="workspace-panel"
         :class="{ 'workspace-panel--dragging': draggingPanelId === panel.id }"
-        :style="panelGridPosition(index)"
+        :style="panelGridPosition(panel)"
         @dragover.prevent
         @drop="dropPanel(panel.id)"
       >
@@ -149,7 +149,7 @@
         class="resize-handle resize-handle--column"
         :style="{
           gridColumn: String(separatorIndex * 2),
-          gridRow: stackedColumnCount > 0 ? '1 / 4' : '1',
+          gridRow: '1 / 101',
         }"
         title="Arrastra para cambiar el ancho"
         @pointerdown="startColumnResize($event, separatorIndex - 1)"
@@ -158,12 +158,15 @@
       </div>
 
       <div
-        v-for="stackedIndex in stackedColumnCount"
-        :key="`row-separator-${stackedIndex}`"
+        v-for="column in splitColumns"
+        :key="`row-separator-${column.logicalIndex}`"
         class="resize-handle resize-handle--center"
-        :style="{ gridColumn: String((stackedIndex - 1) * 2 + 1) }"
+        :style="{
+          gridColumn: String(column.renderedIndex * 2 + 1),
+          gridRow: String(column.splitPercent),
+        }"
         title="Arrastra para cambiar la altura"
-        @pointerdown="startRowResize"
+        @pointerdown="startRowResize($event, column.logicalIndex)"
       >
         <span></span>
       </div>
@@ -221,14 +224,52 @@ const visiblePanels = computed(() =>
 
 const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}...`);
 const isSongModule = computed(() => props.title === 'Alabanzas');
-const layoutColumnCount = computed(() => {
-  const panelCount = visiblePanels.value.length;
-  if (panelCount <= 1) return panelCount;
-  if (panelCount <= 3) return panelCount - 1;
-  return panelCount - 2;
+const columnCapacities = computed(() => {
+  if (workspaceSettings.layoutPreset === 'split-left-right') return [2, 1, 2];
+  if (workspaceSettings.layoutPreset === 'split-center-right') return [1, 2, 2];
+  return [2, 2, 1];
 });
-const stackedColumnCount = computed(() =>
-  visiblePanels.value.length >= 4 ? 2 : visiblePanels.value.length >= 2 ? 1 : 0,
+
+const panelColumns = computed(() => {
+  const columns: WorkspacePanel[][] = [];
+  let panelIndex = 0;
+  for (const capacity of columnCapacities.value) {
+    columns.push(
+      workspaceSettings.panelOrder
+        .slice(panelIndex, panelIndex + capacity)
+        .map((panelId) => panelDefinitions.find((panel) => panel.id === panelId))
+        .filter((panel): panel is WorkspacePanel => panel !== undefined),
+    );
+    panelIndex += capacity;
+  }
+  while (panelIndex < workspaceSettings.panelOrder.length) {
+    const panel = panelDefinitions.find(
+      (definition) => definition.id === workspaceSettings.panelOrder[panelIndex],
+    );
+    if (panel) columns.push([panel]);
+    panelIndex += 1;
+  }
+  return columns;
+});
+
+const activeLogicalColumns = computed(() =>
+  panelColumns.value
+    .map((panels, logicalIndex) => ({
+      logicalIndex,
+      panels: panels.filter((panel) => workspaceSettings.isVisible(panel.id)),
+    }))
+    .filter((column) => column.panels.length > 0),
+);
+
+const layoutColumnCount = computed(() => activeLogicalColumns.value.length);
+const splitColumns = computed(() =>
+  activeLogicalColumns.value
+    .map((column, renderedIndex) => ({
+      ...column,
+      renderedIndex,
+      splitPercent: workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50,
+    }))
+    .filter((column) => column.panels.length === 2),
 );
 const workspaceGridStyle = computed(() => {
   const columnCount = layoutColumnCount.value;
@@ -239,26 +280,24 @@ const workspaceGridStyle = computed(() => {
 
   return {
     gridTemplateColumns: columns || '1fr',
-    gridTemplateRows:
-      stackedColumnCount.value > 0
-        ? `minmax(0, ${workspaceSettings.stackedTopPercent}fr) 12px minmax(0, ${100 - workspaceSettings.stackedTopPercent}fr)`
-        : 'minmax(0, 1fr)',
+    gridTemplateRows: 'repeat(100, minmax(0, 1fr))',
   };
 });
 
-function panelGridPosition(index: number): Record<string, string> {
-  const stackedPanelCount = stackedColumnCount.value * 2;
-  if (index < stackedPanelCount) {
-    const columnIndex = Math.floor(index / 2);
-    return {
-      gridColumn: String(columnIndex * 2 + 1),
-      gridRow: index % 2 === 0 ? '1' : '3',
-    };
+function panelGridPosition(panel: WorkspacePanel): Record<string, string> {
+  const renderedColumnIndex = activeLogicalColumns.value.findIndex((column) =>
+    column.panels.some((item) => item.id === panel.id),
+  );
+  const column = activeLogicalColumns.value[renderedColumnIndex];
+  if (!column) return {};
+  const panelIndex = column.panels.findIndex((item) => item.id === panel.id);
+  if (column.panels.length === 1) {
+    return { gridColumn: String(renderedColumnIndex * 2 + 1), gridRow: '1 / 101' };
   }
-
+  const splitPercent = workspaceSettings.columnSplitPercents[column.logicalIndex] ?? 50;
   return {
-    gridColumn: String((stackedColumnCount.value + index - stackedPanelCount) * 2 + 1),
-    gridRow: '1 / 4',
+    gridColumn: String(renderedColumnIndex * 2 + 1),
+    gridRow: panelIndex === 0 ? `1 / ${splitPercent}` : `${splitPercent + 1} / 101`,
   };
 }
 
@@ -349,7 +388,7 @@ function startColumnResize(event: PointerEvent, leftIndex: number): void {
   );
 }
 
-function startRowResize(event: PointerEvent): void {
+function startRowResize(event: PointerEvent, logicalColumnIndex: number): void {
   const containerHeight = workspaceElement.value?.clientHeight;
 
   if (!containerHeight) {
@@ -357,13 +396,13 @@ function startRowResize(event: PointerEvent): void {
   }
 
   const startY = event.clientY;
-  const initialTop = workspaceSettings.stackedTopPercent;
+  const initialTop = workspaceSettings.columnSplitPercents[logicalColumnIndex] ?? 50;
 
   beginResize(
     event,
     (moveEvent) => {
       const difference = ((moveEvent.clientY - startY) / containerHeight) * 100;
-      workspaceSettings.setStackedTopPercent(initialTop + difference);
+      workspaceSettings.setColumnSplitPercent(logicalColumnIndex, initialTop + difference);
     },
     'is-resizing-rows',
   );
