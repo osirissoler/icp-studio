@@ -74,6 +74,7 @@
           map-options
           label="Texto dentro de la ruleta"
           :options="labelModeOptions"
+          @update:model-value="changeLabelMode"
         />
         <div class="editor-toggles">
           <q-toggle
@@ -102,7 +103,12 @@
           <span><i></i> Vista del operador</span
           ><small>{{ liveSent ? 'En vivo' : 'Vista previa' }}</small>
         </div>
-        <div class="operator-wheel"><RouletteWheel :roulette="presentationData" /></div>
+        <div class="operator-wheel">
+          <RouletteWheel
+            :key="`${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
+            :roulette="presentationData"
+          />
+        </div>
         <div class="spin-controls">
           <q-btn
             unelevated
@@ -160,6 +166,75 @@
         </div>
       </aside>
     </main>
+
+    <q-dialog v-model="operatorConsoleOpen" maximized>
+      <q-card class="roulette-console">
+        <header class="roulette-console-header">
+          <div>
+            <span class="console-live-dot"></span>
+            <span
+              ><strong>Control de Ruleta · En vivo</strong><small>{{ roulette.title }}</small></span
+            >
+          </div>
+          <div class="header-actions">
+            <q-btn
+              outline
+              no-caps
+              color="red-4"
+              icon="tv_off"
+              label="Limpiar En vivo"
+              @click="stopLive"
+            />
+            <q-btn
+              flat
+              round
+              icon="close"
+              aria-label="Cerrar control"
+              @click="operatorConsoleOpen = false"
+            />
+          </div>
+        </header>
+        <main class="roulette-console-body">
+          <section class="roulette-console-preview">
+            <div class="operator-label">
+              <span><i></i> Ahora En vivo</span>
+            </div>
+            <div class="console-wheel-scroll">
+              <RouletteWheel
+                :key="`live-${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
+                :roulette="presentationData"
+              />
+            </div>
+          </section>
+          <aside class="roulette-console-controls">
+            <q-icon name="donut_large" />
+            <strong>{{ spinning ? 'La ruleta está girando' : 'Control de la ruleta' }}</strong>
+            <p>Enviar a En vivo no inicia el giro. Usa este botón cuando estés listo.</p>
+            <q-btn
+              unelevated
+              no-caps
+              color="primary"
+              icon="play_arrow"
+              :label="spinning ? 'Girando…' : 'Girar ruleta'"
+              :disable="spinning || roulette.options.length < 2"
+              @click="spin"
+            />
+            <q-btn
+              outline
+              no-caps
+              color="blue-grey-3"
+              icon="restart_alt"
+              label="Reiniciar"
+              :disable="spinning"
+              @click="resetGame"
+            />
+            <div v-if="winner" class="console-result">
+              <small>Resultado</small><strong>{{ winner.label }}</strong>
+            </div>
+          </aside>
+        </main>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -202,6 +277,7 @@ const rotation = ref(0);
 const winnerId = ref('');
 const spinning = ref(false);
 const liveSent = ref(false);
+const operatorConsoleOpen = ref(false);
 const history = ref<RouletteOption[]>([]);
 let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -289,6 +365,12 @@ function applyOptionsText(): void {
   }
   if (liveSent.value && !spinning.value) publishLive();
 }
+function changeLabelMode(value: unknown): void {
+  if (value === 'full' || value === 'first-word' || value === 'short' || value === 'hidden') {
+    roulette.labelMode = value;
+    if (liveSent.value && !spinning.value) publishLive();
+  }
+}
 function removeOption(index: number): void {
   roulette.options.splice(index, 1);
   optionsText.value = roulette.options.map((o) => o.label).join('\n');
@@ -321,6 +403,7 @@ function sendLive(): void {
     return;
   }
   publishLive();
+  operatorConsoleOpen.value = true;
   showAppNotification('La ruleta está en Contenido activo.', 'positive', 'live_tv');
 }
 function randomIndex(max: number): number {
@@ -376,6 +459,11 @@ function resetGame(): void {
   rotation.value = 0;
   history.value = [];
   if (liveSent.value) publishLive();
+}
+function stopLive(): void {
+  presentationStore.clearLive();
+  liveSent.value = false;
+  operatorConsoleOpen.value = false;
 }
 onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
@@ -543,9 +631,13 @@ watch(
   min-height: 0;
   flex: 1;
   margin: 9px 0;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid #314a62;
   border-radius: 10px;
+}
+.operator-wheel :deep(.roulette-stage) {
+  min-height: 560px;
+  height: auto;
 }
 .spin-controls {
   display: flex;
@@ -608,6 +700,124 @@ watch(
 }
 .history-empty .q-icon {
   font-size: 34px;
+}
+.roulette-console {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  color: #dce7f2;
+  background: #08111b;
+}
+.roulette-console-header,
+.roulette-console-header > div,
+.roulette-console-header > div:first-child > span:last-child {
+  display: flex;
+  align-items: center;
+}
+.roulette-console-header {
+  min-height: 66px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  background: #101c29;
+  border-bottom: 1px solid #2a4055;
+}
+.roulette-console-header > div:first-child {
+  gap: 10px;
+}
+.roulette-console-header > div:first-child > span:last-child {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.roulette-console-header small {
+  color: #7890a7;
+}
+.console-live-dot {
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgb(239 68 68 / 14%);
+}
+.roulette-console-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 14px;
+  padding: 14px;
+}
+.roulette-console-preview,
+.roulette-console-controls {
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+  background: #111d2a;
+  border: 1px solid #293d51;
+  border-radius: 12px;
+}
+.roulette-console-preview {
+  display: flex;
+  flex-direction: column;
+}
+.console-wheel-scroll {
+  min-height: 0;
+  flex: 1;
+  margin-top: 9px;
+  overflow: auto;
+  border-radius: 10px;
+}
+.console-wheel-scroll :deep(.roulette-stage) {
+  min-height: 680px;
+  height: auto;
+}
+.roulette-console-controls {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+}
+.roulette-console-controls > .q-icon {
+  align-self: center;
+  color: #60a5fa;
+  font-size: 58px;
+}
+.roulette-console-controls > strong,
+.roulette-console-controls > p {
+  text-align: center;
+}
+.roulette-console-controls > p {
+  margin: 0 0 12px;
+  color: #8195a9;
+}
+.console-result {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  margin-top: 8px;
+  padding: 14px;
+  background: #0c283e;
+  border: 1px solid #38bdf8;
+  border-radius: 10px;
+  text-align: center;
+}
+.console-result small {
+  color: #7dd3fc;
+  text-transform: uppercase;
+}
+.console-result strong {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+@media (max-width: 820px) {
+  .roulette-console-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .roulette-console-preview {
+    min-height: 640px;
+  }
 }
 @media (max-width: 1000px) {
   .roulette-layout {
