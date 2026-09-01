@@ -484,6 +484,48 @@
                         label="Sonido del ganador"
                       />
                     </div>
+                    <div v-if="roulette.winnerSoundEnabled" class="winner-sound-picker">
+                      <q-select
+                        v-model="roulette.winnerSoundPreset"
+                        dark
+                        outlined
+                        dense
+                        emit-value
+                        map-options
+                        label="Sonido del ganador"
+                        :options="winnerSoundPresetOptions"
+                      />
+                      <div v-if="roulette.winnerSoundPreset === 'custom'" class="custom-sound-file">
+                        <span>
+                          <q-icon name="audio_file" />
+                          <span>
+                            <strong>{{
+                              roulette.customWinnerSoundName || 'Ningún archivo seleccionado'
+                            }}</strong>
+                            <small>MP3, WAV, OGG, M4A u otro audio compatible</small>
+                          </span>
+                        </span>
+                        <q-btn
+                          outline
+                          no-caps
+                          color="light-blue-3"
+                          icon="upload_file"
+                          label="Buscar sonido"
+                          @click="chooseWinnerSound"
+                        />
+                      </div>
+                      <q-btn
+                        outline
+                        no-caps
+                        color="blue-grey-3"
+                        icon="play_arrow"
+                        label="Probar sonido del ganador"
+                        :disable="
+                          roulette.winnerSoundPreset === 'custom' && !roulette.customWinnerSoundUrl
+                        "
+                        @click="previewWinnerSound"
+                      />
+                    </div>
                     <div class="sound-volume-control">
                       <span>Volumen</span>
                       <q-slider
@@ -513,6 +555,7 @@
             </div>
             <div ref="settingsPreviewElement" class="roulette-settings-preview-stage">
               <RouletteWheel
+                ref="settingsWheelElement"
                 :key="`settings-${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
                 :roulette="presentationData"
                 celebrate-winner
@@ -705,6 +748,7 @@ import type {
   RouletteLiveResult,
   RouletteOption,
   RoulettePresentationData,
+  RouletteWinnerSoundPreset,
   RouletteWinnerTextSize,
   SavedRoulette,
 } from '../shared/roulette';
@@ -753,6 +797,11 @@ const confettiDurationOptions = [
   { label: '5 segundos', value: 5 },
   { label: '10 segundos', value: 10 },
 ];
+const winnerSoundPresetOptions = [
+  { label: 'Campanas de celebración', value: 'chime' },
+  { label: 'Celebración y aplausos', value: 'crowd' },
+  { label: 'Archivo personalizado', value: 'custom' },
+];
 const paletteOptions = [
   { id: 'vibrant', label: 'Vibrante', colors },
   {
@@ -796,6 +845,7 @@ const spinStartedAt = ref(0);
 const settingsOpen = ref(false);
 const settingsTab = ref<'appearance' | 'celebration' | 'sound'>('appearance');
 const settingsPreviewElement = ref<HTMLElement | null>(null);
+const settingsWheelElement = ref<InstanceType<typeof RouletteWheel> | null>(null);
 const operatorConsoleOpen = ref(false);
 const liveDurationUnit = ref<'seconds' | 'minutes'>('seconds');
 const history = ref<RouletteOption[]>([]);
@@ -883,6 +933,9 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   spinSoundEnabled: roulette.spinSoundEnabled,
   brakeSoundEnabled: roulette.brakeSoundEnabled,
   winnerSoundEnabled: roulette.winnerSoundEnabled,
+  winnerSoundPreset: roulette.winnerSoundPreset,
+  customWinnerSoundUrl: roulette.customWinnerSoundUrl,
+  customWinnerSoundName: roulette.customWinnerSoundName,
 }));
 const spinDuration = computed(() => {
   const value = Math.max(1, Number(roulette.durationValue) || 1);
@@ -915,6 +968,9 @@ function createRoulette(): SavedRoulette {
     spinSoundEnabled: true,
     brakeSoundEnabled: true,
     winnerSoundEnabled: true,
+    winnerSoundPreset: 'chime',
+    customWinnerSoundUrl: '',
+    customWinnerSoundName: '',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -923,6 +979,9 @@ function winnerTextSize(value: unknown): RouletteWinnerTextSize {
 }
 function confettiIntensity(value: unknown): RouletteConfettiIntensity {
   return value === 'low' || value === 'high' ? value : 'medium';
+}
+function winnerSoundPreset(value: unknown): RouletteWinnerSoundPreset {
+  return value === 'crowd' || value === 'custom' ? value : 'chime';
 }
 function validColor(value: unknown, fallback: string): string {
   return typeof value === 'string' && /^#[\da-f]{6}$/i.test(value) ? value : fallback;
@@ -955,6 +1014,11 @@ function cloneRoulette(value: SavedRoulette): SavedRoulette {
     spinSoundEnabled: value.spinSoundEnabled ?? true,
     brakeSoundEnabled: value.brakeSoundEnabled ?? true,
     winnerSoundEnabled: value.winnerSoundEnabled ?? true,
+    winnerSoundPreset: winnerSoundPreset(value.winnerSoundPreset),
+    customWinnerSoundUrl:
+      typeof value.customWinnerSoundUrl === 'string' ? value.customWinnerSoundUrl : '',
+    customWinnerSoundName:
+      typeof value.customWinnerSoundName === 'string' ? value.customWinnerSoundName : '',
     updatedAt: value.updatedAt || new Date().toISOString(),
   };
 }
@@ -1001,6 +1065,9 @@ function rouletteSignature(value: SavedRoulette): string {
     spinSoundEnabled: value.spinSoundEnabled,
     brakeSoundEnabled: value.brakeSoundEnabled,
     winnerSoundEnabled: value.winnerSoundEnabled,
+    winnerSoundPreset: value.winnerSoundPreset,
+    customWinnerSoundUrl: value.customWinnerSoundUrl,
+    customWinnerSoundName: value.customWinnerSoundName,
   });
 }
 function validateCurrent(action: 'guardar' | 'enviar'): boolean {
@@ -1012,6 +1079,17 @@ function validateCurrent(action: 'guardar' | 'enviar'): boolean {
   }
   if (roulette.options.length < 2) {
     showAppNotification('Agrega por lo menos dos opciones.', 'warning', 'warning');
+    return false;
+  }
+  if (
+    roulette.soundEnabled &&
+    roulette.winnerSoundEnabled &&
+    roulette.winnerSoundPreset === 'custom' &&
+    !roulette.customWinnerSoundUrl
+  ) {
+    showAppNotification('Selecciona el archivo del sonido del ganador.', 'warning', 'audio_file');
+    settingsOpen.value = true;
+    settingsTab.value = 'sound';
     return false;
   }
   if (
@@ -1066,6 +1144,18 @@ function saveCurrent(): void {
 function saveSettingsAndClose(): void {
   saveCurrent();
   if (!hasUnsavedChanges.value) settingsOpen.value = false;
+}
+async function chooseWinnerSound(): Promise<void> {
+  const imported = (await window.icpStudio?.media.select('audio')) ?? [];
+  const sound = imported[0];
+  if (!sound) return;
+  roulette.winnerSoundPreset = 'custom';
+  roulette.customWinnerSoundUrl = sound.url;
+  roulette.customWinnerSoundName = sound.name;
+  showAppNotification(`${sound.name} fue asignado al ganador.`, 'positive', 'audio_file');
+}
+function previewWinnerSound(): void {
+  settingsWheelElement.value?.previewWinnerSound();
 }
 function sendSavedLive(saved: SavedRoulette): void {
   if (saved.id !== roulette.id) {
@@ -1929,6 +2019,57 @@ button {
   flex-direction: column;
   padding-left: 5px;
   border-left: 2px solid #294b67;
+}
+.winner-sound-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #101f2e;
+  border: 1px solid #29445d;
+  border-radius: 8px;
+}
+.winner-sound-picker > .q-btn {
+  align-self: flex-start;
+}
+.custom-sound-file,
+.custom-sound-file > span,
+.custom-sound-file > span > span {
+  display: flex;
+  align-items: center;
+}
+.custom-sound-file {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px;
+  background: #0c1925;
+  border: 1px dashed #36556f;
+  border-radius: 7px;
+}
+.custom-sound-file > span {
+  min-width: 0;
+  gap: 8px;
+}
+.custom-sound-file > span > .q-icon {
+  color: #7dd3fc;
+  font-size: 24px;
+}
+.custom-sound-file > span > span {
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
+}
+.custom-sound-file strong {
+  max-width: 250px;
+  overflow: hidden;
+  color: #d8e6f3;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-sound-file small {
+  color: #71879b;
+  font-size: 7px;
 }
 .sound-volume-control {
   display: grid;
