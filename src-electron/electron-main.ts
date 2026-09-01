@@ -392,11 +392,20 @@ function parseProjectionState(value: unknown): ProjectionState | null {
           state.confettiIntensity === 'low' || state.confettiIntensity === 'high'
             ? state.confettiIntensity
             : 'medium',
+        confettiDuration: [0, 3, 5, 10].includes(Number(state.confettiDuration))
+          ? Number(state.confettiDuration)
+          : 0,
         soundEnabled: typeof state.soundEnabled === 'boolean' ? state.soundEnabled : false,
         soundVolume:
           typeof state.soundVolume === 'number' && Number.isFinite(state.soundVolume)
             ? Math.min(1, Math.max(0.05, state.soundVolume))
             : 0.45,
+        spinSoundEnabled:
+          typeof state.spinSoundEnabled === 'boolean' ? state.spinSoundEnabled : true,
+        brakeSoundEnabled:
+          typeof state.brakeSoundEnabled === 'boolean' ? state.brakeSoundEnabled : true,
+        winnerSoundEnabled:
+          typeof state.winnerSoundEnabled === 'boolean' ? state.winnerSoundEnabled : true,
       };
     }
   }
