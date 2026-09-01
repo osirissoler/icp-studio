@@ -945,7 +945,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
 import { showAppNotification } from '../services/app-notification';
 import type {
@@ -984,6 +984,7 @@ interface ActivityForm {
 type CalendarViewMode = 'month' | 'year' | 'agenda';
 
 const router = useRouter();
+const route = useRoute();
 const calendarStore = useCalendarActivitiesStore();
 const presentationStore = usePresentationStore();
 const { activities, categories } = storeToRefs(calendarStore);
@@ -1578,7 +1579,15 @@ function deleteCategory(categoryId: string): void {
   showAppNotification('La categoría fue eliminada.', 'positive', 'delete_outline');
 }
 
-onMounted(() => window.addEventListener('keydown', handleOperatorKeyboard));
+onMounted(() => {
+  window.addEventListener('keydown', handleOperatorKeyboard);
+  const requestedActivityId =
+    typeof route.query.activity === 'string' ? route.query.activity : null;
+  const requestedActivity = activities.value.find(
+    (activity) => activity.id === requestedActivityId,
+  );
+  if (requestedActivity) openActivityDetail(requestedActivity);
+});
 onBeforeUnmount(() => window.removeEventListener('keydown', handleOperatorKeyboard));
 watch(
   () => activePresentationFrame.value?.activity?.id,
