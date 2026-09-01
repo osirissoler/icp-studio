@@ -591,6 +591,9 @@
                   type="button"
                   class="operator-activity-item"
                   :data-activity-id="activity.id"
+                  :style="{
+                    '--operator-activity-color': categoryInfo(activity.category).color,
+                  }"
                   :class="{
                     'operator-activity-item--active': activity.id === presentedActivity.id,
                   }"
@@ -598,7 +601,10 @@
                 >
                   <span class="operator-activity-position">{{ activityIndex + 1 }}</span>
                   <span class="operator-activity-details">
-                    <strong>{{ activity.title }}</strong>
+                    <span class="operator-activity-heading">
+                      <strong>{{ activity.title }}</strong>
+                      <em>{{ categoryInfo(activity.category).label }}</em>
+                    </span>
                     <small>{{ activityLiveBody(activity) }}</small>
                   </span>
                   <span
@@ -607,13 +613,6 @@
                   >
                     <q-icon v-if="!activity.imageUrl" name="event" />
                   </span>
-                  <q-icon
-                    v-if="activity.id === presentedActivity.id"
-                    name="check_circle"
-                    color="primary"
-                    size="18px"
-                    aria-label="Actividad seleccionada"
-                  />
                 </button>
               </div>
             </section>
@@ -1159,6 +1158,36 @@ function activityEndDate(activity: CalendarActivity): string {
   return activity.endDate || activity.date;
 }
 
+function activityInterval(activity: CalendarActivity): { start: number; end: number } {
+  if (activity.allDay) {
+    return {
+      start: new Date(`${activity.date}T00:00:00`).getTime(),
+      end: new Date(`${activityEndDate(activity)}T00:00:00`).getTime() + 24 * 60 * 60 * 1000,
+    };
+  }
+
+  return {
+    start: new Date(`${activity.date}T${activity.startTime || '00:00'}:00`).getTime(),
+    end: new Date(`${activityEndDate(activity)}T${activity.endTime || '23:59'}:00`).getTime(),
+  };
+}
+
+function conflictingActivity(candidate: CalendarActivity): CalendarActivity | null {
+  if (candidate.status === 'cancelled') return null;
+  const candidateInterval = activityInterval(candidate);
+
+  return (
+    activities.value.find((activity) => {
+      if (activity.id === candidate.id || activity.status === 'cancelled') return false;
+      const existingInterval = activityInterval(activity);
+      return (
+        candidateInterval.start < existingInterval.end &&
+        candidateInterval.end > existingInterval.start
+      );
+    }) ?? null
+  );
+}
+
 function categoryInfo(categoryId: CalendarActivityCategory): CalendarActivityCategoryDefinition {
   return (
     categories.value.find((category) => category.id === categoryId) ??
@@ -1434,6 +1463,26 @@ function saveActivity(): void {
     );
     return;
   }
+  if (!activityForm.allDay && (!activityForm.startTime || !activityForm.endTime)) {
+    showAppNotification(
+      'Indica la hora de inicio y la hora de finalización.',
+      'warning',
+      'schedule',
+    );
+    return;
+  }
+  if (
+    !activityForm.allDay &&
+    activityForm.date === activityForm.endDate &&
+    activityForm.endTime <= activityForm.startTime
+  ) {
+    showAppNotification(
+      'La hora de finalización debe ser posterior a la hora de inicio.',
+      'warning',
+      'schedule',
+    );
+    return;
+  }
   const existing = editingActivityId.value
     ? activities.value.find((activity) => activity.id === editingActivityId.value)
     : null;
@@ -1457,6 +1506,16 @@ function saveActivity(): void {
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };
+  const conflict = conflictingActivity(activity);
+  if (conflict) {
+    showAppNotification(
+      `El horario coincide con “${conflict.title}” (${activityLongDateLabel(conflict)}).`,
+      'warning',
+      'event_busy',
+      { timeout: 5200 },
+    );
+    return;
+  }
   if (!calendarStore.saveActivity(activity)) {
     showAppNotification(
       'No fue posible guardar la actividad en esta computadora.',
@@ -2666,11 +2725,18 @@ button {
   margin-top: 14px;
   padding: 11px;
   color: #91a7bb;
-  background: #101c29;
-  border: 1px solid #263a4f;
-  border-radius: 9px;
+  background:
+    radial-gradient(circle at 92% 12%, rgb(56 189 248 / 20%), transparent 35%),
+    linear-gradient(135deg, #13283b, #0d1926);
+  border: 1px solid #31506a;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 18%);
 }
 .operator-keyboard-help > .q-icon {
+  padding: 7px;
+  color: #7dd3fc;
+  background: rgb(14 116 144 / 24%);
+  border-radius: 9px;
   font-size: 24px;
 }
 .operator-keyboard-help > div {
@@ -2678,7 +2744,8 @@ button {
   flex-direction: column;
 }
 .operator-keyboard-help strong {
-  font-size: 9px;
+  color: #e3f2ff;
+  font-size: 10px;
 }
 .operator-keyboard-help span {
   margin-top: 5px;
@@ -2692,10 +2759,10 @@ button {
   margin: 0 3px;
   place-items: center;
   color: #dbeafe;
-  background: #1d3146;
-  border: 1px solid #3c5874;
-  border-radius: 4px;
-  box-shadow: 0 2px #0a111a;
+  background: linear-gradient(#294761, #1b3145);
+  border: 1px solid #507492;
+  border-radius: 6px;
+  box-shadow: 0 3px #09121b;
 }
 .operator-active-content {
   display: flex;
@@ -2704,16 +2771,18 @@ button {
   flex-direction: column;
   margin-top: 12px;
   overflow: hidden;
-  background: #0d1824;
-  border: 1px solid #263a4f;
-  border-radius: 9px;
+  background: linear-gradient(180deg, #101e2c, #0a141f);
+  border: 1px solid #2a4258;
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 22%);
 }
 .operator-active-content > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 11px;
+  padding: 12px 13px;
+  background: linear-gradient(90deg, rgb(37 99 235 / 18%), transparent 70%);
   border-bottom: 1px solid #263a4f;
 }
 .operator-active-content > header > div {
@@ -2722,7 +2791,7 @@ button {
 }
 .operator-active-content > header strong {
   color: #d5e1ec;
-  font-size: 10px;
+  font-size: 11px;
 }
 .operator-active-content > header small,
 .operator-active-content > header > span {
@@ -2730,54 +2799,102 @@ button {
   font-size: 8px;
 }
 .operator-active-content > header > span {
+  padding: 4px 7px;
   color: #7dd3fc;
+  background: rgb(14 116 144 / 20%);
+  border: 1px solid rgb(56 189 248 / 25%);
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .operator-activity-list {
   min-height: 0;
-  padding: 6px;
+  padding: 8px;
   overflow-y: auto;
 }
 .operator-activity-item {
   display: grid;
   width: 100%;
-  grid-template-columns: 22px minmax(0, 1fr) 54px 18px;
+  grid-template-columns: 25px minmax(0, 1fr) 62px;
   align-items: center;
   gap: 8px;
-  padding: 7px;
+  margin-bottom: 6px;
+  padding: 8px;
   color: #8fa3b6;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid #1e3042;
+  background: rgb(18 34 49 / 76%);
+  border: 1px solid #22394e;
+  border-radius: 9px;
   text-align: left;
   cursor: pointer;
+  transition: 150ms ease;
 }
 .operator-activity-item:hover {
-  background: #142536;
+  background: #172c40;
+  border-color: #3b607e;
+  transform: translateX(2px);
 }
 .operator-activity-item--active {
   color: #e2edf7;
-  background: #173149;
-  box-shadow: inset 3px 0 #38a3e6;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--operator-activity-color) 25%, #173149),
+    #13283a
+  );
+  border-color: color-mix(in srgb, var(--operator-activity-color) 65%, #60a5fa);
+  box-shadow:
+    inset 4px 0 var(--operator-activity-color),
+    0 8px 18px rgb(0 0 0 / 18%);
 }
 .operator-activity-position {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
   color: #647b90;
+  background: #14283a;
+  border-radius: 6px;
   font-size: 8px;
   text-align: center;
+}
+.operator-activity-item--active .operator-activity-position {
+  color: white;
+  background: var(--operator-activity-color);
+  font-weight: 800;
 }
 .operator-activity-details {
   display: flex;
   min-width: 0;
   flex-direction: column;
 }
-.operator-activity-details strong,
+.operator-activity-heading strong,
 .operator-activity-details small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.operator-activity-details strong {
+.operator-activity-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.operator-activity-heading strong {
+  min-width: 0;
+  flex: 1;
   color: #d8e4ee;
-  font-size: 9px;
+  font-size: 10px;
+}
+.operator-activity-heading em {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  color: color-mix(in srgb, var(--operator-activity-color) 70%, white);
+  background: color-mix(in srgb, var(--operator-activity-color) 16%, transparent);
+  border-radius: 999px;
+  font-size: 6px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .operator-activity-details small {
   margin-top: 3px;
@@ -2786,14 +2903,15 @@ button {
 }
 .operator-activity-thumbnail {
   display: grid;
-  width: 54px;
-  height: 34px;
+  width: 62px;
+  height: 39px;
   place-items: center;
   color: #7790a7;
   background: linear-gradient(135deg, #29445e, #132536);
   background-position: center;
   background-size: cover;
-  border-radius: 5px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 7px;
 }
 .operator-next-panel > p {
   margin: auto 0 0;
