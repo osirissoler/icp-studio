@@ -225,6 +225,10 @@ export default defineConfig((ctx) => {
       bundler: 'packager', // 'packager' or 'builder'
 
       packager: {
+        usageDescription: {
+          LocalNetwork:
+            'ICP Studio usa la red local para permitir el control de la presentación desde celulares y otros dispositivos de la iglesia.',
+        },
         extraResource: [
           'resources/bibles/database/icp-bibles.sqlite',
           'resources/songs/icp-studio-default-songs.json',
