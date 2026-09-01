@@ -80,8 +80,7 @@ const wheelElement = ref<HTMLElement | null>(null);
 const clockNow = ref(Date.now());
 const showCelebration = ref(false);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
-let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
-let spinAnimation: Animation | null = null;
+let spinAnimationFrame: number | null = null;
 const confettiColors = ['#38bdf8', '#facc15', '#fb7185', '#4ade80', '#c084fc', '#f8fafc'];
 const confettiPieces = Array.from({ length: 64 }, (_, index) => ({
   id: index,
@@ -127,8 +126,8 @@ const remainingLabel = computed(() => {
 });
 
 function animateToTarget(): void {
-  spinAnimation?.cancel();
-  spinAnimation = null;
+  if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
+  spinAnimationFrame = null;
   if (!props.roulette.spinning || !props.roulette.timedSpin) {
     displayedRotation.value = props.roulette.rotation;
     return;
@@ -138,39 +137,54 @@ function animateToTarget(): void {
   const duration = Math.max(1000, props.roulette.spinDuration);
   const elapsed = Math.min(duration - 50, Math.max(0, Date.now() - props.roulette.spinStartedAt));
   const remaining = Math.max(50, duration - elapsed);
-  const slowdownDuration = Math.min(2000, duration * 0.4);
-  const cruiseDuration = Math.max(0, duration - slowdownDuration);
-  const cruiseRatio = Math.min(0.94, Math.max(0.05, cruiseDuration / duration));
+  const brakingDuration = Math.min(remaining, Math.min(4000, Math.max(2000, duration * 0.25)));
+  const cruiseDuration = Math.max(0, remaining - brakingDuration);
   const startRotation = displayedRotation.value;
   const targetRotation = props.roulette.rotation;
-  const cruiseTarget = Math.max(startRotation, targetRotation - 720);
+  const totalDistance = Math.max(0, targetRotation - startRotation);
+  const brakingWeight = brakingDuration / 3;
+  const cruiseSpeed = totalDistance / Math.max(1, cruiseDuration + brakingWeight);
+  const cruiseDistance = cruiseSpeed * cruiseDuration;
+  const brakingDistance = totalDistance - cruiseDistance;
+  const animationStartedAt = performance.now();
 
-  requestAnimationFrame(() => {
-    spinAnimation = element.animate(
-      [
-        { transform: `rotate(${startRotation}deg)`, easing: 'linear' },
-        {
-          offset: cruiseRatio,
-          transform: `rotate(${cruiseTarget}deg)`,
-          easing: 'cubic-bezier(0.12, 0.72, 0.08, 1)',
-        },
-        { transform: `rotate(${targetRotation}deg)` },
-      ],
-      { duration: remaining, fill: 'forwards' },
-    );
-    spinAnimation.onfinish = () => {
+  const updateRotation = (now: number): void => {
+    const animationElapsed = Math.min(remaining, now - animationStartedAt);
+    let currentRotation: number;
+    if (animationElapsed <= cruiseDuration) {
+      currentRotation = startRotation + cruiseSpeed * animationElapsed;
+    } else {
+      const brakingProgress = Math.min(
+        1,
+        (animationElapsed - cruiseDuration) / Math.max(1, brakingDuration),
+      );
+      const easedProgress = 1 - Math.pow(1 - brakingProgress, 3);
+      currentRotation = startRotation + cruiseDistance + brakingDistance * easedProgress;
+    }
+    element.style.transform = `rotate(${currentRotation}deg)`;
+
+    if (animationElapsed < remaining && props.roulette.spinning) {
+      spinAnimationFrame = requestAnimationFrame(updateRotation);
+    } else {
       displayedRotation.value = props.roulette.rotation;
-      spinAnimation?.cancel();
-      spinAnimation = null;
-    };
-  });
+      element.style.transform = `rotate(${props.roulette.rotation}deg)`;
+      spinAnimationFrame = null;
+    }
+  };
+
+  spinAnimationFrame = requestAnimationFrame(updateRotation);
 }
 
 watch(
   () => [props.roulette.rotation, props.roulette.spinning] as const,
   () => animateToTarget(),
 );
-onMounted(() => animateToTarget());
+onMounted(() => {
+  animateToTarget();
+  if (props.celebrateWinner && props.roulette.winnerId && !props.roulette.spinning) {
+    startCelebration();
+  }
+});
 watch(
   () => props.roulette.spinning,
   (spinning) => {
@@ -194,27 +208,21 @@ watch(
       !props.roulette.spinning
     ) {
       startCelebration();
+    } else if (!winnerId) {
+      stopCelebration();
     }
   },
 );
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer);
-  if (celebrationTimer) clearTimeout(celebrationTimer);
-  spinAnimation?.cancel();
+  if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
 });
 
 function startCelebration(): void {
-  if (celebrationTimer) clearTimeout(celebrationTimer);
-  showCelebration.value = false;
-  requestAnimationFrame(() => {
-    showCelebration.value = true;
-    celebrationTimer = setTimeout(stopCelebration, 4200);
-  });
+  showCelebration.value = true;
 }
 
 function stopCelebration(): void {
-  if (celebrationTimer) clearTimeout(celebrationTimer);
-  celebrationTimer = null;
   showCelebration.value = false;
 }
 
@@ -270,7 +278,7 @@ function labelPosition(index: number): { x: number; y: number; transform: string
   border-radius: 2px;
   opacity: 0;
   animation: confetti-fall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.3, 1)
-    var(--confetti-delay) forwards;
+    var(--confetti-delay) infinite;
 }
 @keyframes confetti-fall {
   0% {
