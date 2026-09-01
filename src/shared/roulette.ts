@@ -4,6 +4,8 @@ export interface RouletteOption {
   color: string;
 }
 
+export type RouletteLabelMode = 'full' | 'first-word' | 'short' | 'hidden';
+
 export interface RoulettePresentationData {
   id: string;
   title: string;
@@ -12,6 +14,7 @@ export interface RoulettePresentationData {
   winnerId: string;
   spinning: boolean;
   spinDuration: number;
+  labelMode: RouletteLabelMode;
 }
 
 export interface SavedRoulette {
@@ -20,5 +23,6 @@ export interface SavedRoulette {
   options: RouletteOption[];
   allowRepeats: boolean;
   removeWinner: boolean;
+  labelMode: RouletteLabelMode;
   updatedAt: string;
 }
