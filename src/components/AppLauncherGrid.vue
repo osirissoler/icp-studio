@@ -29,7 +29,7 @@
           <q-icon :name="item.icon" />
         </span>
         <span class="app-name">{{ item.label }}</span>
-        <span class="app-status">Próximamente</span>
+        <span class="app-status">{{ item.status ?? (item.to ? 'Abrir' : 'Próximamente') }}</span>
       </button>
     </div>
   </div>
@@ -37,12 +37,15 @@
 
 <script setup lang="ts">
 import { showAppNotification } from '../services/app-notification';
+import { useRouter } from 'vue-router';
 
 interface LauncherItem {
   id: string;
   label: string;
   icon: string;
   color: string;
+  to?: string;
+  status?: string;
 }
 
 interface Props {
@@ -53,7 +56,14 @@ interface Props {
 
 defineProps<Props>();
 
+const router = useRouter();
+
 function selectItem(item: LauncherItem): void {
+  if (item.to) {
+    void router.push(item.to);
+    return;
+  }
+
   showAppNotification(
     `${item.label} está preparado para una próxima etapa de desarrollo.`,
     'info',
