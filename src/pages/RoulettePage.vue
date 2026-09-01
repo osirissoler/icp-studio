@@ -129,6 +129,12 @@
           hint="Puedes pegar una lista y ampliar este campo hacia abajo"
           @update:model-value="applyOptionsText"
         />
+        <div v-if="duplicateLabels.length" class="roulette-validation-warning">
+          <q-icon name="warning_amber" />
+          <span
+            >Hay opciones repetidas: <strong>{{ duplicateLabels.join(', ') }}</strong></span
+          >
+        </div>
         <q-select
           v-model="roulette.labelMode"
           dark
@@ -140,6 +146,103 @@
           :options="labelModeOptions"
           @update:model-value="changeLabelMode"
         />
+        <q-expansion-item
+          dark
+          dense
+          dense-toggle
+          icon="palette"
+          label="Apariencia y sonido"
+          header-class="roulette-settings-header"
+          class="roulette-settings-panel"
+        >
+          <div class="roulette-settings-content">
+            <div class="setting-block">
+              <span class="setting-label">Paleta de colores</span>
+              <div class="palette-options">
+                <button
+                  v-for="palette in paletteOptions"
+                  :key="palette.id"
+                  type="button"
+                  class="palette-button"
+                  :aria-label="`Aplicar paleta ${palette.label}`"
+                  @click="applyPalette(palette.colors)"
+                >
+                  <span>
+                    <i
+                      v-for="color in palette.colors.slice(0, 5)"
+                      :key="color"
+                      :style="{ backgroundColor: color }"
+                    ></i>
+                  </span>
+                  <small>{{ palette.label }}</small>
+                </button>
+              </div>
+            </div>
+            <div class="setting-block setting-block--row">
+              <label class="background-color-control">
+                <span>Color del fondo</span>
+                <span>
+                  <input v-model="roulette.backgroundColor" type="color" />
+                  <code>{{ roulette.backgroundColor }}</code>
+                </span>
+              </label>
+              <q-select
+                v-model="roulette.winnerTextSize"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Tamaño del ganador"
+                :options="winnerTextSizeOptions"
+              />
+            </div>
+            <div class="settings-toggles">
+              <q-toggle
+                v-model="roulette.showTitle"
+                dark
+                color="primary"
+                label="Mostrar título en pantalla"
+              />
+              <q-toggle
+                v-model="roulette.confettiEnabled"
+                dark
+                color="primary"
+                label="Celebrar ganador con confeti"
+              />
+            </div>
+            <q-select
+              v-if="roulette.confettiEnabled"
+              v-model="roulette.confettiIntensity"
+              dark
+              outlined
+              dense
+              emit-value
+              map-options
+              label="Cantidad de confeti"
+              :options="confettiIntensityOptions"
+            />
+            <div class="sound-settings">
+              <q-toggle
+                v-model="roulette.soundEnabled"
+                dark
+                color="primary"
+                label="Sonido durante el giro y al ganar"
+              />
+              <div v-if="roulette.soundEnabled">
+                <span>Volumen</span>
+                <q-slider
+                  v-model="roulette.soundVolume"
+                  :min="0.05"
+                  :max="1"
+                  :step="0.05"
+                  color="light-blue-5"
+                />
+                <small>{{ Math.round(roulette.soundVolume * 100) }}%</small>
+              </div>
+            </div>
+          </div>
+        </q-expansion-item>
         <div class="editor-toggles">
           <q-toggle
             v-model="roulette.allowRepeats"
@@ -187,7 +290,12 @@
         </div>
         <div class="option-preview-list">
           <div v-for="(option, index) in roulette.options" :key="option.id">
-            <i :style="{ backgroundColor: option.color }"></i><span>{{ option.label }}</span
+            <input
+              v-model="option.color"
+              type="color"
+              class="option-color-picker"
+              :aria-label="`Cambiar color de ${option.label}`"
+            /><span>{{ option.label }}</span
             ><q-btn flat round dense size="xs" icon="close" @click="removeOption(index)" />
           </div>
         </div>
@@ -201,6 +309,7 @@
           <RouletteWheel
             :key="`${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
             :roulette="presentationData"
+            play-sounds
             show-timer
           />
         </div>
@@ -431,9 +540,11 @@ import RouletteWheel from '../components/RouletteWheel.vue';
 import { showAppNotification } from '../services/app-notification';
 import type { ServicePresentationItem } from '../shared/presentation';
 import type {
+  RouletteConfettiIntensity,
   RouletteLiveResult,
   RouletteOption,
   RoulettePresentationData,
+  RouletteWinnerTextSize,
   SavedRoulette,
 } from '../shared/roulette';
 import { usePresentationStore } from '../stores/presentation-store';
@@ -464,6 +575,34 @@ const labelModeOptions = [
 const durationUnitOptions = [
   { label: 'Segundos', value: 'seconds' },
   { label: 'Minutos', value: 'minutes' },
+];
+const winnerTextSizeOptions = [
+  { label: 'Pequeño', value: 'small' },
+  { label: 'Mediano', value: 'medium' },
+  { label: 'Grande', value: 'large' },
+];
+const confettiIntensityOptions = [
+  { label: 'Suave', value: 'low' },
+  { label: 'Normal', value: 'medium' },
+  { label: 'Abundante', value: 'high' },
+];
+const paletteOptions = [
+  { id: 'vibrant', label: 'Vibrante', colors },
+  {
+    id: 'ocean',
+    label: 'Océano',
+    colors: ['#0369a1', '#0891b2', '#0d9488', '#2563eb', '#4f46e5', '#0284c7'],
+  },
+  {
+    id: 'celebration',
+    label: 'Celebración',
+    colors: ['#e11d48', '#f59e0b', '#16a34a', '#7c3aed', '#0284c7', '#db2777'],
+  },
+  {
+    id: 'elegant',
+    label: 'Elegante',
+    colors: ['#334155', '#475569', '#0f766e', '#1d4ed8', '#6d28d9', '#9f1239'],
+  },
 ];
 const presentationStore = usePresentationStore();
 const { liveFrame: activeLiveFrame, liveItem: activeLiveItem } = storeToRefs(presentationStore);
@@ -497,6 +636,22 @@ const winner = computed(
   () => roulette.options.find((option) => option.id === winnerId.value) ?? null,
 );
 const hasUnsavedChanges = computed(() => rouletteSignature(roulette) !== savedBaseline.value);
+const duplicateLabels = computed(() => {
+  const counts = new Map<string, { label: string; count: number }>();
+  roulette.options.forEach((option) => {
+    const key = option.label.trim().toLocaleLowerCase('es');
+    if (!key) return;
+    const current = counts.get(key);
+    counts.set(key, {
+      label: current?.label ?? option.label.trim(),
+      count: (current?.count ?? 0) + 1,
+    });
+  });
+  return [...counts.values()]
+    .filter((item) => item.count > 1)
+    .map((item) => item.label)
+    .slice(0, 4);
+});
 const liveResultGroups = computed(() => {
   const groups = new Map<
     string,
@@ -547,6 +702,13 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   removeWinner: roulette.removeWinner,
   usedWinnerIds: [],
   labelMode: roulette.labelMode,
+  backgroundColor: roulette.backgroundColor,
+  showTitle: roulette.showTitle,
+  winnerTextSize: roulette.winnerTextSize,
+  confettiEnabled: roulette.confettiEnabled,
+  confettiIntensity: roulette.confettiIntensity,
+  soundEnabled: roulette.soundEnabled,
+  soundVolume: roulette.soundVolume,
 }));
 const spinDuration = computed(() => {
   const value = Math.max(1, Number(roulette.durationValue) || 1);
@@ -568,25 +730,48 @@ function createRoulette(): SavedRoulette {
     durationValue: 6,
     durationUnit: 'seconds',
     useTimer: true,
+    backgroundColor: '#050b12',
+    showTitle: true,
+    winnerTextSize: 'medium',
+    confettiEnabled: true,
+    confettiIntensity: 'medium',
+    soundEnabled: false,
+    soundVolume: 0.45,
     updatedAt: new Date().toISOString(),
   };
+}
+function winnerTextSize(value: unknown): RouletteWinnerTextSize {
+  return value === 'small' || value === 'large' ? value : 'medium';
+}
+function confettiIntensity(value: unknown): RouletteConfettiIntensity {
+  return value === 'low' || value === 'high' ? value : 'medium';
+}
+function validColor(value: unknown, fallback: string): string {
+  return typeof value === 'string' && /^#[\da-f]{6}$/i.test(value) ? value : fallback;
 }
 function cloneRoulette(value: SavedRoulette): SavedRoulette {
   return {
     id: String(value.id),
     title: String(value.title),
-    options: value.options.map((option) => ({
+    options: value.options.map((option, index) => ({
       id: String(option.id),
       label: String(option.label),
-      color: String(option.color),
+      color: validColor(option.color, colors[index % colors.length]!),
     })),
     allowRepeats: Boolean(value.allowRepeats),
     removeWinner: Boolean(value.removeWinner),
-    labelMode: value.labelMode,
-    durationValue: Number(value.durationValue),
-    durationUnit: value.durationUnit,
-    useTimer: Boolean(value.useTimer),
-    updatedAt: String(value.updatedAt),
+    labelMode: value.labelMode ?? 'short',
+    durationValue: Number(value.durationValue) || 6,
+    durationUnit: value.durationUnit === 'minutes' ? 'minutes' : 'seconds',
+    useTimer: value.useTimer ?? true,
+    backgroundColor: validColor(value.backgroundColor, '#050b12'),
+    showTitle: value.showTitle ?? true,
+    winnerTextSize: winnerTextSize(value.winnerTextSize),
+    confettiEnabled: value.confettiEnabled ?? true,
+    confettiIntensity: confettiIntensity(value.confettiIntensity),
+    soundEnabled: value.soundEnabled ?? false,
+    soundVolume: Math.min(1, Math.max(0.05, Number(value.soundVolume) || 0.45)),
+    updatedAt: value.updatedAt || new Date().toISOString(),
   };
 }
 function loadSaved(): SavedRoulette[] {
@@ -595,13 +780,7 @@ function loadSaved(): SavedRoulette[] {
     return Array.isArray(value)
       ? value
           .filter((item) => item?.id && Array.isArray(item.options))
-          .map((item) => ({
-            ...item,
-            labelMode: item.labelMode ?? 'short',
-            durationValue: item.durationValue ?? 6,
-            durationUnit: item.durationUnit ?? 'seconds',
-            useTimer: item.useTimer ?? true,
-          }))
+          .map((item) => cloneRoulette(item))
       : [];
   } catch {
     return [];
@@ -627,7 +806,35 @@ function rouletteSignature(value: SavedRoulette): string {
     durationValue: value.durationValue,
     durationUnit: value.durationUnit,
     useTimer: value.useTimer,
+    backgroundColor: value.backgroundColor,
+    showTitle: value.showTitle,
+    winnerTextSize: value.winnerTextSize,
+    confettiEnabled: value.confettiEnabled,
+    confettiIntensity: value.confettiIntensity,
+    soundEnabled: value.soundEnabled,
+    soundVolume: value.soundVolume,
   });
+}
+function validateCurrent(action: 'guardar' | 'enviar'): boolean {
+  applyOptionsText();
+  roulette.title = roulette.title.trim();
+  if (!roulette.title) {
+    showAppNotification('Escribe un nombre para la ruleta.', 'warning', 'title');
+    return false;
+  }
+  if (roulette.options.length < 2) {
+    showAppNotification('Agrega por lo menos dos opciones.', 'warning', 'warning');
+    return false;
+  }
+  if (
+    duplicateLabels.value.length &&
+    !window.confirm(
+      `Hay opciones repetidas (${duplicateLabels.value.join(', ')}). ¿Quieres ${action} de todas formas?`,
+    )
+  ) {
+    return false;
+  }
+  return true;
 }
 function canReplaceCurrent(): boolean {
   return (
@@ -651,7 +858,7 @@ function loadRoulette(saved: SavedRoulette): void {
   resetGame();
 }
 function saveCurrent(): void {
-  applyOptionsText();
+  if (!validateCurrent('guardar')) return;
   roulette.updatedAt = new Date().toISOString();
   const index = savedRoulettes.value.findIndex((item) => item.id === roulette.id);
   const previous = savedRoulettes.value;
@@ -715,18 +922,25 @@ function updatedLabel(value: string): string {
 function applyOptionsText(): void {
   const labels = optionsText.value
     .split(/\r?\n/)
-    .map((v) => v.trim())
+    .map((v) => v.trim().slice(0, 120))
     .filter(Boolean)
     .slice(0, 40);
-  const previous = new Map(roulette.options.map((option) => [option.label, option]));
-  roulette.options = labels.map(
-    (label, index) =>
-      previous.get(label) ?? {
+  const previous = new Map<string, RouletteOption[]>();
+  roulette.options.forEach((option) => {
+    const matches = previous.get(option.label) ?? [];
+    matches.push(option);
+    previous.set(option.label, matches);
+  });
+  roulette.options = labels.map((label, index) => {
+    const existing = previous.get(label)?.shift();
+    return (
+      existing ?? {
         id: crypto.randomUUID(),
         label,
         color: colors[index % colors.length]!,
-      },
-  );
+      }
+    );
+  });
   if (winnerId.value && !roulette.options.some((option) => option.id === winnerId.value)) {
     winnerId.value = '';
   }
@@ -745,6 +959,12 @@ function changeLabelMode(value: unknown): void {
 function removeOption(index: number): void {
   roulette.options.splice(index, 1);
   optionsText.value = roulette.options.map((o) => o.label).join('\n');
+}
+function applyPalette(palette: string[]): void {
+  roulette.options = roulette.options.map((option, index) => ({
+    ...option,
+    color: palette[index % palette.length]!,
+  }));
 }
 function rouletteItem(data: RoulettePresentationData): ServicePresentationItem {
   return {
@@ -767,11 +987,12 @@ function publishLive(data: RoulettePresentationData): void {
   presentationStore.setLiveItem(rouletteItem(data));
 }
 function sendLive(): void {
-  applyOptionsText();
-  if (roulette.options.length < 2) {
-    showAppNotification('Agrega por lo menos dos opciones.', 'warning', 'warning');
+  if (!validateCurrent('enviar')) return;
+  if (
+    hasUnsavedChanges.value &&
+    !window.confirm('Esta ruleta tiene cambios sin guardar. ¿Quieres enviarla así a En vivo?')
+  )
     return;
-  }
   publishLive({
     ...presentationData.value,
     rotation: 0,
@@ -1143,6 +1364,136 @@ button {
   display: flex;
   flex-direction: column;
 }
+.roulette-validation-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 9px;
+  color: #fcd34d;
+  background: rgb(180 83 9 / 15%);
+  border: 1px solid rgb(245 158 11 / 35%);
+  border-radius: 7px;
+  font-size: 9px;
+}
+.roulette-settings-panel {
+  overflow: hidden;
+  background: #0d1723;
+  border: 1px solid #293d51;
+  border-radius: 9px;
+}
+.roulette-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 5px 11px 12px;
+}
+.setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.setting-block--row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr);
+  align-items: end;
+  gap: 8px;
+}
+.setting-label,
+.background-color-control > span:first-child,
+.sound-settings > div > span:first-child {
+  color: #8da1b5;
+  font-size: 9px;
+}
+.palette-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.palette-button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px;
+  color: #a9bbcd;
+  background: #132232;
+  border: 1px solid #2b4054;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.palette-button:hover {
+  color: #dbeafe;
+  border-color: #4b82ac;
+}
+.palette-button > span {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.palette-button i {
+  height: 12px;
+  flex: 1;
+}
+.palette-button small {
+  font-size: 8px;
+}
+.background-color-control,
+.background-color-control > span:last-child {
+  display: flex;
+}
+.background-color-control {
+  flex-direction: column;
+  gap: 6px;
+}
+.background-color-control > span:last-child {
+  height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  background: #101d2a;
+  border: 1px solid #536577;
+  border-radius: 4px;
+}
+.background-color-control input,
+.option-color-picker {
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.background-color-control input {
+  width: 30px;
+  height: 28px;
+}
+.background-color-control code {
+  color: #9fb2c5;
+  font-size: 9px;
+}
+.settings-toggles,
+.sound-settings {
+  display: flex;
+  flex-direction: column;
+}
+.sound-settings {
+  padding-top: 4px;
+  border-top: 1px solid #24384b;
+}
+.sound-settings > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+}
+.sound-settings small {
+  color: #7dd3fc;
+  font-size: 8px;
+  text-align: right;
+}
 .duration-settings {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
@@ -1168,7 +1519,7 @@ button {
 }
 .option-preview-list > div {
   display: grid;
-  grid-template-columns: 7px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 4px 6px;
@@ -1176,10 +1527,9 @@ button {
   border-radius: 6px;
   font-size: 9px;
 }
-.option-preview-list i {
-  width: 7px;
-  height: 20px;
-  border-radius: 4px;
+.option-color-picker {
+  width: 24px;
+  height: 24px;
 }
 .roulette-operator {
   display: flex;
