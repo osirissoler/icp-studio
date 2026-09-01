@@ -150,8 +150,10 @@
           dark
           dense
           dense-toggle
+          default-opened
           icon="palette"
-          label="Apariencia y sonido"
+          label="Configuración de apariencia y sonido"
+          caption="Colores, título, confeti y audio"
           header-class="roulette-settings-header"
           class="roulette-settings-panel"
         >
