@@ -378,6 +378,25 @@ function parseProjectionState(value: unknown): ProjectionState | null {
           .slice(0, 40)
           .map((id) => id.slice(0, 200)),
         labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden',
+        backgroundColor:
+          typeof state.backgroundColor === 'string' && /^#[0-9a-f]{6}$/i.test(state.backgroundColor)
+            ? state.backgroundColor
+            : '#050b12',
+        showTitle: typeof state.showTitle === 'boolean' ? state.showTitle : true,
+        winnerTextSize:
+          state.winnerTextSize === 'small' || state.winnerTextSize === 'large'
+            ? state.winnerTextSize
+            : 'medium',
+        confettiEnabled: typeof state.confettiEnabled === 'boolean' ? state.confettiEnabled : true,
+        confettiIntensity:
+          state.confettiIntensity === 'low' || state.confettiIntensity === 'high'
+            ? state.confettiIntensity
+            : 'medium',
+        soundEnabled: typeof state.soundEnabled === 'boolean' ? state.soundEnabled : false,
+        soundVolume:
+          typeof state.soundVolume === 'number' && Number.isFinite(state.soundVolume)
+            ? Math.min(1, Math.max(0.05, state.soundVolume))
+            : 0.45,
       };
     }
   }
