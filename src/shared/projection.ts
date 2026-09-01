@@ -31,6 +31,7 @@ export interface ProjectionActivityState {
   location: string;
   description: string;
   imageUrl: string;
+  showOverlayText: boolean;
   categoryLabel: string;
   categoryColor: string;
 }
