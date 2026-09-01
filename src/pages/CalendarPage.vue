@@ -563,10 +563,44 @@
               </div>
             </div>
             <p>
-              La apariencia final que verán los miembros se configurará en la próxima etapa. Este
-              panel continuará siendo el control privado del operador.
+              La previsualización de la izquierda representa la actividad que están viendo los
+              hermanos en las pantallas externas.
             </p>
           </aside>
+
+          <section class="operator-timeline">
+            <header>
+              <div>
+                <strong>Secuencia de actividades</strong>
+                <small>Anteriores, actividad En vivo y próximas</small>
+              </div>
+              <span>Selecciona una tarjeta para enviarla inmediatamente.</span>
+            </header>
+            <div class="operator-timeline-track">
+              <button
+                v-for="activity in operatorTimelineActivities"
+                :key="activity.id"
+                type="button"
+                class="operator-timeline-card"
+                :class="{
+                  'operator-timeline-card--live': activity.id === presentedActivity.id,
+                  'operator-timeline-card--past':
+                    presentableActivities.findIndex((item) => item.id === activity.id) <
+                    presentedActivityIndex,
+                }"
+                @click="sendActivityToLive(activity, { openOperator: false, notify: false })"
+              >
+                <span class="timeline-card-state">{{ timelinePositionLabel(activity) }}</span>
+                <span
+                  class="timeline-card-color"
+                  :style="{ backgroundColor: categoryInfo(activity.category).color }"
+                ></span>
+                <strong>{{ activity.title }}</strong>
+                <small>{{ activityDateLabel(activity) }}</small>
+                <q-icon :name="activity.id === presentedActivity.id ? 'sensors' : 'arrow_upward'" />
+              </button>
+            </div>
+          </section>
         </main>
 
         <footer class="operator-console-footer">
@@ -1011,6 +1045,11 @@ const nextPresentedActivity = computed(() =>
     ? (presentableActivities.value[presentedActivityIndex.value + 1] ?? null)
     : null,
 );
+const operatorTimelineActivities = computed(() => {
+  if (presentedActivityIndex.value < 0) return [];
+  const start = Math.max(0, presentedActivityIndex.value - 3);
+  return presentableActivities.value.slice(start, presentedActivityIndex.value + 4);
+});
 const periodTitle = computed(() =>
   viewMode.value === 'month' ? `${monthNames[monthIndex.value]} ${year.value}` : `${year.value}`,
 );
@@ -1150,6 +1189,12 @@ function activityLongDateLabel(activity: CalendarActivity): string {
 function statusLabel(status: CalendarActivityStatus): string {
   return { pending: 'Pendiente', completed: 'Completada', cancelled: 'Cancelada' }[status];
 }
+function timelinePositionLabel(activity: CalendarActivity): string {
+  const activityIndex = presentableActivities.value.findIndex((item) => item.id === activity.id);
+  if (activityIndex < presentedActivityIndex.value) return 'Anterior';
+  if (activityIndex > presentedActivityIndex.value) return 'Siguiente';
+  return 'En vivo';
+}
 function presentationBackground(imageUrl: string): Record<string, string> {
   return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
 }
@@ -1205,11 +1250,17 @@ function sendActivityToLive(
   else presentationStore.addToService(item);
 
   presentationStore.activateServiceItem(item.id);
+  const category = categoryInfo(activity.category);
   window.icpStudio?.projection.setState({
-    mode: 'content',
+    mode: 'activity',
+    id: activity.id,
     title: activity.title,
-    body: activityLiveBody(activity),
-    footer: categoryInfo(activity.category).label,
+    dateLabel: activityLongDateLabel(activity),
+    location: activity.location,
+    description: activity.description,
+    imageUrl: activity.imageUrl,
+    categoryLabel: category.label,
+    categoryColor: category.color,
   });
 
   selectedActivity.value = activity;
@@ -2600,6 +2651,111 @@ button {
   color: #61768b;
   font-size: 8px;
   line-height: 1.5;
+}
+.operator-timeline {
+  min-width: 0;
+  grid-column: 1 / -1;
+  padding-top: 3px;
+}
+.operator-timeline > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.operator-timeline > header > div {
+  display: flex;
+  flex-direction: column;
+}
+.operator-timeline > header strong {
+  color: #cdd9e5;
+  font-size: 10px;
+}
+.operator-timeline > header small,
+.operator-timeline > header > span {
+  margin-top: 2px;
+  color: #667c91;
+  font-size: 8px;
+}
+.operator-timeline-track {
+  display: grid;
+  grid-auto-columns: minmax(175px, 1fr);
+  grid-auto-flow: column;
+  gap: 7px;
+  padding: 2px 2px 7px;
+  overflow-x: auto;
+}
+.operator-timeline-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 5px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 8px;
+  padding: 8px 9px;
+  color: #8fa3b6;
+  background: #0e1a27;
+  border: 1px solid #273b50;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.operator-timeline-card:hover {
+  background: #15283b;
+  border-color: #456889;
+}
+.operator-timeline-card--live {
+  background: linear-gradient(145deg, #16334b, #112235);
+  border-color: #4b9ad5;
+  box-shadow: inset 0 3px #38a3e6;
+}
+.operator-timeline-card--past {
+  opacity: 0.62;
+}
+.timeline-card-state {
+  grid-column: 2 / 3;
+  color: #6d8296;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.operator-timeline-card--live .timeline-card-state {
+  color: #7dd3fc;
+}
+.timeline-card-color {
+  width: 5px;
+  grid-column: 1;
+  grid-row: 1 / 4;
+  border-radius: 4px;
+}
+.operator-timeline-card strong {
+  overflow: hidden;
+  grid-column: 2 / 3;
+  margin-top: 4px;
+  color: #d6e1eb;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operator-timeline-card small {
+  overflow: hidden;
+  grid-column: 2 / 3;
+  margin-top: 3px;
+  color: #71869a;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operator-timeline-card > .q-icon {
+  grid-column: 3;
+  grid-row: 1 / 4;
+  align-self: center;
+  color: #6f879c;
+}
+.operator-timeline-card--live > .q-icon {
+  color: #60a5fa;
 }
 .operator-console-footer {
   justify-content: space-between;
