@@ -221,7 +221,6 @@
           <RouletteWheel
             :key="`${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
             :roulette="presentationData"
-            play-sounds
             show-timer
           />
         </div>
@@ -512,11 +511,12 @@
               <span><i></i> Previsualización</span>
               <small>Los cambios se muestran aquí</small>
             </div>
-            <div class="roulette-settings-preview-stage">
+            <div ref="settingsPreviewElement" class="roulette-settings-preview-stage">
               <RouletteWheel
                 :key="`settings-${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
                 :roulette="presentationData"
                 celebrate-winner
+                play-sounds
                 show-timer
               />
             </div>
@@ -531,7 +531,7 @@
                 @click="spin"
               />
               <q-btn
-                v-if="spinning && !roulette.useTimer"
+                v-if="spinning"
                 unelevated
                 no-caps
                 color="red-6"
@@ -795,6 +795,7 @@ const spinning = ref(false);
 const spinStartedAt = ref(0);
 const settingsOpen = ref(false);
 const settingsTab = ref<'appearance' | 'celebration' | 'sound'>('appearance');
+const settingsPreviewElement = ref<HTMLElement | null>(null);
 const operatorConsoleOpen = ref(false);
 const liveDurationUnit = ref<'seconds' | 'minutes'>('seconds');
 const history = ref<RouletteOption[]>([]);
@@ -1248,6 +1249,14 @@ function finishSpin(): void {
   const selected = roulette.options.find((option) => option.id === pendingWinnerId.value);
   pendingWinnerId.value = '';
   if (selected) history.value = [selected, ...history.value];
+  revealSettingsResult();
+}
+function revealSettingsResult(): void {
+  requestAnimationFrame(() => {
+    const element = settingsPreviewElement.value;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+  });
 }
 function stopSpin(): void {
   finishSpin();
@@ -1672,12 +1681,14 @@ button {
 .roulette-settings-preview-stage {
   min-height: 0;
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
+  scroll-behavior: smooth;
   border: 1px solid #314a62;
   border-radius: 10px;
 }
 .roulette-settings-preview-stage :deep(.roulette-stage) {
-  min-height: 460px;
+  min-height: 570px;
+  height: auto;
   padding: 18px;
 }
 .roulette-settings-preview-stage :deep(.wheel-shell) {
