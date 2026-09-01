@@ -4,7 +4,7 @@ export interface RouletteOption {
   color: string;
 }
 
-export type RouletteLabelMode = 'full' | 'first-word' | 'short' | 'hidden';
+export type RouletteLabelMode = 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden';
 
 export interface RoulettePresentationData {
   id: string;
