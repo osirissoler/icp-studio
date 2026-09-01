@@ -70,6 +70,7 @@
           <GlobalServicePanel v-if="panel.id === 'service'" />
           <GlobalLivePanel v-else-if="panel.id === 'live'" />
           <MonitorsPanel v-else-if="panel.id === 'monitors'" />
+          <UpcomingActivitiesPanel v-else-if="panel.id === 'upcomingActivities'" />
           <slot v-else-if="$slots[panel.id]" :name="panel.id" />
 
           <template v-else-if="panel.id === 'search'">
@@ -174,6 +175,7 @@ import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import GlobalLivePanel from './GlobalLivePanel.vue';
 import GlobalServicePanel from './GlobalServicePanel.vue';
 import MonitorsPanel from './MonitorsPanel.vue';
+import UpcomingActivitiesPanel from './UpcomingActivitiesPanel.vue';
 import type { WorkspacePanelId } from '../shared/workspace';
 import { useWorkspaceSettingsStore } from '../stores/workspace-settings';
 
@@ -196,9 +198,9 @@ const searchText = ref('');
 const draggingPanelId = ref<PanelId | null>(null);
 const workspaceElement = ref<HTMLElement | null>(null);
 const columnSizes = reactive<number[]>([0.9, 1.15, 1.15, 0.9]);
-const topRowPercent = ref(50);
 const panelDefinitions: WorkspacePanel[] = [
   { id: 'search', title: 'Búsqueda y contenido', icon: 'search' },
+  { id: 'upcomingActivities', title: 'Próximas actividades', icon: 'event_upcoming' },
   { id: 'preview', title: 'Previsualización', icon: 'preview' },
   { id: 'service', title: 'Servicio', icon: 'playlist_play' },
   { id: 'live', title: 'En vivo', icon: 'sensors' },
@@ -242,7 +244,7 @@ const workspaceGridStyle = computed(() => {
     gridTemplateColumns: columns || '1fr',
     gridTemplateRows:
       panelCount >= 4
-        ? `minmax(0, ${topRowPercent.value}fr) 12px minmax(0, ${100 - topRowPercent.value}fr)`
+        ? `minmax(0, ${workspaceSettings.stackedTopPercent}fr) 12px minmax(0, ${100 - workspaceSettings.stackedTopPercent}fr)`
         : 'minmax(0, 1fr)',
   };
 });
@@ -369,13 +371,13 @@ function startRowResize(event: PointerEvent): void {
   }
 
   const startY = event.clientY;
-  const initialTop = topRowPercent.value;
+  const initialTop = workspaceSettings.stackedTopPercent;
 
   beginResize(
     event,
     (moveEvent) => {
       const difference = ((moveEvent.clientY - startY) / containerHeight) * 100;
-      topRowPercent.value = Math.min(75, Math.max(25, initialTop + difference));
+      workspaceSettings.setStackedTopPercent(initialTop + difference);
     },
     'is-resizing-rows',
   );
