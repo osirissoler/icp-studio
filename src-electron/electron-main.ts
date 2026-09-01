@@ -326,6 +326,46 @@ function parseProjectionState(value: unknown): ProjectionState | null {
   }
 
   if (
+    state.mode === 'roulette' &&
+    typeof state.id === 'string' &&
+    typeof state.title === 'string' &&
+    Array.isArray(state.options) &&
+    typeof state.rotation === 'number' &&
+    Number.isFinite(state.rotation) &&
+    typeof state.winnerId === 'string' &&
+    typeof state.spinning === 'boolean' &&
+    typeof state.spinDuration === 'number'
+  ) {
+    const options = state.options
+      .slice(0, 40)
+      .filter(
+        (option): option is { id: string; label: string; color: string } =>
+          typeof option === 'object' &&
+          option !== null &&
+          typeof (option as Record<string, unknown>).id === 'string' &&
+          typeof (option as Record<string, unknown>).label === 'string' &&
+          typeof (option as Record<string, unknown>).color === 'string',
+      )
+      .map((option) => ({
+        id: option.id.slice(0, 200),
+        label: option.label.slice(0, 120),
+        color: /^#[0-9a-f]{6}$/i.test(option.color) ? option.color : '#60a5fa',
+      }));
+    if (options.length >= 2) {
+      return {
+        mode: 'roulette',
+        id: state.id.slice(0, 200),
+        title: state.title.slice(0, 200),
+        options,
+        rotation: state.rotation,
+        winnerId: state.winnerId.slice(0, 200),
+        spinning: state.spinning,
+        spinDuration: Math.min(15000, Math.max(500, state.spinDuration)),
+      };
+    }
+  }
+
+  if (
     state.mode === 'content' &&
     typeof state.title === 'string' &&
     typeof state.body === 'string'
