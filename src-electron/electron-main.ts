@@ -333,8 +333,10 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.rotation === 'number' &&
     Number.isFinite(state.rotation) &&
     typeof state.winnerId === 'string' &&
+    typeof state.pendingWinnerId === 'string' &&
     typeof state.spinning === 'boolean' &&
     typeof state.spinDuration === 'number' &&
+    typeof state.spinStartedAt === 'number' &&
     ['full', 'first-word', 'short', 'colors-text', 'hidden'].includes(String(state.labelMode))
   ) {
     const options = state.options
@@ -360,8 +362,10 @@ function parseProjectionState(value: unknown): ProjectionState | null {
         options,
         rotation: state.rotation,
         winnerId: state.winnerId.slice(0, 200),
+        pendingWinnerId: state.pendingWinnerId.slice(0, 200),
         spinning: state.spinning,
-        spinDuration: Math.min(15000, Math.max(500, state.spinDuration)),
+        spinDuration: Math.min(600000, Math.max(1000, state.spinDuration)),
+        spinStartedAt: Math.max(0, state.spinStartedAt),
         labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden',
       };
     }
