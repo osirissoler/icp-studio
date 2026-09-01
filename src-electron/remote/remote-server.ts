@@ -12,6 +12,22 @@ import { buildRemotePage } from './remote-page';
 
 const DEFAULT_PORT = 43120;
 
+const VIRTUAL_INTERFACE_PREFIXES = [
+  'awdl',
+  'br-',
+  'bridge',
+  'docker',
+  'llw',
+  'tap',
+  'tailscale',
+  'tun',
+  'utun',
+  'vboxnet',
+  'vethernet',
+  'vmnet',
+  'zt',
+] as const;
+
 let remoteServer: Server | null = null;
 let lastError: string | null = null;
 const eventClients = new Set<ServerResponse>();
@@ -22,18 +38,47 @@ let actionHandler:
 let mediaRootResolver: (() => string) | null = null;
 let latestControlState: RemoteControlState | null = null;
 
-function localAddresses(): string[] {
-  const addresses = new Set<string>();
+function interfacePriority(interfaceName: string): number {
+  const name = interfaceName.toLowerCase();
 
-  for (const interfaces of Object.values(networkInterfaces())) {
-    for (const address of interfaces ?? []) {
-      if (address.family === 'IPv4' && !address.internal) {
-        addresses.add(address.address);
+  if (VIRTUAL_INTERFACE_PREFIXES.some((prefix) => name.startsWith(prefix))) return -100;
+  if (name.startsWith('wi-fi') || name.startsWith('wifi') || /^wl/.test(name)) return 400;
+  if (name === 'en0') return 390;
+  if (name.startsWith('ethernet') || /^eth/.test(name)) return 380;
+  if (/^en\d+$/.test(name) || /^en[opsx]/.test(name)) return 350;
+  return 0;
+}
+
+function addressPriority(address: string): number {
+  if (address.startsWith('192.168.')) return 30;
+  if (address.startsWith('10.')) return 20;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) return 10;
+  return 0;
+}
+
+function localAddresses(): string[] {
+  const addresses = new Map<string, number>();
+
+  for (const [interfaceName, interfaceAddresses] of Object.entries(networkInterfaces())) {
+    for (const address of interfaceAddresses ?? []) {
+      if (address.family !== 'IPv4' || address.internal || address.address.startsWith('169.254.')) {
+        continue;
       }
+
+      const priority = interfacePriority(interfaceName) + addressPriority(address.address);
+      addresses.set(
+        address.address,
+        Math.max(priority, addresses.get(address.address) ?? -Infinity),
+      );
     }
   }
 
-  return [...addresses];
+  return [...addresses.entries()]
+    .sort(
+      ([firstAddress, firstPriority], [secondAddress, secondPriority]) =>
+        secondPriority - firstPriority || firstAddress.localeCompare(secondAddress),
+    )
+    .map(([address]) => address);
 }
 
 function activePort(): number | null {
