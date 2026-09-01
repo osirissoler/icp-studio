@@ -1139,9 +1139,14 @@ const workspaceLayoutOptions: Array<{
   value: WorkspaceLayoutPreset;
   capacities: [number, number, number];
 }> = [
-  { label: 'Dobles izquierda y centro', value: 'split-left-center', capacities: [2, 2, 1] },
-  { label: 'Dobles izquierda y derecha', value: 'split-left-right', capacities: [2, 1, 2] },
-  { label: 'Dobles centro y derecha', value: 'split-center-right', capacities: [1, 2, 2] },
+  { label: 'Tres columnas completas', value: 'single-single-single', capacities: [1, 1, 1] },
+  { label: 'División izquierda', value: 'split-single-single', capacities: [2, 1, 1] },
+  { label: 'División central', value: 'single-split-single', capacities: [1, 2, 1] },
+  { label: 'División derecha', value: 'single-single-split', capacities: [1, 1, 2] },
+  { label: 'Divisiones izquierda y centro', value: 'split-split-single', capacities: [2, 2, 1] },
+  { label: 'Divisiones izquierda y derecha', value: 'split-single-split', capacities: [2, 1, 2] },
+  { label: 'Divisiones centro y derecha', value: 'single-split-split', capacities: [1, 2, 2] },
+  { label: 'Todas las columnas divididas', value: 'split-split-split', capacities: [2, 2, 2] },
 ];
 
 const menuSideOptions: Array<{ label: string; value: MenuSide; icon: string }> = [
@@ -1838,7 +1843,7 @@ onBeforeUnmount(() => {
 
 .workspace-preset-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
