@@ -7,6 +7,7 @@ export interface RouletteOption {
 export type RouletteLabelMode = 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden';
 export type RouletteWinnerTextSize = 'small' | 'medium' | 'large';
 export type RouletteConfettiIntensity = 'low' | 'medium' | 'high';
+export type RouletteWinnerSoundPreset = 'chime' | 'crowd' | 'custom';
 
 export interface RoulettePresentationData {
   id: string;
@@ -34,6 +35,9 @@ export interface RoulettePresentationData {
   spinSoundEnabled: boolean;
   brakeSoundEnabled: boolean;
   winnerSoundEnabled: boolean;
+  winnerSoundPreset: RouletteWinnerSoundPreset;
+  customWinnerSoundUrl: string;
+  customWinnerSoundName: string;
 }
 
 export interface SavedRoulette {
@@ -57,6 +61,9 @@ export interface SavedRoulette {
   spinSoundEnabled: boolean;
   brakeSoundEnabled: boolean;
   winnerSoundEnabled: boolean;
+  winnerSoundPreset: RouletteWinnerSoundPreset;
+  customWinnerSoundUrl: string;
+  customWinnerSoundName: string;
   updatedAt: string;
 }
 
