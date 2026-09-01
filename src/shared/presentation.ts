@@ -7,6 +7,7 @@ export type PresentationItemType =
   | 'document'
   | 'presentation'
   | 'game'
+  | 'time-tool'
   | 'activity';
 
 export interface ActivityPresentationData {
@@ -23,6 +24,7 @@ export interface ActivityPresentationData {
 }
 
 import type { RoulettePresentationData } from './roulette';
+import type { TimeToolPresentationData } from './time-tool';
 
 export interface PresentationFrame {
   id: string;
@@ -35,6 +37,7 @@ export interface PresentationFrame {
   pageIndex?: number;
   activity?: ActivityPresentationData;
   roulette?: RoulettePresentationData;
+  timeTool?: TimeToolPresentationData;
 }
 
 export interface ServicePresentationItem {
