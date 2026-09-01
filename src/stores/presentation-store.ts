@@ -290,9 +290,12 @@ export const usePresentationStore = defineStore('presentation', () => {
     const selectedIndex = displayOptions.findIndex((option) => option.id === selected.id);
     const center = (360 / displayOptions.length) * (selectedIndex + 0.5);
     const current = ((roulette.rotation % 360) + 360) % 360;
+    const cruiseTurns = roulette.timedSpin
+      ? Math.max(6, Math.ceil(Math.max(0, roulette.spinDuration - 2000) / 650) + 2)
+      : 8;
     const rotation =
       roulette.rotation +
-      360 * (6 + ((randomValues[1] ?? 0) % 3)) +
+      360 * (cruiseTurns + ((randomValues[1] ?? 0) % 3)) +
       ((360 - center - current + 360) % 360);
     const spinDuration = roulette.spinDuration;
 
