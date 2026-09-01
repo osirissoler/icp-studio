@@ -7,6 +7,12 @@
         :activity="projectionState"
       />
 
+      <RouletteWheel
+        v-else-if="projectionState.mode === 'roulette'"
+        :key="projectionState.id"
+        :roulette="projectionState"
+      />
+
       <section
         v-else-if="projectionState.mode === 'content'"
         key="content"
@@ -75,6 +81,7 @@ import { storeToRefs } from 'pinia';
 import AudioVisualizer from '../components/AudioVisualizer.vue';
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
+import RouletteWheel from '../components/RouletteWheel.vue';
 import type { MediaPlaybackCommand, ProjectionState } from '@/shared/projection';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 
