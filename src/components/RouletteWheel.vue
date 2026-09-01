@@ -5,7 +5,11 @@
     </header>
     <div class="wheel-shell">
       <span class="wheel-pointer"></span>
-      <div class="roulette-wheel" :style="wheelStyle">
+      <div
+        class="roulette-wheel"
+        :class="{ 'roulette-wheel--manual': roulette.spinning && !roulette.timedSpin }"
+        :style="wheelStyle"
+      >
         <svg
           v-if="roulette.labelMode !== 'hidden'"
           class="wheel-labels"
@@ -34,7 +38,7 @@
         <small>Resultado</small><strong>{{ winner.label }}</strong>
       </div>
     </Transition>
-    <div v-if="roulette.spinning" class="spin-clock">
+    <div v-if="roulette.spinning && roulette.timedSpin" class="spin-clock">
       <q-icon name="timer" /><strong>{{ remainingLabel }}</strong
       ><span>restantes</span>
     </div>
@@ -194,6 +198,14 @@ function labelPosition(index: number): { x: number; y: number; transform: string
     inset 0 0 0 3px rgb(255 255 255 / 22%);
   transition-property: transform;
   transition-timing-function: cubic-bezier(0.12, 0.72, 0.08, 1);
+}
+.roulette-wheel--manual {
+  animation: roulette-manual-spin 900ms linear infinite;
+}
+@keyframes roulette-manual-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .wheel-pointer {
   position: absolute;
