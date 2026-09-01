@@ -37,6 +37,13 @@ const tools = [
     to: '/calendario',
     status: 'Disponible',
   },
-  { id: 'timer', label: 'Cronómetro', icon: 'timer', color: '#fbbf24' },
+  {
+    id: 'time',
+    label: 'Reloj y tiempo',
+    icon: 'schedule',
+    color: '#fbbf24',
+    to: '/reloj-tiempo',
+    status: 'Disponible',
+  },
 ];
 </script>
