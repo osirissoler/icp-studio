@@ -9,6 +9,19 @@ export type PresentationItemType =
   | 'game'
   | 'activity';
 
+export interface ActivityPresentationData {
+  id: string;
+  title: string;
+  dateLabel: string;
+  location: string;
+  description: string;
+  imageUrl: string;
+  showOverlayText: boolean;
+  showDescriptionOnImage: boolean;
+  categoryLabel: string;
+  categoryColor: string;
+}
+
 export interface PresentationFrame {
   id: string;
   label: string;
@@ -18,6 +31,7 @@ export interface PresentationFrame {
   mimeType?: string;
   documentFormat?: 'pdf' | 'spreadsheet' | 'presentation';
   pageIndex?: number;
+  activity?: ActivityPresentationData;
 }
 
 export interface ServicePresentationItem {
