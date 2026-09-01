@@ -6,16 +6,26 @@
     <div class="wheel-shell">
       <span class="wheel-pointer"></span>
       <div class="roulette-wheel" :style="wheelStyle">
-        <template v-if="roulette.labelMode !== 'hidden'">
-          <span
+        <svg
+          v-if="roulette.labelMode !== 'hidden'"
+          class="wheel-labels"
+          viewBox="0 0 100 100"
+          aria-hidden="true"
+        >
+          <text
             v-for="(option, index) in roulette.options"
             :key="option.id"
             class="wheel-label"
-            :style="labelStyle(index)"
+            :x="labelPosition(index).x"
+            :y="labelPosition(index).y"
+            :transform="labelPosition(index).transform"
+            :font-size="labelFontSize"
+            text-anchor="middle"
+            dominant-baseline="middle"
           >
-            <b>{{ optionLabel(option.label) }}</b>
-          </span>
-        </template>
+            {{ optionLabel(option.label) }}
+          </text>
+        </svg>
         <span class="wheel-center"><q-icon name="church" /></span>
       </div>
     </div>
@@ -57,6 +67,13 @@ const wheelStyle = computed<Record<string, string>>(() => ({
   transform: `rotate(${displayedRotation.value}deg)`,
   transitionDuration: animating.value ? `${props.roulette.spinDuration}ms` : '0ms',
 }));
+const labelFontSize = computed(() => {
+  const count = props.roulette.options.length;
+  if (count <= 4) return 5;
+  if (count <= 8) return 4;
+  if (count <= 14) return 3.2;
+  return 2.5;
+});
 
 async function animateToTarget(): Promise<void> {
   if (!props.roulette.spinning) {
@@ -80,16 +97,20 @@ watch(
 );
 onMounted(() => void animateToTarget());
 
-function labelStyle(index: number): Record<string, string> {
-  const angle = (360 / Math.max(1, props.roulette.options.length)) * (index + 0.5);
-  return { transform: `rotate(${angle}deg) translateY(-39%)` };
-}
-
 function optionLabel(label: string): string {
   if (props.roulette.labelMode === 'first-word') return label.split(/\s+/)[0] ?? label;
   if (props.roulette.labelMode === 'short' && label.length > 18)
     return `${label.slice(0, 18).trim()}…`;
   return label;
+}
+
+function labelPosition(index: number): { x: number; y: number; transform: string } {
+  const angle = (360 / Math.max(1, props.roulette.options.length)) * (index + 0.5);
+  const radians = (angle * Math.PI) / 180;
+  const x = 50 + Math.sin(radians) * 33;
+  const y = 50 - Math.cos(radians) * 33;
+  const readableRotation = angle > 90 && angle < 270 ? angle + 180 : angle;
+  return { x, y, transform: `rotate(${readableRotation} ${x} ${y})` };
 }
 </script>
 
@@ -156,22 +177,22 @@ function optionLabel(label: string): string {
   filter: drop-shadow(0 5px 5px rgb(0 0 0 / 45%));
   transform: translateX(-50%);
 }
-.wheel-label {
+.wheel-labels {
   position: absolute;
-  inset: 8%;
-  display: flex;
-  justify-content: center;
-  transform-origin: 50% 50%;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
-.wheel-label b {
-  display: block;
-  max-width: 30%;
-  overflow: hidden;
+.wheel-label {
   color: white;
-  font-size: clamp(8px, 1.25vw, 22px);
-  text-overflow: ellipsis;
-  text-shadow: 0 2px 5px #000;
-  white-space: nowrap;
+  fill: white;
+  stroke: rgb(0 0 0 / 58%);
+  stroke-width: 0.8px;
+  paint-order: stroke fill;
+  font-weight: 800;
 }
 .wheel-center {
   position: absolute;
