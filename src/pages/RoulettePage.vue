@@ -91,25 +91,35 @@
           />
         </div>
         <div class="duration-settings">
-          <q-input
-            v-model.number="roulette.durationValue"
+          <q-toggle
+            v-model="roulette.useTimer"
             dark
-            outlined
-            dense
-            type="number"
-            min="1"
-            :max="roulette.durationUnit === 'minutes' ? 10 : 600"
-            label="Duración del giro"
+            color="primary"
+            label="Usar tiempo automático"
+            class="duration-toggle"
           />
-          <q-select
-            v-model="roulette.durationUnit"
-            dark
-            outlined
-            dense
-            emit-value
-            map-options
-            :options="durationUnitOptions"
-          />
+          <template v-if="roulette.useTimer">
+            <q-input
+              v-model.number="roulette.durationValue"
+              dark
+              outlined
+              dense
+              type="number"
+              min="1"
+              :max="roulette.durationUnit === 'minutes' ? 10 : 600"
+              label="Duración del giro"
+            />
+            <q-select
+              v-model="roulette.durationUnit"
+              dark
+              outlined
+              dense
+              emit-value
+              map-options
+              :options="durationUnitOptions"
+            />
+          </template>
+          <small v-else>La ruleta seguirá girando hasta que pulses Detener.</small>
         </div>
         <div class="option-preview-list">
           <div v-for="(option, index) in roulette.options" :key="option.id">
@@ -141,7 +151,7 @@
             @click="spin"
           />
           <q-btn
-            v-if="spinning"
+            v-if="spinning && !roulette.useTimer"
             unelevated
             no-caps
             color="red-6"
@@ -250,7 +260,7 @@
               @click="spin"
             />
             <q-btn
-              v-if="spinning"
+              v-if="spinning && !roulette.useTimer"
               unelevated
               no-caps
               color="red-6"
@@ -340,6 +350,7 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   spinning: spinning.value,
   spinDuration: spinDuration.value,
   spinStartedAt: spinStartedAt.value,
+  timedSpin: roulette.useTimer,
   labelMode: roulette.labelMode,
 }));
 const spinDuration = computed(() => {
@@ -361,6 +372,7 @@ function createRoulette(): SavedRoulette {
     labelMode: 'short',
     durationValue: 6,
     durationUnit: 'seconds',
+    useTimer: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -375,6 +387,7 @@ function loadSaved(): SavedRoulette[] {
             labelMode: item.labelMode ?? 'short',
             durationValue: item.durationValue ?? 6,
             durationUnit: item.durationUnit ?? 'seconds',
+            useTimer: item.useTimer ?? true,
           }))
       : [];
   } catch {
@@ -511,9 +524,11 @@ function spin(): void {
   spinning.value = true;
   spinStartedAt.value = Date.now();
   if (liveSent.value) publishLive();
-  finishTimer = setTimeout(() => {
-    finishSpin();
-  }, spinDuration.value);
+  if (roulette.useTimer) {
+    finishTimer = setTimeout(() => {
+      finishSpin();
+    }, spinDuration.value);
+  }
 }
 function finishSpin(): void {
   if (!spinning.value) return;
@@ -671,6 +686,14 @@ watch(
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
   gap: 8px;
+}
+.duration-toggle,
+.duration-settings > small {
+  grid-column: 1 / -1;
+}
+.duration-settings > small {
+  color: #7f93a7;
+  font-size: 9px;
 }
 .roulette-options-input :deep(textarea) {
   min-height: 150px !important;
