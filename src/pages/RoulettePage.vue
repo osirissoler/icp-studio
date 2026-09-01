@@ -131,13 +131,13 @@
 
       <section class="roulette-operator">
         <div class="operator-label">
-          <span><i></i> Vista del operador</span
-          ><small>{{ liveSent ? 'En vivo' : 'Vista previa' }}</small>
+          <span><i></i> Vista de configuración</span><small>Vista previa local</small>
         </div>
         <div class="operator-wheel">
           <RouletteWheel
             :key="`${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
             :roulette="presentationData"
+            show-timer
           />
         </div>
         <div class="spin-controls">
@@ -208,12 +208,13 @@
     </main>
 
     <q-dialog v-model="operatorConsoleOpen" maximized>
-      <q-card class="roulette-console">
+      <q-card v-if="liveRoulette" class="roulette-console">
         <header class="roulette-console-header">
           <div>
             <span class="console-live-dot"></span>
             <span
-              ><strong>Control de Ruleta · En vivo</strong><small>{{ roulette.title }}</small></span
+              ><strong>Control de Ruleta · En vivo</strong
+              ><small>{{ activeLiveItem?.title }}</small></span
             >
           </div>
           <div class="header-actions">
@@ -241,32 +242,66 @@
             </div>
             <div class="console-wheel-scroll">
               <RouletteWheel
-                :key="`live-${roulette.id}-${roulette.labelMode}-${roulette.options.length}`"
-                :roulette="presentationData"
+                :key="`live-${liveRoulette.id}-${liveRoulette.labelMode}-${liveRoulette.options.length}`"
+                :roulette="liveRoulette"
+                show-timer
               />
             </div>
           </section>
           <aside class="roulette-console-controls">
             <q-icon name="donut_large" />
-            <strong>{{ spinning ? 'La ruleta está girando' : 'Control de la ruleta' }}</strong>
+            <strong>{{
+              liveRoulette.spinning ? 'La ruleta está girando' : 'Control de la ruleta'
+            }}</strong>
             <p>Enviar a En vivo no inicia el giro. Usa este botón cuando estés listo.</p>
+            <q-toggle
+              :model-value="liveRoulette.timedSpin"
+              dark
+              color="primary"
+              label="Usar tiempo automático"
+              :disable="liveRoulette.spinning"
+              @update:model-value="setLiveRouletteTimed"
+            />
+            <div v-if="liveRoulette.timedSpin" class="console-duration-settings">
+              <q-input
+                v-model.number="liveDurationValue"
+                dark
+                outlined
+                dense
+                type="number"
+                min="1"
+                :max="liveDurationUnit === 'minutes' ? 10 : 600"
+                label="Duración"
+                :disable="liveRoulette.spinning"
+              />
+              <q-select
+                v-model="liveDurationUnit"
+                dark
+                outlined
+                dense
+                emit-value
+                map-options
+                :options="durationUnitOptions"
+                :disable="liveRoulette.spinning"
+              />
+            </div>
             <q-btn
               unelevated
               no-caps
               color="primary"
               icon="play_arrow"
-              :label="spinning ? 'Girando…' : 'Girar ruleta'"
-              :disable="spinning || roulette.options.length < 2"
-              @click="spin"
+              :label="liveRoulette.spinning ? 'Girando…' : 'Girar ruleta'"
+              :disable="liveRoulette.spinning || liveRoulette.options.length < 2"
+              @click="spinLiveRoulette"
             />
             <q-btn
-              v-if="spinning && !roulette.useTimer"
+              v-if="liveRoulette.spinning && !liveRoulette.timedSpin"
               unelevated
               no-caps
               color="red-6"
               icon="stop"
               label="Detener"
-              @click="stopSpin"
+              @click="stopLiveRoulette"
             />
             <q-btn
               outline
@@ -274,11 +309,11 @@
               color="blue-grey-3"
               icon="restart_alt"
               label="Reiniciar"
-              :disable="spinning"
-              @click="resetGame"
+              :disable="liveRoulette.spinning"
+              @click="resetLiveRoulette"
             />
-            <div v-if="winner" class="console-result">
-              <small>Resultado</small><strong>{{ winner.label }}</strong>
+            <div v-if="liveWinner" class="console-result">
+              <small>Resultado</small><strong>{{ liveWinner.label }}</strong>
             </div>
           </aside>
         </main>
@@ -288,7 +323,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import RouletteWheel from '../components/RouletteWheel.vue';
 import { showAppNotification } from '../services/app-notification';
 import type { ServicePresentationItem } from '../shared/presentation';
@@ -322,6 +358,14 @@ const durationUnitOptions = [
   { label: 'Minutos', value: 'minutes' },
 ];
 const presentationStore = usePresentationStore();
+const { liveFrame: activeLiveFrame, liveItem: activeLiveItem } = storeToRefs(presentationStore);
+const {
+  resetLiveRoulette,
+  setLiveRouletteDuration,
+  setLiveRouletteTimed,
+  spinLiveRoulette,
+  stopLiveRoulette,
+} = presentationStore;
 const savedRoulettes = ref(loadSaved());
 const roulette = reactive<SavedRoulette>(
   savedRoulettes.value[0] ? structuredClone(savedRoulettes.value[0]) : createRoulette(),
@@ -332,14 +376,31 @@ const winnerId = ref('');
 const pendingWinnerId = ref('');
 const spinning = ref(false);
 const spinStartedAt = ref(0);
-const liveSent = ref(false);
 const operatorConsoleOpen = ref(false);
+const liveDurationUnit = ref<'seconds' | 'minutes'>('seconds');
 const history = ref<RouletteOption[]>([]);
 let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
 const winner = computed(
   () => roulette.options.find((option) => option.id === winnerId.value) ?? null,
 );
+const liveRoulette = computed(() => activeLiveFrame.value?.roulette ?? null);
+const liveWinner = computed(() =>
+  liveRoulette.value?.options.find((option) => option.id === liveRoulette.value?.winnerId),
+);
+const liveDurationValue = computed({
+  get: () => {
+    const duration = liveRoulette.value?.spinDuration ?? 6000;
+    return Math.max(
+      1,
+      Math.round(duration / (liveDurationUnit.value === 'minutes' ? 60000 : 1000)),
+    );
+  },
+  set: (value: number) => {
+    const multiplier = liveDurationUnit.value === 'minutes' ? 60000 : 1000;
+    setLiveRouletteDuration(Number(value) * multiplier);
+  },
+});
 const presentationData = computed<RoulettePresentationData>(() => ({
   id: roulette.id,
   title: roulette.title || 'Ruleta',
@@ -435,7 +496,6 @@ function applyOptionsText(): void {
   if (winnerId.value && !roulette.options.some((option) => option.id === winnerId.value)) {
     winnerId.value = '';
   }
-  if (liveSent.value && !spinning.value) publishLive();
 }
 function changeLabelMode(value: unknown): void {
   if (
@@ -446,7 +506,6 @@ function changeLabelMode(value: unknown): void {
     value === 'hidden'
   ) {
     roulette.labelMode = value;
-    if (liveSent.value && !spinning.value) publishLive();
   }
 }
 function removeOption(index: number): void {
@@ -470,9 +529,8 @@ function rouletteItem(data: RoulettePresentationData): ServicePresentationItem {
     ],
   };
 }
-function publishLive(): void {
-  presentationStore.setLiveItem(rouletteItem(presentationData.value));
-  liveSent.value = true;
+function publishLive(data: RoulettePresentationData): void {
+  presentationStore.setLiveItem(rouletteItem(data));
 }
 function sendLive(): void {
   applyOptionsText();
@@ -480,12 +538,14 @@ function sendLive(): void {
     showAppNotification('Agrega por lo menos dos opciones.', 'warning', 'warning');
     return;
   }
-  if (finishTimer) clearTimeout(finishTimer);
-  spinning.value = false;
-  winnerId.value = '';
-  pendingWinnerId.value = '';
-  spinStartedAt.value = 0;
-  publishLive();
+  publishLive({
+    ...presentationData.value,
+    rotation: 0,
+    winnerId: '',
+    pendingWinnerId: '',
+    spinning: false,
+    spinStartedAt: 0,
+  });
   operatorConsoleOpen.value = true;
   showAppNotification('La ruleta está en Contenido activo.', 'positive', 'live_tv');
 }
@@ -523,7 +583,6 @@ function spin(): void {
   pendingWinnerId.value = selected.id;
   spinning.value = true;
   spinStartedAt.value = Date.now();
-  if (liveSent.value) publishLive();
   if (roulette.useTimer) {
     finishTimer = setTimeout(() => {
       finishSpin();
@@ -540,7 +599,6 @@ function finishSpin(): void {
   const selected = roulette.options.find((option) => option.id === pendingWinnerId.value);
   pendingWinnerId.value = '';
   if (selected) history.value = [selected, ...history.value];
-  if (liveSent.value) publishLive();
 }
 function stopSpin(): void {
   finishSpin();
@@ -549,7 +607,6 @@ function removeWinner(): void {
   const index = roulette.options.findIndex((option) => option.id === winnerId.value);
   if (index >= 0) removeOption(index);
   winnerId.value = '';
-  publishLive();
 }
 function resetGame(): void {
   if (finishTimer) clearTimeout(finishTimer);
@@ -559,22 +616,14 @@ function resetGame(): void {
   rotation.value = 0;
   spinStartedAt.value = 0;
   history.value = [];
-  if (liveSent.value) publishLive();
 }
 function stopLive(): void {
   presentationStore.clearLive();
-  liveSent.value = false;
   operatorConsoleOpen.value = false;
 }
 onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
 });
-watch(
-  () => [roulette.title, roulette.labelMode] as const,
-  () => {
-    if (liveSent.value && !spinning.value) publishLive();
-  },
-);
 </script>
 
 <style scoped>
@@ -904,6 +953,11 @@ watch(
 .roulette-console-controls > p {
   margin: 0 0 12px;
   color: #8195a9;
+}
+.console-duration-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 8px;
 }
 .console-result {
   display: flex;
