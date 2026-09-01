@@ -82,10 +82,27 @@ function loadSettings(): LoadedWorkspaceSettings {
     if (!stored) throw new Error('No stored workspace settings');
 
     const parsed = JSON.parse(stored) as StoredWorkspaceSettings;
-    const layoutPreset: WorkspaceLayoutPreset =
-      parsed.layoutPreset === 'split-left-right' || parsed.layoutPreset === 'split-center-right'
-        ? parsed.layoutPreset
-        : 'split-left-center';
+    const validLayoutPresets = new Set<WorkspaceLayoutPreset>([
+      'single-single-single',
+      'split-single-single',
+      'single-split-single',
+      'single-single-split',
+      'split-split-single',
+      'split-single-split',
+      'single-split-split',
+      'split-split-split',
+    ]);
+    const legacyLayoutPresets: Record<string, WorkspaceLayoutPreset> = {
+      'split-left-center': 'split-split-single',
+      'split-left-right': 'split-single-split',
+      'split-center-right': 'single-split-split',
+    };
+    const storedLayoutPreset = parsed.layoutPreset as string | undefined;
+    const layoutPreset =
+      (storedLayoutPreset && legacyLayoutPresets[storedLayoutPreset]) ||
+      (storedLayoutPreset && validLayoutPresets.has(storedLayoutPreset as WorkspaceLayoutPreset)
+        ? (storedLayoutPreset as WorkspaceLayoutPreset)
+        : 'split-split-single');
     return {
       visiblePanels: { ...defaultVisibility, ...parsed.visiblePanels },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
@@ -106,7 +123,7 @@ function loadSettings(): LoadedWorkspaceSettings {
       panelOrder: [...defaultPanelOrder],
       stackedTopPercent: 70,
       columnSplitPercents: [70, 50, 50, 50, 50, 50],
-      layoutPreset: 'split-left-center',
+      layoutPreset: 'split-split-single',
     };
   }
 }
@@ -181,7 +198,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     panelOrder.value = [...defaultPanelOrder];
     stackedTopPercent.value = 70;
     columnSplitPercents.value = [70, 50, 50, 50, 50, 50];
-    layoutPreset.value = 'split-left-center';
+    layoutPreset.value = 'split-split-single';
     save();
   }
 
