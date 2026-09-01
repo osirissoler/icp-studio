@@ -1,5 +1,13 @@
 export type PresentationItemType =
-  'bible' | 'song' | 'image' | 'video' | 'audio' | 'document' | 'presentation' | 'game';
+  | 'bible'
+  | 'song'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'presentation'
+  | 'game'
+  | 'activity';
 
 export interface PresentationFrame {
   id: string;
