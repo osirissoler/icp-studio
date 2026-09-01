@@ -22,6 +22,8 @@ export interface ActivityPresentationData {
   categoryColor: string;
 }
 
+import type { RoulettePresentationData } from './roulette';
+
 export interface PresentationFrame {
   id: string;
   label: string;
@@ -32,6 +34,7 @@ export interface PresentationFrame {
   documentFormat?: 'pdf' | 'spreadsheet' | 'presentation';
   pageIndex?: number;
   activity?: ActivityPresentationData;
+  roulette?: RoulettePresentationData;
 }
 
 export interface ServicePresentationItem {
