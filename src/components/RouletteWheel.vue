@@ -38,7 +38,7 @@
         <small>Resultado</small><strong>{{ winner.label }}</strong>
       </div>
     </Transition>
-    <div v-if="roulette.spinning && roulette.timedSpin" class="spin-clock">
+    <div v-if="showTimer && roulette.spinning && roulette.timedSpin" class="spin-clock">
       <q-icon name="timer" /><strong>{{ remainingLabel }}</strong
       ><span>restantes</span>
     </div>
@@ -50,8 +50,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { RoulettePresentationData } from '../shared/roulette';
 
 const props = withDefaults(
-  defineProps<{ roulette: RoulettePresentationData; compact?: boolean; showTitle?: boolean }>(),
-  { compact: false, showTitle: true },
+  defineProps<{
+    roulette: RoulettePresentationData;
+    compact?: boolean;
+    showTitle?: boolean;
+    showTimer?: boolean;
+  }>(),
+  { compact: false, showTitle: true, showTimer: false },
 );
 
 const winner = computed(() =>
