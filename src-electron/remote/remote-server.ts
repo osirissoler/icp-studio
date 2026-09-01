@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -29,6 +30,7 @@ const VIRTUAL_INTERFACE_PREFIXES = [
 ] as const;
 
 let remoteServer: Server | null = null;
+let sessionToken = randomBytes(18).toString('hex');
 let lastError: string | null = null;
 const eventClients = new Set<ServerResponse>();
 let statusListener: ((status: RemoteServerStatus) => void) | null = null;
@@ -89,7 +91,9 @@ function activePort(): number | null {
 export function getRemoteServerStatus(): RemoteServerStatus {
   const port = activePort();
   const addresses = port ? localAddresses() : [];
-  const urls = addresses.map((address) => `http://${address}:${port}/`);
+  const urls = addresses.map(
+    (address) => `http://${address}:${port}/?token=${encodeURIComponent(sessionToken)}`,
+  );
 
   return {
     running: remoteServer?.listening === true,
@@ -131,6 +135,10 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
     'Content-Type': 'application/json; charset=utf-8',
   });
   response.end(JSON.stringify(body));
+}
+
+function hasValidToken(url: URL): boolean {
+  return url.searchParams.get('token') === sessionToken;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
@@ -224,6 +232,12 @@ async function serveRemoteMedia(
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? '/', 'http://localhost');
+
+  if (!hasValidToken(url)) {
+    response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    response.end('Enlace remoto inválido o vencido. Escanea nuevamente el código QR.');
+    return;
+  }
 
   if (url.pathname === '/') {
     response.writeHead(200, {
@@ -328,6 +342,7 @@ export async function startRemoteServer(): Promise<RemoteServerStatus> {
   if (remoteServer?.listening) return getRemoteServerStatus();
 
   lastError = null;
+  sessionToken = randomBytes(18).toString('hex');
 
   try {
     remoteServer = createServer((request, response) => {
