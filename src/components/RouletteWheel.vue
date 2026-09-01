@@ -5,11 +5,12 @@
       'roulette-stage--compact': compact,
       'roulette-stage--celebrating': showCelebration,
     }"
+    :style="stageStyle"
   >
     <div v-if="showCelebration" class="winner-confetti" aria-hidden="true">
-      <i v-for="piece in confettiPieces" :key="piece.id" :style="piece.style"></i>
+      <i v-for="piece in visibleConfettiPieces" :key="piece.id" :style="piece.style"></i>
     </div>
-    <header v-if="showTitle">
+    <header v-if="showTitle && roulette.showTitle !== false">
       <small>Ruleta</small><strong>{{ roulette.title }}</strong>
     </header>
     <div class="wheel-shell">
@@ -64,10 +65,17 @@ const props = withDefaults(
     roulette: RoulettePresentationData;
     compact?: boolean;
     celebrateWinner?: boolean;
+    playSounds?: boolean;
     showTitle?: boolean;
     showTimer?: boolean;
   }>(),
-  { compact: false, celebrateWinner: false, showTitle: true, showTimer: false },
+  {
+    compact: false,
+    celebrateWinner: false,
+    playSounds: false,
+    showTitle: true,
+    showTimer: false,
+  },
 );
 
 const winner = computed(() =>
@@ -80,9 +88,11 @@ const wheelElement = ref<HTMLElement | null>(null);
 const clockNow = ref(Date.now());
 const showCelebration = ref(false);
 let clockTimer: ReturnType<typeof setInterval> | null = null;
+let spinSoundTimer: ReturnType<typeof setInterval> | null = null;
 let spinAnimationFrame: number | null = null;
+let audioContext: AudioContext | null = null;
 const confettiColors = ['#38bdf8', '#facc15', '#fb7185', '#4ade80', '#c084fc', '#f8fafc'];
-const confettiPieces = Array.from({ length: 64 }, (_, index) => ({
+const confettiPieces = Array.from({ length: 72 }, (_, index) => ({
   id: index,
   style: {
     '--confetti-x': `${(index * 37) % 100}%`,
@@ -92,6 +102,20 @@ const confettiPieces = Array.from({ length: 64 }, (_, index) => ({
     '--confetti-drift': `${((index * 29) % 120) - 60}px`,
     '--confetti-rotation': `${360 + (index % 5) * 180}deg`,
   },
+}));
+const visibleConfettiPieces = computed(() => {
+  const intensity = props.roulette.confettiIntensity ?? 'medium';
+  const amount = intensity === 'low' ? 28 : intensity === 'high' ? 72 : 48;
+  return confettiPieces.slice(0, amount);
+});
+const stageStyle = computed<Record<string, string>>(() => ({
+  '--roulette-background': props.roulette.backgroundColor || '#050b12',
+  '--roulette-winner-size':
+    props.roulette.winnerTextSize === 'small'
+      ? 'clamp(16px, 1.6vw, 26px)'
+      : props.roulette.winnerTextSize === 'large'
+        ? 'clamp(25px, 3.2vw, 52px)'
+        : 'clamp(18px, 2vw, 34px)',
 }));
 const wheelBackground = computed(() => {
   const count = Math.max(1, props.roulette.options.length);
@@ -181,7 +205,12 @@ watch(
 );
 onMounted(() => {
   animateToTarget();
-  if (props.celebrateWinner && props.roulette.winnerId && !props.roulette.spinning) {
+  if (
+    props.celebrateWinner &&
+    props.roulette.confettiEnabled !== false &&
+    props.roulette.winnerId &&
+    !props.roulette.spinning
+  ) {
     startCelebration();
   }
 });
@@ -189,6 +218,8 @@ watch(
   () => props.roulette.spinning,
   (spinning) => {
     if (spinning) stopCelebration();
+    if (spinning) startSpinSound();
+    else stopSpinSound();
     if (clockTimer) clearInterval(clockTimer);
     clockTimer = null;
     if (spinning) {
@@ -201,13 +232,9 @@ watch(
 watch(
   () => props.roulette.winnerId,
   (winnerId, previousWinnerId) => {
-    if (
-      props.celebrateWinner &&
-      winnerId &&
-      winnerId !== previousWinnerId &&
-      !props.roulette.spinning
-    ) {
-      startCelebration();
+    if (winnerId && winnerId !== previousWinnerId && !props.roulette.spinning) {
+      if (props.celebrateWinner && props.roulette.confettiEnabled !== false) startCelebration();
+      playWinnerSound();
     } else if (!winnerId) {
       stopCelebration();
     }
@@ -215,7 +242,9 @@ watch(
 );
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer);
+  stopSpinSound();
   if (spinAnimationFrame !== null) cancelAnimationFrame(spinAnimationFrame);
+  void audioContext?.close();
 });
 
 function startCelebration(): void {
@@ -224,6 +253,50 @@ function startCelebration(): void {
 
 function stopCelebration(): void {
   showCelebration.value = false;
+}
+
+function ensureAudioContext(): AudioContext | null {
+  if (!props.playSounds || !props.roulette.soundEnabled) return null;
+  audioContext ??= new AudioContext();
+  if (audioContext.state === 'suspended') void audioContext.resume();
+  return audioContext;
+}
+
+function playTone(frequency: number, duration: number, strength = 1): void {
+  const context = ensureAudioContext();
+  if (!context) return;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const volume = Math.min(1, Math.max(0.05, props.roulette.soundVolume || 0.45));
+  const now = context.currentTime;
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * strength), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.02);
+}
+
+function startSpinSound(): void {
+  stopSpinSound();
+  if (!props.playSounds || !props.roulette.soundEnabled) return;
+  playTone(150, 0.035, 0.12);
+  spinSoundTimer = setInterval(() => playTone(150, 0.035, 0.12), 170);
+}
+
+function stopSpinSound(): void {
+  if (spinSoundTimer) clearInterval(spinSoundTimer);
+  spinSoundTimer = null;
+}
+
+function playWinnerSound(): void {
+  if (!props.playSounds || !props.roulette.soundEnabled) return;
+  playTone(523.25, 0.28, 0.2);
+  window.setTimeout(() => playTone(659.25, 0.3, 0.2), 120);
+  window.setTimeout(() => playTone(783.99, 0.5, 0.24), 250);
 }
 
 function optionLabel(label: string): string {
@@ -259,7 +332,11 @@ function labelPosition(index: number): { x: number; y: number; transform: string
   color: white;
   background:
     radial-gradient(circle at 50% 42%, rgb(35 89 132 / 55%), transparent 38%),
-    linear-gradient(145deg, #0b1d2e, #050b12);
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--roulette-background) 72%, #173b58),
+      var(--roulette-background)
+    );
 }
 .winner-confetti {
   position: absolute;
@@ -419,7 +496,7 @@ function labelPosition(index: number): { x: number; y: number; transform: string
 }
 .winner-banner strong {
   margin-top: 3px;
-  font-size: clamp(18px, 2vw, 34px);
+  font-size: var(--roulette-winner-size);
 }
 .spin-clock {
   display: flex;
