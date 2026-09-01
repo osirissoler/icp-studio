@@ -263,6 +263,8 @@ function openSettings(section: 'general' | 'screens' | 'remote' | Event = 'gener
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', disableKeyboardCommands, true);
+  window.addEventListener('keyup', disableKeyboardCommands, true);
   displays.value = (await window.icpStudio?.displays.list()) ?? [];
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
     displays.value = nextDisplays;
@@ -270,8 +272,37 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', disableKeyboardCommands, true);
+  window.removeEventListener('keyup', disableKeyboardCommands, true);
   unsubscribeDisplays?.();
 });
+
+const disabledCommandKeys = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Enter',
+  'Escape',
+  'Delete',
+  'Backspace',
+  ' ',
+]);
+
+function disableKeyboardCommands(event: KeyboardEvent): void {
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  ) {
+    return;
+  }
+  if (!disabledCommandKeys.has(event.key)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
 
 function toggleMenu() {
   if ($q.screen.lt.md) {
