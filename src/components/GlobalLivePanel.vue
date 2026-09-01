@@ -148,7 +148,6 @@
             />
             <FittedTechnicalText v-else :text="liveDisplayText" :min-size="10" :max-size="26" />
             <span v-if="liveFrame && liveItem?.type !== 'activity'" class="technical-selection">
-              <q-icon name="check_circle" />
               {{ liveFrame.label }} · Seleccionado
             </span>
             <span
@@ -197,13 +196,6 @@
             >
               <q-icon v-if="!frame.activity.imageUrl" name="event" />
             </div>
-            <q-icon
-              v-if="liveFrameIndex === frameIndex"
-              name="check_circle"
-              color="primary"
-              size="18px"
-              aria-label="Parte seleccionada"
-            />
           </button>
         </div>
 
