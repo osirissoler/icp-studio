@@ -82,6 +82,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'calendario',
+        component: () => import('../pages/CalendarPage.vue'),
+        meta: {
+          title: 'Calendario',
+          description: 'Planifica y presenta las actividades de todo el año.',
+          icon: 'calendar_month',
+        },
+      },
+      {
         path: 'biblioteca',
         component: () => import('../pages/ModulePlaceholderPage.vue'),
         meta: {
