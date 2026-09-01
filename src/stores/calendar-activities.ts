@@ -42,6 +42,7 @@ function loadActivities(): CalendarActivity[] {
             ? activity.endDate
             : activity.date,
         showOverlayText: activity.showOverlayText !== false,
+        showDescriptionOnImage: activity.showDescriptionOnImage === true,
         status: normalizedStatus(activity.status),
       }));
   } catch {
