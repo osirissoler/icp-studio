@@ -106,6 +106,11 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
+    if (item.type === 'activity' && frame.activity) {
+      window.icpStudio?.projection.setState({ mode: 'activity', ...frame.activity });
+      return;
+    }
+
     if (frame.mediaType && frame.mediaUrl) {
       if (frame.mediaType === 'document') {
         if (frame.documentFormat) {
@@ -181,8 +186,13 @@ export const usePresentationStore = defineStore('presentation', () => {
     }
 
     selectedServiceItemId.value = item.id;
+    setLiveItem(item);
+  }
+
+  function setLiveItem(item: ServicePresentationItem, frameIndex = 0): void {
+    if (item.frames.length === 0) return;
     liveItem.value = item;
-    liveFrameIndex.value = 0;
+    liveFrameIndex.value = Math.min(Math.max(0, frameIndex), item.frames.length - 1);
     resetMediaPlayback();
     projectCurrentFrame();
   }
@@ -245,6 +255,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     selectServiceItem,
     removeFromService,
     activateServiceItem,
+    setLiveItem,
     setLiveFrame,
     moveLiveFrame,
     controlLiveMedia,
