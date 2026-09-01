@@ -175,7 +175,21 @@
         </div>
 
         <div v-else-if="liveItem" class="frame-list" :style="activeContentStyle">
-          <div class="item-title">{{ liveItem.title }}</div>
+          <div class="item-title-row">
+            <div class="item-title">{{ liveItem.title }}</div>
+            <q-btn
+              v-if="liveItem.type === 'game' && liveFrame?.roulette"
+              unelevated
+              no-caps
+              dense
+              size="sm"
+              color="primary"
+              icon="play_arrow"
+              :label="liveFrame.roulette.spinning ? 'Girando…' : 'Girar ruleta'"
+              :disable="liveFrame.roulette.spinning || liveFrame.roulette.options.length < 2"
+              @click="spinLiveRoulette"
+            />
+          </div>
           <button
             v-for="(frame, frameIndex) in liveItem.frames"
             :key="frame.id"
@@ -240,7 +254,8 @@ const projectionSettings = useProjectionSettingsStore();
 const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
 const { audioVisualizer, activeContent, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
-const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame } = presentationStore;
+const { clearLive, controlLiveMedia, moveLiveFrame, setLiveFrame, spinLiveRoulette } =
+  presentationStore;
 
 const liveDisplayText = computed(() => {
   if (!liveFrame.value) return '';
@@ -565,6 +580,22 @@ onBeforeUnmount(() => {
   color: #dce6f2;
   font-size: 11px;
   font-weight: 700;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 6px;
+}
+
+.item-title-row .item-title {
+  min-width: 0;
+  overflow: hidden;
+  padding-bottom: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .frame-item {
