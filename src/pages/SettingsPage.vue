@@ -1110,7 +1110,7 @@ const panelOptions: PanelOption[] = [
     id: 'upcomingActivities',
     label: 'Próximas actividades',
     description: 'Actividades pendientes desde hoy hasta finalizar el año.',
-    icon: 'event_upcoming',
+    icon: 'calendar_month',
   },
   {
     id: 'preview',
