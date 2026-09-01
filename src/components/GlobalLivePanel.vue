@@ -66,6 +66,7 @@
               v-else-if="liveItem?.type === 'game' && liveFrame.roulette"
               :roulette="liveFrame.roulette"
               compact
+              show-timer
             />
             <img
               v-else-if="liveFrame.mediaType === 'image' && liveFrame.mediaUrl"
