@@ -252,35 +252,49 @@
       <aside class="roulette-history">
         <header>
           <div>
-            <strong>Resultados en vivo</strong><small>{{ liveResults.length }} selecciones</small>
+            <strong>Resultados en vivo</strong
+            ><small>{{ liveRouletteResults.length }} selecciones · todas las ruletas</small>
           </div>
           <q-btn
             flat
             round
             dense
             icon="delete_sweep"
-            :disable="!liveResults.length"
-            @click="clearCurrentLiveResults"
-          />
+            :disable="!liveRouletteResults.length"
+            aria-label="Eliminar todos los resultados"
+            @click="clearAllLiveResults"
+          >
+            <q-tooltip>Eliminar todos los resultados</q-tooltip>
+          </q-btn>
         </header>
-        <div v-if="liveResults.length" class="history-list">
-          <div v-for="(result, index) in liveResults" :key="result.id">
-            <span>{{ liveResults.length - index }}</span
-            ><i :style="{ backgroundColor: result.color }"></i>
-            <span class="history-result-details">
-              <strong>{{ result.label }}</strong
-              ><small>{{ resultDateLabel(result.createdAt) }}</small>
-            </span>
-            <q-btn
-              flat
-              round
-              dense
-              size="xs"
-              icon="close"
-              aria-label="Eliminar resultado"
-              @click="removeLiveRouletteResult(result.id)"
-            />
-          </div>
+        <div v-if="liveResultGroups.length" class="history-list">
+          <section v-for="group in liveResultGroups" :key="group.rouletteId" class="history-group">
+            <div class="history-group-title">
+              <span><q-icon name="donut_large" />{{ group.title }}</span>
+              <q-badge color="blue-grey-8" :label="`${group.results.length}`" />
+            </div>
+            <div
+              v-for="(result, index) in group.results"
+              :key="result.id"
+              class="history-result-row"
+            >
+              <span>{{ group.results.length - index }}</span
+              ><i :style="{ backgroundColor: result.color }"></i>
+              <span class="history-result-details">
+                <strong>{{ result.label }}</strong
+                ><small>{{ resultDateLabel(result.createdAt) }}</small>
+              </span>
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                icon="close"
+                aria-label="Eliminar resultado"
+                @click="removeLiveRouletteResult(result.id)"
+              />
+            </div>
+          </section>
         </div>
         <div v-else class="history-empty">
           <q-icon name="history" /><span
@@ -416,7 +430,12 @@ import { useRouter } from 'vue-router';
 import RouletteWheel from '../components/RouletteWheel.vue';
 import { showAppNotification } from '../services/app-notification';
 import type { ServicePresentationItem } from '../shared/presentation';
-import type { RouletteOption, RoulettePresentationData, SavedRoulette } from '../shared/roulette';
+import type {
+  RouletteLiveResult,
+  RouletteOption,
+  RoulettePresentationData,
+  SavedRoulette,
+} from '../shared/roulette';
 import { usePresentationStore } from '../stores/presentation-store';
 
 const STORAGE_KEY = 'icp-studio-roulettes';
@@ -478,9 +497,24 @@ const winner = computed(
   () => roulette.options.find((option) => option.id === winnerId.value) ?? null,
 );
 const hasUnsavedChanges = computed(() => rouletteSignature(roulette) !== savedBaseline.value);
-const liveResults = computed(() =>
-  liveRouletteResults.value.filter((result) => result.rouletteId === roulette.id),
-);
+const liveResultGroups = computed(() => {
+  const groups = new Map<
+    string,
+    { rouletteId: string; title: string; results: RouletteLiveResult[] }
+  >();
+  liveRouletteResults.value.forEach((result) => {
+    const group = groups.get(result.rouletteId);
+    if (group) group.results.push(result);
+    else {
+      groups.set(result.rouletteId, {
+        rouletteId: result.rouletteId,
+        title: result.rouletteTitle || 'Ruleta sin título',
+        results: [result],
+      });
+    }
+  });
+  return [...groups.values()];
+});
 const liveRoulette = computed(() => activeLiveFrame.value?.roulette ?? null);
 const liveWinner = computed(() =>
   liveRoulette.value?.options.find((option) => option.id === liveRoulette.value?.winnerId),
@@ -824,8 +858,9 @@ function stopLive(): void {
   presentationStore.clearLive();
   operatorConsoleOpen.value = false;
 }
-function clearCurrentLiveResults(): void {
-  clearLiveRouletteResults(roulette.id);
+function clearAllLiveResults(): void {
+  if (!window.confirm('¿Eliminar todos los resultados guardados de las ruletas?')) return;
+  liveResultGroups.value.forEach((group) => clearLiveRouletteResults(group.rouletteId));
 }
 function resultDateLabel(value: string): string {
   return new Intl.DateTimeFormat('es-DO', {
@@ -1005,12 +1040,18 @@ button {
 }
 .saved-list {
   display: flex;
-  max-height: 230px;
+  height: clamp(170px, 25vh, 270px);
+  min-height: 170px;
+  flex: 0 0 clamp(170px, 25vh, 270px);
   flex-direction: column;
   gap: 6px;
+  padding-right: 4px;
+  overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 .saved-roulette-card {
+  flex: 0 0 auto;
   overflow: hidden;
   background: #0d1723;
   border: 1px solid #223549;
@@ -1062,9 +1103,13 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 1px;
-  padding: 0 5px 5px;
+  min-height: 30px;
+  padding: 2px 5px 4px;
   color: #8295a8;
   border-top: 1px solid rgb(62 85 108 / 35%);
+}
+.saved-roulette-actions .q-btn {
+  flex: 0 0 26px;
 }
 .saved-list-empty {
   display: flex;
@@ -1180,10 +1225,38 @@ button {
   font-size: 8px;
 }
 .history-list {
+  min-height: 0;
+  flex: 1;
   margin-top: 10px;
   overflow-y: auto;
 }
-.history-list > div {
+.history-group + .history-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #365067;
+}
+.history-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 6px;
+  color: #bfdbfe;
+  background: #17283a;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.history-group-title > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-result-row {
   display: grid;
   grid-template-columns: 22px 6px minmax(0, 1fr) auto;
   align-items: center;
@@ -1200,17 +1273,17 @@ button {
   color: #70859a;
   font-size: 8px;
 }
-.history-list span {
+.history-result-row > span:first-child {
   color: #61778c;
   font-size: 8px;
   text-align: center;
 }
-.history-list i {
+.history-result-row i {
   width: 6px;
   height: 24px;
   border-radius: 4px;
 }
-.history-list strong {
+.history-result-row strong {
   overflow: hidden;
   font-size: 10px;
   text-overflow: ellipsis;
