@@ -186,25 +186,24 @@ function openCalendar(activityId?: string): void {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  min-height: 58px;
-  padding: 7px 9px;
+  gap: 10px;
+  padding: 11px;
   background:
     radial-gradient(circle at 90% 0%, rgb(56 189 248 / 18%), transparent 42%),
     linear-gradient(135deg, #152a3d, #101d2b);
   border: 1px solid #2c455d;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 
 .summary-icon {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   color: #7dd3fc;
   background: rgb(14 116 144 / 22%);
-  border-radius: 8px;
-  font-size: 17px;
+  border-radius: 9px;
+  font-size: 20px;
 }
 
 .upcoming-summary > div:nth-child(2) {
@@ -216,28 +215,21 @@ function openCalendar(activityId?: string): void {
 
 .upcoming-summary strong {
   color: #f4f9ff;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1;
 }
 
 .upcoming-summary span {
   color: #c5d5e4;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 .upcoming-summary small {
   grid-column: 1 / -1;
-  margin-top: 2px;
+  margin-top: 4px;
   color: #71879b;
-  font-size: 7px;
-}
-
-.upcoming-summary > .q-btn {
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
-  font-size: 16px;
+  font-size: 8px;
 }
 
 .upcoming-list {
