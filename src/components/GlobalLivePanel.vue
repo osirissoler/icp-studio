@@ -50,13 +50,21 @@
         <div
           v-if="section === 'screen'"
           class="technical-screen"
-          :class="{ 'technical-screen--activity': liveItem?.type === 'activity' }"
+          :class="{
+            'technical-screen--activity':
+              liveItem?.type === 'activity' || Boolean(liveFrame?.roulette),
+          }"
           :style="[surfaceStyle, contentLayoutStyle]"
         >
           <template v-if="liveFrame">
             <ActivityProjectionView
               v-if="liveItem?.type === 'activity' && liveFrame.activity"
               :activity="liveFrame.activity"
+              compact
+            />
+            <RouletteWheel
+              v-else-if="liveItem?.type === 'game' && liveFrame.roulette"
+              :roulette="liveFrame.roulette"
               compact
             />
             <img
@@ -147,11 +155,14 @@
               :page-index="liveFrame.pageIndex ?? 0"
             />
             <FittedTechnicalText v-else :text="liveDisplayText" :min-size="10" :max-size="26" />
-            <span v-if="liveFrame && liveItem?.type !== 'activity'" class="technical-selection">
+            <span
+              v-if="liveFrame && liveItem?.type !== 'activity' && !liveFrame.roulette"
+              class="technical-selection"
+            >
               {{ liveFrame.label }} · Seleccionado
             </span>
             <span
-              v-if="!liveFrame.mediaType && liveItem?.type !== 'activity'"
+              v-if="!liveFrame.mediaType && liveItem?.type !== 'activity' && !liveFrame.roulette"
               class="screen-footer"
             >
               {{ liveItem?.footer }}
@@ -217,6 +228,7 @@ import ActivityProjectionView from './ActivityProjectionView.vue';
 import FittedTechnicalText from './FittedTechnicalText.vue';
 import DocumentViewer from './DocumentViewer.vue';
 import DocumentThumbnail from './DocumentThumbnail.vue';
+import RouletteWheel from './RouletteWheel.vue';
 import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
