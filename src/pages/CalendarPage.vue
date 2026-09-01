@@ -548,40 +548,11 @@
               <span><i></i> Ahora En vivo</span>
               <small>{{ presentedActivityIndex + 1 }} de {{ presentableActivities.length }}</small>
             </div>
-            <div
-              class="presentation-preview operator-main-preview"
-              :class="{
-                'presentation-preview--image-only':
-                  !presentedActivity.showOverlayText && presentedActivity.imageUrl,
-              }"
-              :style="presentationBackground(presentedActivity.imageUrl)"
-            >
-              <template v-if="presentedActivity.showOverlayText || !presentedActivity.imageUrl">
-                <div class="presentation-overlay"></div>
-                <div class="presentation-brand">
-                  <q-icon name="church" /> ICP Studio · Actividades
-                </div>
-                <div class="presentation-copy">
-                  <span
-                    class="presentation-category"
-                    :style="{
-                      '--category-color': categoryInfo(presentedActivity.category).color,
-                    }"
-                    >{{ categoryInfo(presentedActivity.category).label }}</span
-                  >
-                  <h2>{{ presentedActivity.title }}</h2>
-                  <p>{{ activityLongDateLabel(presentedActivity) }}</p>
-                  <small v-if="presentedActivity.location"
-                    ><q-icon name="location_on" /> {{ presentedActivity.location }}</small
-                  >
-                  <span
-                    v-if="presentedActivity.showDescriptionOnImage && presentedActivity.description"
-                    class="presentation-description"
-                  >
-                    {{ presentedActivity.description }}
-                  </span>
-                </div>
-              </template>
+            <div class="operator-main-preview">
+              <ActivityProjectionView
+                :activity="activityPresentationData(presentedActivity)"
+                compact
+              />
             </div>
             <div class="operator-current-metadata">
               <span class="status-pill" :class="`status-pill--${presentedActivity.status}`">
@@ -1015,9 +986,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
+import ActivityProjectionView from '../components/ActivityProjectionView.vue';
 import { showAppNotification } from '../services/app-notification';
 import type {
   CalendarActivity,
@@ -1025,7 +997,7 @@ import type {
   CalendarActivityCategoryDefinition,
   CalendarActivityStatus,
 } from '../shared/calendar';
-import type { ServicePresentationItem } from '../shared/presentation';
+import type { ActivityPresentationData, ServicePresentationItem } from '../shared/presentation';
 import { useCalendarActivitiesStore } from '../stores/calendar-activities';
 import { usePresentationStore } from '../stores/presentation-store';
 
@@ -1058,6 +1030,8 @@ const router = useRouter();
 const calendarStore = useCalendarActivitiesStore();
 const presentationStore = usePresentationStore();
 const { activities, categories } = storeToRefs(calendarStore);
+const { liveFrame: activePresentationFrame, liveItem: activePresentationItem } =
+  storeToRefs(presentationStore);
 const now = new Date();
 const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
 const year = ref(now.getFullYear());
@@ -1317,23 +1291,36 @@ function presentationBackground(imageUrl: string): Record<string, string> {
   return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
 }
 
-function activityPresentationItem(activity: CalendarActivity): ServicePresentationItem {
-  const existingItem = presentationStore.serviceItems.find(
-    (item) => item.type === 'activity' && item.sourceId === activity.id,
-  );
+function activityPresentationData(activity: CalendarActivity): ActivityPresentationData {
+  const category = categoryInfo(activity.category);
   return {
-    id: existingItem?.id ?? `service-activity-${activity.id}`,
-    sourceId: activity.id,
-    type: 'activity',
+    id: activity.id,
     title: activity.title,
-    footer: categoryInfo(activity.category).label,
-    frames: [
-      {
-        id: `activity-frame-${activity.id}`,
-        label: activity.title,
-        text: activityLiveBody(activity),
-      },
-    ],
+    dateLabel: activityLongDateLabel(activity),
+    location: activity.location,
+    description: activity.description,
+    imageUrl: activity.imageUrl,
+    showOverlayText: activity.showOverlayText || !activity.imageUrl,
+    showDescriptionOnImage:
+      activity.showOverlayText && activity.showDescriptionOnImage && Boolean(activity.description),
+    categoryLabel: category.label,
+    categoryColor: category.color,
+  };
+}
+
+function activityPresentationItem(): ServicePresentationItem {
+  return {
+    id: 'calendar-active-activities',
+    sourceId: 'calendar',
+    type: 'activity',
+    title: 'Actividades del calendario',
+    footer: 'Calendario',
+    frames: presentableActivities.value.map((activity) => ({
+      id: `activity-frame-${activity.id}`,
+      label: activity.title,
+      text: activityLiveBody(activity),
+      activity: activityPresentationData(activity),
+    })),
   };
 }
 
@@ -1360,29 +1347,9 @@ function sendActivityToLive(
     return;
   }
 
-  const item = activityPresentationItem(activity);
-  const alreadyInService = presentationStore.serviceItems.some(
-    (serviceItem) => serviceItem.id === item.id,
-  );
-  if (alreadyInService) presentationStore.updateServiceItem(item);
-  else presentationStore.addToService(item);
-
-  presentationStore.activateServiceItem(item.id);
-  const category = categoryInfo(activity.category);
-  window.icpStudio?.projection.setState({
-    mode: 'activity',
-    id: activity.id,
-    title: activity.title,
-    dateLabel: activityLongDateLabel(activity),
-    location: activity.location,
-    description: activity.description,
-    imageUrl: activity.imageUrl,
-    showOverlayText: activity.showOverlayText || !activity.imageUrl,
-    showDescriptionOnImage:
-      activity.showOverlayText && activity.showDescriptionOnImage && Boolean(activity.description),
-    categoryLabel: category.label,
-    categoryColor: category.color,
-  });
+  const item = activityPresentationItem();
+  const frameIndex = item.frames.findIndex((frame) => frame.activity?.id === activity.id);
+  presentationStore.setLiveItem(item, frameIndex);
 
   selectedActivity.value = activity;
   presentedActivityId.value = activity.id;
@@ -1616,6 +1583,15 @@ function deleteCategory(categoryId: string): void {
 
 onMounted(() => window.addEventListener('keydown', handleOperatorKeyboard));
 onBeforeUnmount(() => window.removeEventListener('keydown', handleOperatorKeyboard));
+watch(
+  () => activePresentationFrame.value?.activity?.id,
+  (activityId) => {
+    if (activePresentationItem.value?.type === 'activity') {
+      presentedActivityId.value = activityId ?? null;
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>
@@ -2715,7 +2691,12 @@ button {
   border-radius: 50%;
 }
 .operator-main-preview {
+  width: 100%;
   max-height: calc(100vh - 230px);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid #39516c;
+  border-radius: 10px;
 }
 .operator-current-metadata {
   flex-wrap: wrap;
