@@ -27,26 +27,13 @@ function localAddresses(): string[] {
 
   for (const interfaces of Object.values(networkInterfaces())) {
     for (const address of interfaces ?? []) {
-      if (
-        address.family === 'IPv4' &&
-        !address.internal &&
-        !address.address.startsWith('169.254.')
-      ) {
+      if (address.family === 'IPv4' && !address.internal) {
         addresses.add(address.address);
       }
     }
   }
 
-  const priority = (address: string): number => {
-    if (address.startsWith('192.168.')) return 3;
-    if (address.startsWith('10.')) return 2;
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) return 1;
-    return 0;
-  };
-
-  return [...addresses].sort(
-    (first, second) => priority(second) - priority(first) || first.localeCompare(second),
-  );
+  return [...addresses];
 }
 
 function activePort(): number | null {

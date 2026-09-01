@@ -917,9 +917,9 @@
                 </div>
               </div>
 
-              <div v-if="remoteStatus.primaryUrl" class="remote-address">
+              <div v-if="activeRemoteUrl" class="remote-address">
                 <q-icon name="wifi" />
-                <code>{{ remoteStatus.primaryUrl }}</code>
+                <code>{{ activeRemoteUrl }}</code>
                 <q-btn
                   flat
                   round
@@ -930,6 +930,22 @@
                 >
                   <q-tooltip>Copiar enlace</q-tooltip>
                 </q-btn>
+              </div>
+
+              <div v-if="remoteStatus.addresses.length > 1" class="remote-address-options">
+                <small>Si una dirección no abre, selecciona otra interfaz de red:</small>
+                <button
+                  v-for="(url, index) in remoteStatus.addresses"
+                  :key="url"
+                  type="button"
+                  class="remote-address-option"
+                  :class="{ 'remote-address-option--active': activeRemoteUrl === url }"
+                  @click="selectedRemoteUrl = url"
+                >
+                  <q-icon :name="activeRemoteUrl === url ? 'check_circle' : 'lan'" />
+                  <span>{{ url }}</span>
+                  <small>{{ index === 0 ? 'Recomendada' : 'Alternativa' }}</small>
+                </button>
               </div>
 
               <div v-if="remoteStatus.error" class="settings-error remote-error">
@@ -969,7 +985,7 @@
               <q-icon name="qr_code_2" />
             </div>
             <strong>Escanea desde el celular</strong>
-            <p v-if="remoteStatus.primaryUrl">
+            <p v-if="activeRemoteUrl">
               Guarda esta dirección en favoritos. Podrás reutilizarla mientras ambos dispositivos
               estén en la misma red Wi-Fi.
             </p>
@@ -1211,6 +1227,12 @@ const remoteStatus = ref<RemoteServerStatus>({
 });
 const remoteQrCode = ref('');
 const changingRemoteState = ref(false);
+const selectedRemoteUrl = ref<string | null>(null);
+const activeRemoteUrl = computed(() =>
+  selectedRemoteUrl.value && remoteStatus.value.addresses.includes(selectedRemoteUrl.value)
+    ? selectedRemoteUrl.value
+    : remoteStatus.value.primaryUrl,
+);
 
 watch(
   () => props.initialSection,
@@ -1220,7 +1242,7 @@ watch(
 );
 
 watch(
-  () => remoteStatus.value.primaryUrl,
+  activeRemoteUrl,
   async (url) => {
     remoteQrCode.value = url
       ? await QRCode.toDataURL(url, {
@@ -1545,7 +1567,7 @@ async function stopRemote(): Promise<void> {
 }
 
 async function copyRemoteUrl(): Promise<void> {
-  const url = remoteStatus.value.primaryUrl;
+  const url = activeRemoteUrl.value;
   if (!url) return;
 
   await navigator.clipboard.writeText(url);
@@ -2311,6 +2333,50 @@ code {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.remote-address-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.remote-address-options > small {
+  color: #8492a6;
+}
+
+.remote-address-option {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 7px;
+  padding: 7px 9px;
+  color: #91a2b7;
+  background: #0d1723;
+  border: 1px solid #293b50;
+  border-radius: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.remote-address-option span {
+  overflow: hidden;
+  font-family: monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-address-option small {
+  color: #65778c;
+  font-size: 8px;
+}
+
+.remote-address-option--active {
+  color: #dbeafe;
+  background: #15304c;
+  border-color: #4384c4;
 }
 
 .remote-error {
