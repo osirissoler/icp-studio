@@ -1,8 +1,6 @@
 export type WorkspacePanelId =
   'search' | 'upcomingActivities' | 'preview' | 'service' | 'live' | 'monitors';
 
-export type StackedColumnPosition = 'start' | 'center' | 'end';
-
 export const WORKSPACE_PANEL_LABELS: Record<WorkspacePanelId, string> = {
   search: 'Búsqueda y contenido',
   upcomingActivities: 'Próximas actividades',
