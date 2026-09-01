@@ -63,7 +63,17 @@
           autogrow
           label="Opciones · una por línea"
           hint="También puedes pegar una lista completa"
-          @blur="applyOptionsText"
+          @update:model-value="applyOptionsText"
+        />
+        <q-select
+          v-model="roulette.labelMode"
+          dark
+          outlined
+          dense
+          emit-value
+          map-options
+          label="Texto dentro de la ruleta"
+          :options="labelModeOptions"
         />
         <div class="editor-toggles">
           <q-toggle
@@ -177,6 +187,12 @@ const colors = [
   '#0d9488',
   '#d97706',
 ];
+const labelModeOptions = [
+  { label: 'Texto completo', value: 'full' },
+  { label: 'Primera palabra', value: 'first-word' },
+  { label: 'Texto abreviado…', value: 'short' },
+  { label: 'Solo colores, sin texto', value: 'hidden' },
+];
 const presentationStore = usePresentationStore();
 const savedRoulettes = ref(loadSaved());
 const roulette = reactive<SavedRoulette>(
@@ -201,6 +217,7 @@ const presentationData = computed<RoulettePresentationData>(() => ({
   winnerId: winnerId.value,
   spinning: spinning.value,
   spinDuration: 5200,
+  labelMode: roulette.labelMode,
 }));
 
 function createRoulette(): SavedRoulette {
@@ -214,6 +231,7 @@ function createRoulette(): SavedRoulette {
     })),
     allowRepeats: true,
     removeWinner: false,
+    labelMode: 'short',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -221,7 +239,9 @@ function loadSaved(): SavedRoulette[] {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as SavedRoulette[];
     return Array.isArray(value)
-      ? value.filter((item) => item?.id && Array.isArray(item.options))
+      ? value
+          .filter((item) => item?.id && Array.isArray(item.options))
+          .map((item) => ({ ...item, labelMode: item.labelMode ?? 'short' }))
       : [];
   } catch {
     return [];
@@ -265,6 +285,10 @@ function applyOptionsText(): void {
         color: colors[index % colors.length]!,
       },
   );
+  if (winnerId.value && !roulette.options.some((option) => option.id === winnerId.value)) {
+    winnerId.value = '';
+  }
+  if (liveSent.value && !spinning.value) publishLive();
 }
 function removeOption(index: number): void {
   roulette.options.splice(index, 1);
