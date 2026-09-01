@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import type { ServicePresentationItem } from '../shared/presentation';
 import type { MediaPlaybackCommand } from '../shared/projection';
 import type { RouletteLiveResult } from '../shared/roulette';
+import { currentTimeToolValue } from '../shared/time-tool';
 import { showAppNotification } from '../services/app-notification';
 
 function showServiceNotification(message: string, icon: string): void {
@@ -21,6 +22,7 @@ export const usePresentationStore = defineStore('presentation', () => {
   const mediaCommand = ref<MediaPlaybackCommand>({ action: 'pause', time: 0 });
   const mediaCommandSequence = ref(0);
   const liveRouletteResults = ref<RouletteLiveResult[]>(loadLiveRouletteResults());
+  let timeToolFinishTimer: number | null = null;
 
   function loadLiveRouletteResults(): RouletteLiveResult[] {
     try {
@@ -147,6 +149,12 @@ export const usePresentationStore = defineStore('presentation', () => {
       return;
     }
 
+    if (item.type === 'time-tool' && frame.timeTool) {
+      const timeTool = frame.timeTool;
+      window.icpStudio?.projection.setState({ mode: 'time-tool', tool: { ...timeTool } });
+      return;
+    }
+
     if (frame.mediaType && frame.mediaUrl) {
       if (frame.mediaType === 'document') {
         if (frame.documentFormat) {
@@ -227,10 +235,12 @@ export const usePresentationStore = defineStore('presentation', () => {
 
   function setLiveItem(item: ServicePresentationItem, frameIndex = 0): void {
     if (item.frames.length === 0) return;
+    cancelTimeToolFinish();
     liveItem.value = item;
     liveFrameIndex.value = Math.min(Math.max(0, frameIndex), item.frames.length - 1);
     resetMediaPlayback();
     projectCurrentFrame();
+    scheduleTimeToolFinish();
   }
 
   function setLiveFrame(index: number): void {
@@ -437,6 +447,98 @@ export const usePresentationStore = defineStore('presentation', () => {
     projectCurrentFrame();
   }
 
+  function cancelTimeToolFinish(): void {
+    if (timeToolFinishTimer !== null) {
+      window.clearTimeout(timeToolFinishTimer);
+      timeToolFinishTimer = null;
+    }
+  }
+
+  function updateLiveTimeTool(
+    update: (
+      timeTool: NonNullable<ServicePresentationItem['frames'][number]['timeTool']>,
+    ) => NonNullable<ServicePresentationItem['frames'][number]['timeTool']>,
+  ): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const timeTool = item?.frames[frameIndex]?.timeTool;
+    if (!item || !timeTool) return;
+    liveItem.value = {
+      ...item,
+      frames: item.frames.map((frame, index) =>
+        index === frameIndex ? { ...frame, timeTool: update(timeTool) } : frame,
+      ),
+    };
+    projectCurrentFrame();
+  }
+
+  function scheduleTimeToolFinish(): void {
+    cancelTimeToolFinish();
+    const timeTool = liveFrame.value?.timeTool;
+    if (!timeTool || timeTool.mode !== 'timer' || !timeTool.running) return;
+    const remaining = currentTimeToolValue(timeTool);
+    timeToolFinishTimer = window.setTimeout(
+      () => {
+        timeToolFinishTimer = null;
+        const current = liveFrame.value?.timeTool;
+        if (!current || current.mode !== 'timer' || !current.running) return;
+        updateLiveTimeTool((tool) => ({
+          ...tool,
+          baseTimeMs: 0,
+          startedAt: 0,
+          running: false,
+          completed: true,
+        }));
+      },
+      Math.max(0, remaining),
+    );
+  }
+
+  function startLiveTimeTool(): void {
+    const timeTool = liveFrame.value?.timeTool;
+    if (!timeTool || timeTool.mode === 'clock' || timeTool.running) return;
+    const baseTimeMs =
+      timeTool.mode === 'timer' && timeTool.baseTimeMs <= 0
+        ? timeTool.durationMs
+        : timeTool.baseTimeMs;
+    if (timeTool.mode === 'timer' && baseTimeMs <= 0) return;
+    updateLiveTimeTool((tool) => ({
+      ...tool,
+      baseTimeMs,
+      startedAt: Date.now(),
+      running: true,
+      completed: false,
+    }));
+    scheduleTimeToolFinish();
+  }
+
+  function pauseLiveTimeTool(): void {
+    const timeTool = liveFrame.value?.timeTool;
+    if (!timeTool || timeTool.mode === 'clock' || !timeTool.running) return;
+    const value = currentTimeToolValue(timeTool);
+    cancelTimeToolFinish();
+    updateLiveTimeTool((tool) => ({
+      ...tool,
+      baseTimeMs: value,
+      startedAt: 0,
+      running: false,
+      completed: tool.mode === 'timer' && value <= 0,
+    }));
+  }
+
+  function resetLiveTimeTool(): void {
+    const timeTool = liveFrame.value?.timeTool;
+    if (!timeTool || timeTool.mode === 'clock') return;
+    cancelTimeToolFinish();
+    updateLiveTimeTool((tool) => ({
+      ...tool,
+      baseTimeMs: tool.mode === 'timer' ? tool.durationMs : 0,
+      startedAt: 0,
+      running: false,
+      completed: false,
+    }));
+  }
+
   function removeLiveRouletteResult(resultId: string): void {
     liveRouletteResults.value = liveRouletteResults.value.filter(
       (result) => result.id !== resultId,
@@ -452,6 +554,7 @@ export const usePresentationStore = defineStore('presentation', () => {
   }
 
   function clearLive(): void {
+    cancelTimeToolFinish();
     liveItem.value = null;
     liveFrameIndex.value = 0;
     resetMediaPlayback();
@@ -488,6 +591,9 @@ export const usePresentationStore = defineStore('presentation', () => {
     setLiveRouletteDuration,
     setLiveRouletteTimed,
     resetLiveRoulette,
+    startLiveTimeTool,
+    pauseLiveTimeTool,
+    resetLiveTimeTool,
     removeLiveRouletteResult,
     clearLiveRouletteResults,
     controlLiveMedia,
