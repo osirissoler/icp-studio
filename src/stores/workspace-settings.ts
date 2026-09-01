@@ -8,23 +8,33 @@ interface StoredWorkspaceSettings {
   visiblePanels?: Partial<Record<WorkspacePanelId, boolean>>;
   panelOrder?: WorkspacePanelId[];
   stackedColumnPosition?: StackedColumnPosition;
+  stackedTopPercent?: number;
 }
 
 interface LoadedWorkspaceSettings {
   visiblePanels: Record<WorkspacePanelId, boolean>;
   panelOrder: WorkspacePanelId[];
   stackedColumnPosition: StackedColumnPosition;
+  stackedTopPercent: number;
 }
 
 const defaultVisibility: Record<WorkspacePanelId, boolean> = {
   search: true,
+  upcomingActivities: true,
   preview: true,
   service: true,
   live: true,
   monitors: true,
 };
 
-const defaultPanelOrder: WorkspacePanelId[] = ['search', 'preview', 'service', 'live', 'monitors'];
+const defaultPanelOrder: WorkspacePanelId[] = [
+  'preview',
+  'search',
+  'upcomingActivities',
+  'service',
+  'live',
+  'monitors',
+];
 
 function normalizePanelOrder(value: unknown): WorkspacePanelId[] {
   if (!Array.isArray(value)) return [...defaultPanelOrder];
@@ -35,6 +45,16 @@ function normalizePanelOrder(value: unknown): WorkspacePanelId[] {
       typeof item === 'string' && validIds.has(item as WorkspacePanelId),
   );
   const uniqueIds = [...new Set(storedIds)];
+
+  if (!uniqueIds.includes('upcomingActivities')) {
+    const withoutSearch = uniqueIds.filter((id) => id !== 'search');
+    return [
+      'preview',
+      'search',
+      'upcomingActivities',
+      ...withoutSearch.filter((id) => id !== 'preview'),
+    ];
+  }
 
   return [...uniqueIds, ...defaultPanelOrder.filter((id) => !uniqueIds.includes(id))];
 }
@@ -54,12 +74,17 @@ function loadSettings(): LoadedWorkspaceSettings {
       visiblePanels: { ...defaultVisibility, ...parsed.visiblePanels },
       panelOrder: normalizePanelOrder(parsed.panelOrder),
       stackedColumnPosition,
+      stackedTopPercent:
+        typeof parsed.stackedTopPercent === 'number'
+          ? Math.min(80, Math.max(55, parsed.stackedTopPercent))
+          : 70,
     };
   } catch {
     return {
       visiblePanels: { ...defaultVisibility },
       panelOrder: [...defaultPanelOrder],
       stackedColumnPosition: 'center',
+      stackedTopPercent: 70,
     };
   }
 }
@@ -69,6 +94,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
   const visiblePanels = reactive(initialSettings.visiblePanels);
   const panelOrder = ref<WorkspacePanelId[]>(initialSettings.panelOrder);
   const stackedColumnPosition = ref<StackedColumnPosition>(initialSettings.stackedColumnPosition);
+  const stackedTopPercent = ref(initialSettings.stackedTopPercent);
 
   function save(): void {
     localStorage.setItem(
@@ -77,6 +103,7 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
         visiblePanels,
         panelOrder: panelOrder.value,
         stackedColumnPosition: stackedColumnPosition.value,
+        stackedTopPercent: stackedTopPercent.value,
       }),
     );
   }
@@ -113,10 +140,16 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     save();
   }
 
+  function setStackedTopPercent(percent: number): void {
+    stackedTopPercent.value = Math.min(80, Math.max(55, percent));
+    save();
+  }
+
   function resetWorkspace(): void {
     Object.assign(visiblePanels, defaultVisibility);
     panelOrder.value = [...defaultPanelOrder];
     stackedColumnPosition.value = 'center';
+    stackedTopPercent.value = 70;
     save();
   }
 
@@ -124,10 +157,12 @@ export const useWorkspaceSettingsStore = defineStore('workspace-settings', () =>
     visiblePanels,
     panelOrder,
     stackedColumnPosition,
+    stackedTopPercent,
     isVisible,
     setPanelVisible,
     movePanel,
     setStackedColumnPosition,
+    setStackedTopPercent,
     resetWorkspace,
   };
 });
