@@ -21,7 +21,7 @@
               <q-tooltip>Arrastra para cambiar la posición del panel</q-tooltip>
             </q-icon>
             <q-icon :name="panel.id === 'search' ? icon : panel.icon" size="19px" />
-            <span>{{ panel.id === 'search' ? title : panel.title }}</span>
+            <span class="panel-title">{{ panel.id === 'search' ? title : panel.title }}</span>
             <span v-if="panel.id === 'search'" class="panel-context">Búsqueda y contenido</span>
           </div>
 
@@ -149,7 +149,7 @@
         class="resize-handle resize-handle--column"
         :style="{
           gridColumn: String(separatorIndex * 2),
-          gridRow: visiblePanels.length >= 4 ? '1 / 4' : '1',
+          gridRow: stackedColumnCount > 0 ? '1 / 4' : '1',
         }"
         title="Arrastra para cambiar el ancho"
         @pointerdown="startColumnResize($event, separatorIndex - 1)"
@@ -158,9 +158,10 @@
       </div>
 
       <div
-        v-if="visiblePanels.length >= 4"
+        v-for="stackedIndex in stackedColumnCount"
+        :key="`row-separator-${stackedIndex}`"
         class="resize-handle resize-handle--center"
-        :style="{ gridColumn: String(stackedColumnIndex * 2 + 1) }"
+        :style="{ gridColumn: String((stackedIndex - 1) * 2 + 1) }"
         title="Arrastra para cambiar la altura"
         @pointerdown="startRowResize"
       >
@@ -222,18 +223,14 @@ const searchPlaceholder = computed(() => `Buscar en ${props.title.toLowerCase()}
 const isSongModule = computed(() => props.title === 'Alabanzas');
 const layoutColumnCount = computed(() => {
   const panelCount = visiblePanels.value.length;
-  return panelCount >= 4 ? panelCount - 1 : panelCount;
+  if (panelCount <= 1) return panelCount;
+  if (panelCount <= 3) return panelCount - 1;
+  return panelCount - 2;
 });
-const stackedColumnIndex = computed(() => {
-  const lastIndex = Math.max(0, layoutColumnCount.value - 1);
-
-  if (workspaceSettings.stackedColumnPosition === 'start') return 0;
-  if (workspaceSettings.stackedColumnPosition === 'end') return lastIndex;
-
-  return Math.floor(lastIndex / 2);
-});
+const stackedColumnCount = computed(() =>
+  visiblePanels.value.length >= 4 ? 2 : visiblePanels.value.length >= 2 ? 1 : 0,
+);
 const workspaceGridStyle = computed(() => {
-  const panelCount = visiblePanels.value.length;
   const columnCount = layoutColumnCount.value;
   const columns = Array.from(
     { length: columnCount },
@@ -243,36 +240,25 @@ const workspaceGridStyle = computed(() => {
   return {
     gridTemplateColumns: columns || '1fr',
     gridTemplateRows:
-      panelCount >= 4
+      stackedColumnCount.value > 0
         ? `minmax(0, ${workspaceSettings.stackedTopPercent}fr) 12px minmax(0, ${100 - workspaceSettings.stackedTopPercent}fr)`
         : 'minmax(0, 1fr)',
   };
 });
 
 function panelGridPosition(index: number): Record<string, string> {
-  if (visiblePanels.value.length >= 4) {
-    const isStackedPanel = index === 1 || index === 2;
-
-    if (isStackedPanel) {
-      return {
-        gridColumn: String(stackedColumnIndex.value * 2 + 1),
-        gridRow: index === 1 ? '1' : '3',
-      };
-    }
-
-    const singlePanelIndex = index === 0 ? 0 : index - 2;
-    const availableColumns = Array.from(
-      { length: layoutColumnCount.value },
-      (_, columnIndex) => columnIndex,
-    ).filter((columnIndex) => columnIndex !== stackedColumnIndex.value);
-    const columnIndex = availableColumns[singlePanelIndex] ?? 0;
-
-    return { gridColumn: String(columnIndex * 2 + 1), gridRow: '1 / 4' };
+  const stackedPanelCount = stackedColumnCount.value * 2;
+  if (index < stackedPanelCount) {
+    const columnIndex = Math.floor(index / 2);
+    return {
+      gridColumn: String(columnIndex * 2 + 1),
+      gridRow: index % 2 === 0 ? '1' : '3',
+    };
   }
 
   return {
-    gridColumn: String(index * 2 + 1),
-    gridRow: '1',
+    gridColumn: String((stackedColumnCount.value + index - stackedPanelCount) * 2 + 1),
+    gridRow: '1 / 4',
   };
 }
 
@@ -510,6 +496,17 @@ onBeforeUnmount(() => {
   color: #dbe5f1;
   font-size: 13px;
   font-weight: 600;
+}
+
+.panel-heading > .q-icon {
+  flex: 0 0 auto;
+}
+
+.panel-title {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drag-icon {
