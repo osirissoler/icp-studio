@@ -112,7 +112,12 @@ export const usePresentationStore = defineStore('presentation', () => {
     }
 
     if (item.type === 'game' && frame.roulette) {
-      window.icpStudio?.projection.setState({ mode: 'roulette', ...frame.roulette });
+      const roulette = frame.roulette;
+      window.icpStudio?.projection.setState({
+        mode: 'roulette',
+        ...roulette,
+        options: roulette.options.map((option) => ({ ...option })),
+      });
       return;
     }
 
@@ -271,12 +276,14 @@ export const usePresentationStore = defineStore('presentation', () => {
       spinning: true,
       spinStartedAt: Date.now(),
     });
-    window.setTimeout(() => {
-      const currentRoulette = liveItem.value?.frames[frameIndex]?.roulette;
-      if (!currentRoulette || currentRoulette.rotation !== rotation || !currentRoulette.spinning)
-        return;
-      stopLiveRoulette();
-    }, spinDuration);
+    if (roulette.timedSpin) {
+      window.setTimeout(() => {
+        const currentRoulette = liveItem.value?.frames[frameIndex]?.roulette;
+        if (!currentRoulette || currentRoulette.rotation !== rotation || !currentRoulette.spinning)
+          return;
+        stopLiveRoulette();
+      }, spinDuration);
+    }
   }
 
   function stopLiveRoulette(): void {
@@ -326,6 +333,20 @@ export const usePresentationStore = defineStore('presentation', () => {
     projectCurrentFrame();
   }
 
+  function setLiveRouletteTimed(timedSpin: boolean): void {
+    const item = liveItem.value;
+    const frameIndex = liveFrameIndex.value;
+    const roulette = item?.frames[frameIndex]?.roulette;
+    if (!item || !roulette || roulette.spinning) return;
+    liveItem.value = {
+      ...item,
+      frames: item.frames.map((frame, index) =>
+        index === frameIndex ? { ...frame, roulette: { ...roulette, timedSpin } } : frame,
+      ),
+    };
+    projectCurrentFrame();
+  }
+
   function clearLive(): void {
     liveItem.value = null;
     liveFrameIndex.value = 0;
@@ -360,6 +381,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     spinLiveRoulette,
     stopLiveRoulette,
     setLiveRouletteDuration,
+    setLiveRouletteTimed,
     controlLiveMedia,
     setLiveMediaPlaying,
     updateLiveMediaDuration,
