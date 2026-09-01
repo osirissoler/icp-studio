@@ -27,7 +27,10 @@
           <p v-if="projectionState.location" class="activity-location">
             <q-icon name="location_on" /> {{ projectionState.location }}
           </p>
-          <p v-if="projectionState.description" class="activity-description">
+          <p
+            v-if="projectionState.showDescriptionOnImage && projectionState.description"
+            class="activity-description"
+          >
             {{ projectionState.description }}
           </p>
         </div>
