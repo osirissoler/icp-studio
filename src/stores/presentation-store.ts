@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { ServicePresentationItem } from '../shared/presentation';
 import type { MediaPlaybackCommand } from '../shared/projection';
+import type { RouletteLiveResult } from '../shared/roulette';
 import { showAppNotification } from '../services/app-notification';
 
 function showServiceNotification(message: string, icon: string): void {
@@ -9,6 +10,7 @@ function showServiceNotification(message: string, icon: string): void {
 }
 
 export const usePresentationStore = defineStore('presentation', () => {
+  const rouletteResultsStorageKey = 'icp-studio-roulette-live-results';
   const serviceItems = ref<ServicePresentationItem[]>([]);
   const selectedServiceItemId = ref<string | null>(null);
   const previewItem = ref<ServicePresentationItem | null>(null);
@@ -18,6 +20,29 @@ export const usePresentationStore = defineStore('presentation', () => {
   const mediaPlayback = ref({ isPlaying: false, time: 0, duration: 0 });
   const mediaCommand = ref<MediaPlaybackCommand>({ action: 'pause', time: 0 });
   const mediaCommandSequence = ref(0);
+  const liveRouletteResults = ref<RouletteLiveResult[]>(loadLiveRouletteResults());
+
+  function loadLiveRouletteResults(): RouletteLiveResult[] {
+    try {
+      const value = JSON.parse(localStorage.getItem(rouletteResultsStorageKey) ?? '[]') as unknown;
+      return Array.isArray(value)
+        ? value.filter(
+            (result): result is RouletteLiveResult =>
+              typeof result === 'object' &&
+              result !== null &&
+              typeof (result as RouletteLiveResult).id === 'string' &&
+              typeof (result as RouletteLiveResult).rouletteId === 'string' &&
+              typeof (result as RouletteLiveResult).label === 'string',
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistLiveRouletteResults(): void {
+    localStorage.setItem(rouletteResultsStorageKey, JSON.stringify(liveRouletteResults.value));
+  }
 
   const liveFrame = computed(() => liveItem.value?.frames[liveFrameIndex.value] ?? null);
   const previewFrame = computed(() => previewItem.value?.frames[previewFrameIndex.value] ?? null);
@@ -244,12 +269,25 @@ export const usePresentationStore = defineStore('presentation', () => {
     const roulette = frame?.roulette;
     if (!item || !frame || !roulette || roulette.spinning || roulette.options.length < 2) return;
 
+    let displayOptions = roulette.options;
+    let usedWinnerIds = roulette.usedWinnerIds;
+    if (roulette.removeWinner && roulette.winnerId) {
+      displayOptions = roulette.options.filter((option) => option.id !== roulette.winnerId);
+    }
+    let availableOptions = displayOptions;
+    if (!roulette.allowRepeats) {
+      const unusedOptions = availableOptions.filter((option) => !usedWinnerIds.includes(option.id));
+      if (unusedOptions.length) availableOptions = unusedOptions;
+      else usedWinnerIds = [];
+    }
+    if (availableOptions.length < 1) return;
+
     const randomValues = new Uint32Array(2);
     crypto.getRandomValues(randomValues);
-    const selectedIndex = (randomValues[0] ?? 0) % roulette.options.length;
-    const selected = roulette.options[selectedIndex];
+    const selected = availableOptions[(randomValues[0] ?? 0) % availableOptions.length];
     if (!selected) return;
-    const center = (360 / roulette.options.length) * (selectedIndex + 0.5);
+    const selectedIndex = displayOptions.findIndex((option) => option.id === selected.id);
+    const center = (360 / displayOptions.length) * (selectedIndex + 0.5);
     const current = ((roulette.rotation % 360) + 360) % 360;
     const rotation =
       roulette.rotation +
@@ -270,11 +308,13 @@ export const usePresentationStore = defineStore('presentation', () => {
 
     updateRoulette({
       ...roulette,
+      options: displayOptions,
       rotation,
       winnerId: '',
       pendingWinnerId: selected.id,
       spinning: true,
       spinStartedAt: Date.now(),
+      usedWinnerIds,
     });
     if (roulette.timedSpin) {
       window.setTimeout(() => {
@@ -291,6 +331,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     const frameIndex = liveFrameIndex.value;
     const roulette = item?.frames[frameIndex]?.roulette;
     if (!item || !roulette || !roulette.spinning) return;
+    const winner = roulette.options.find((option) => option.id === roulette.pendingWinnerId);
     liveItem.value = {
       ...item,
       frames: item.frames.map((frame, index) =>
@@ -303,12 +344,30 @@ export const usePresentationStore = defineStore('presentation', () => {
                 pendingWinnerId: '',
                 spinning: false,
                 spinStartedAt: 0,
+                usedWinnerIds: roulette.pendingWinnerId
+                  ? [...roulette.usedWinnerIds, roulette.pendingWinnerId]
+                  : roulette.usedWinnerIds,
               },
             }
           : frame,
       ),
     };
     projectCurrentFrame();
+    if (winner) {
+      liveRouletteResults.value = [
+        {
+          id: crypto.randomUUID(),
+          rouletteId: roulette.id,
+          rouletteTitle: roulette.title,
+          optionId: winner.id,
+          label: winner.label,
+          color: winner.color,
+          createdAt: new Date().toISOString(),
+        },
+        ...liveRouletteResults.value,
+      ];
+      persistLiveRouletteResults();
+    }
   }
 
   function setLiveRouletteDuration(duration: number): void {
@@ -365,12 +424,27 @@ export const usePresentationStore = defineStore('presentation', () => {
                 pendingWinnerId: '',
                 spinning: false,
                 spinStartedAt: 0,
+                usedWinnerIds: [],
               },
             }
           : frame,
       ),
     };
     projectCurrentFrame();
+  }
+
+  function removeLiveRouletteResult(resultId: string): void {
+    liveRouletteResults.value = liveRouletteResults.value.filter(
+      (result) => result.id !== resultId,
+    );
+    persistLiveRouletteResults();
+  }
+
+  function clearLiveRouletteResults(rouletteId: string): void {
+    liveRouletteResults.value = liveRouletteResults.value.filter(
+      (result) => result.rouletteId !== rouletteId,
+    );
+    persistLiveRouletteResults();
   }
 
   function clearLive(): void {
@@ -392,6 +466,7 @@ export const usePresentationStore = defineStore('presentation', () => {
     mediaPlayback,
     mediaCommand,
     mediaCommandSequence,
+    liveRouletteResults,
     addToService,
     setPreviewItem,
     movePreviewFrame,
@@ -409,6 +484,8 @@ export const usePresentationStore = defineStore('presentation', () => {
     setLiveRouletteDuration,
     setLiveRouletteTimed,
     resetLiveRoulette,
+    removeLiveRouletteResult,
+    clearLiveRouletteResults,
     controlLiveMedia,
     setLiveMediaPlaying,
     updateLiveMediaDuration,
