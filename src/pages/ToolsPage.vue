@@ -21,7 +21,14 @@ import AppLauncherGrid from '../components/AppLauncherGrid.vue';
 import ModuleWorkspace from '../components/ModuleWorkspace.vue';
 
 const tools = [
-  { id: 'wheel', label: 'Ruleta', icon: 'donut_large', color: '#60a5fa' },
+  {
+    id: 'wheel',
+    label: 'Ruleta',
+    icon: 'donut_large',
+    color: '#60a5fa',
+    to: '/ruleta',
+    status: 'Disponible',
+  },
   {
     id: 'calendar',
     label: 'Calendario',
