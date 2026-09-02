@@ -20,24 +20,15 @@ import { storeToRefs } from 'pinia';
 import { usePresentationStore } from '../stores/presentation-store';
 
 const presentationStore = usePresentationStore();
-const {
-  liveFrame,
-  mediaCommand,
-  mediaCommandSequence,
-} = storeToRefs(presentationStore);
-const {
-  controlLiveMedia,
-  setLiveMediaPlaying,
-  updateLiveMediaDuration,
-  updateLiveMediaTime,
-} = presentationStore;
+const { liveFrame, mediaCommand, mediaCommandSequence } = storeToRefs(presentationStore);
+const { controlLiveMedia, setLiveMediaPlaying, updateLiveMediaDuration, updateLiveMediaTime } =
+  presentationStore;
 
 const mediaElement = ref<HTMLVideoElement | null>(null);
 const isPlayableMedia = computed(
   () =>
     Boolean(liveFrame.value?.mediaUrl) &&
-    (liveFrame.value?.mediaType === 'video' ||
-      liveFrame.value?.mediaType === 'audio'),
+    (liveFrame.value?.mediaType === 'video' || liveFrame.value?.mediaType === 'audio'),
 );
 
 function handleMetadata(event: Event): void {

@@ -4,7 +4,6 @@ export const SONG_CHANNELS = {
   getDefaultCollection: 'song:get-default-collection',
 } as const;
 
-
 export interface SongPart {
   id: string;
   type: SongPartType;

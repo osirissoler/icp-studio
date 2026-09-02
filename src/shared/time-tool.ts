@@ -21,12 +21,18 @@ export interface TimeToolPresentationData {
   backgroundColor: string;
   accentColor: string;
   textColor: string;
+  displayScale: number;
 }
 
 export function currentTimeToolValue(tool: TimeToolPresentationData, now = Date.now()): number {
   if (tool.mode === 'clock') return now;
-  if (!tool.running) return Math.max(0, tool.baseTimeMs);
+
+  if (!tool.running) {
+    return Math.max(0, tool.baseTimeMs);
+  }
+
   const elapsed = Math.max(0, now - tool.startedAt);
+
   return tool.mode === 'timer'
     ? Math.max(0, tool.baseTimeMs - elapsed)
     : Math.max(0, tool.baseTimeMs + elapsed);

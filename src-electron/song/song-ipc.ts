@@ -25,12 +25,7 @@ function getDefaultSongsPath(): string {
     return path.join(process.resourcesPath, 'icp-studio-default-songs.json');
   }
 
-  return path.join(
-    process.cwd(),
-    'resources',
-    'songs',
-    'icp-studio-default-songs.json',
-  );
+  return path.join(process.cwd(), 'resources', 'songs', 'icp-studio-default-songs.json');
 }
 
 function parsePart(value: unknown): SongPart | null {
@@ -104,14 +99,10 @@ function loadDefaultSongCollection(): DefaultSongCollection {
   const collectionPath = getDefaultSongsPath();
 
   if (!existsSync(collectionPath)) {
-    throw new Error(
-      `No se encontró la biblioteca inicial de alabanzas en: ${collectionPath}`,
-    );
+    throw new Error(`No se encontró la biblioteca inicial de alabanzas en: ${collectionPath}`);
   }
 
-  const parsedValue: unknown = JSON.parse(
-    readFileSync(collectionPath, 'utf8'),
-  );
+  const parsedValue: unknown = JSON.parse(readFileSync(collectionPath, 'utf8'));
 
   if (typeof parsedValue !== 'object' || parsedValue === null) {
     throw new Error('La biblioteca inicial de alabanzas no es válida.');
@@ -132,9 +123,7 @@ function loadDefaultSongCollection(): DefaultSongCollection {
   const songs = collection.songs.map(parseSong);
 
   if (songs.some((song) => song === null)) {
-    throw new Error(
-      'La biblioteca inicial contiene una o más alabanzas inválidas.',
-    );
+    throw new Error('La biblioteca inicial contiene una o más alabanzas inválidas.');
   }
 
   cachedCollection = {
@@ -148,9 +137,7 @@ function loadDefaultSongCollection(): DefaultSongCollection {
   return cachedCollection;
 }
 
-export function registerSongIpc(
-  getMainWindow: () => BrowserWindow | null,
-): void {
+export function registerSongIpc(getMainWindow: () => BrowserWindow | null): void {
   ipcMain.handle(SONG_CHANNELS.getDefaultCollection, (event) => {
     if (event.sender !== getMainWindow()?.webContents) {
       throw new Error('Ventana no autorizada para leer las alabanzas.');

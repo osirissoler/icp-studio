@@ -336,11 +336,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRoute } from 'vue-router';
-import {
-  getSongs,
-  saveSong,
-  updateSong,
-} from '../services/song-library';
+import { getSongs, saveSong, updateSong } from '../services/song-library';
 import { SONG_PART_TYPE_OPTIONS, type SongPart, type SongPartType } from '../shared/song';
 
 type EditorTab = 'parts' | 'paste' | 'preview';

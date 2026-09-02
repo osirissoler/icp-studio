@@ -24,8 +24,8 @@
         <div class="monitor-details">
           <strong>{{ display.label }}</strong>
           <small>
-            {{ display.bounds.width }} × {{ display.bounds.height }}
-            · Escala {{ display.scaleFactor }}
+            {{ display.bounds.width }} × {{ display.bounds.height }} · Escala
+            {{ display.scaleFactor }}
           </small>
         </div>
 
@@ -43,7 +43,8 @@
 
     <p v-if="usesOperatorDisplay" class="operator-notice">
       <q-icon name="info_outline" />
-      La presentación está disponible en una ventana independiente dentro de la pantalla del operador.
+      La presentación está disponible en una ventana independiente dentro de la pantalla del
+      operador.
     </p>
   </div>
 </template>
