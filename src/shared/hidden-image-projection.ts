@@ -8,6 +8,15 @@ export interface HiddenImageProjectionPayload {
   columns: number;
   imageDataUrl: string;
   revealedTileIds: number[];
+
+  /**
+   * Pista pública que actualmente está visible
+   * en las pantallas.
+   *
+   * La respuesta y la referencia bíblica
+   * nunca forman parte de este payload.
+   */
+  activeHint: string;
 }
 
 const HIDDEN_IMAGE_HOST = 'library';
@@ -23,9 +32,13 @@ function clampRoundIndex(value: number, roundCount: number): number {
 
 export function createHiddenImageProjectionUrl(payload: HiddenImageProjectionPayload): string {
   const rows = clampGridSize(payload.rows);
+
   const columns = clampGridSize(payload.columns);
+
   const roundCount = Math.max(1, Math.round(payload.roundCount));
+
   const roundIndex = clampRoundIndex(payload.roundIndex, roundCount);
+
   const totalTiles = rows * columns;
 
   const revealedTileIds = Array.from(
@@ -38,16 +51,29 @@ export function createHiddenImageProjectionUrl(payload: HiddenImageProjectionPay
 
   const url = new URL(`icp-media://${HIDDEN_IMAGE_HOST}${HIDDEN_IMAGE_PATH}`);
 
-  url.searchParams.set('v', '1');
+  url.searchParams.set('v', '2');
+
   url.searchParams.set('activity', payload.activityId.slice(0, 200));
+
   url.searchParams.set('round', payload.roundId.slice(0, 200));
+
   url.searchParams.set('title', payload.title.slice(0, 300));
+
   url.searchParams.set('index', String(roundIndex));
+
   url.searchParams.set('count', String(roundCount));
+
   url.searchParams.set('rows', String(rows));
+
   url.searchParams.set('columns', String(columns));
+
   url.searchParams.set('revealed', revealedTileIds.join(','));
+
   url.searchParams.set('image', payload.imageDataUrl);
+
+  if (payload.activeHint.trim()) {
+    url.searchParams.set('hint', payload.activeHint.trim().slice(0, 1000));
+  }
 
   return url.toString();
 }
@@ -69,9 +95,14 @@ export function parseHiddenImageProjectionUrl(value: string): HiddenImageProject
     }
 
     const activityId = url.searchParams.get('activity') ?? '';
+
     const roundId = url.searchParams.get('round') ?? '';
+
     const title = url.searchParams.get('title') ?? '';
+
     const imageDataUrl = url.searchParams.get('image') ?? '';
+
+    const activeHint = (url.searchParams.get('hint') ?? '').trim();
 
     const rows = clampGridSize(Number(url.searchParams.get('rows') ?? 4));
 
@@ -91,7 +122,7 @@ export function parseHiddenImageProjectionUrl(value: string): HiddenImageProject
       new Set(
         (url.searchParams.get('revealed') ?? '')
           .split(',')
-          .map((value) => Number(value))
+          .map((item) => Number(item))
           .filter((tileId) => Number.isInteger(tileId) && tileId >= 1 && tileId <= totalTiles),
       ),
     ).sort((a, b) => a - b);
@@ -106,6 +137,7 @@ export function parseHiddenImageProjectionUrl(value: string): HiddenImageProject
       columns,
       imageDataUrl,
       revealedTileIds,
+      activeHint,
     };
   } catch {
     return null;
