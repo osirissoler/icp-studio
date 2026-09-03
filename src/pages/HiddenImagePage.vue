@@ -19,7 +19,7 @@
 
           <div class="header-copy">
             <h1>Imagen escondida</h1>
-            <p>Crea actividades con una o varias imágenes ocultas por casillas.</p>
+            <p>Crea actividades con imágenes, casillas, pistas y puntuación.</p>
           </div>
         </div>
 
@@ -109,8 +109,8 @@
           <h2>Imagen escondida</h2>
 
           <p>
-            Todavía no tienes actividades guardadas. Puedes crear todas las actividades que quieras
-            y cada una puede contener varias imágenes.
+            Todavía no tienes actividades guardadas. Cada actividad puede contener varias imágenes y
+            cada imagen puede tener sus propias pistas.
           </p>
 
           <q-btn
@@ -168,7 +168,7 @@
 
                   <q-btn flat round dense icon="more_vert" class="more-button">
                     <q-menu dark>
-                      <q-list dense style="min-width: 170px">
+                      <q-list dense style="min-width: 180px">
                         <q-item clickable v-close-popup @click="editActivity(activity)">
                           <q-item-section avatar>
                             <q-icon name="edit" />
@@ -207,16 +207,16 @@
                 <div class="activity-info-row">
                   <div>
                     <q-icon name="collections" />
+                    <span>{{ activity.rounds.length }} rondas</span>
+                  </div>
 
-                    <span>
-                      {{ activity.rounds.length }}
-                      {{ activity.rounds.length === 1 ? 'ronda' : 'rondas' }}
-                    </span>
+                  <div>
+                    <q-icon name="lightbulb" />
+                    <span>{{ countActivityHints(activity) }} pistas</span>
                   </div>
 
                   <div v-if="activity.rounds[0]">
                     <q-icon name="grid_view" />
-
                     <span>
                       {{ activity.rounds[0].rows }}
                       ×
@@ -278,10 +278,6 @@
               placeholder="Ej. Personajes del Antiguo Testamento"
               class="app-input"
             />
-
-            <span class="field-help">
-              Este nombre identifica el conjunto completo de imágenes.
-            </span>
           </div>
 
           <div class="form-section rounds-section">
@@ -325,13 +321,14 @@
                 <div class="round-copy">
                   <strong>Imagen {{ index + 1 }}</strong>
                   <span>{{ round.answer.trim() || 'Sin respuesta' }}</span>
+
+                  <small>
+                    {{ round.hints.length }}
+                    {{ round.hints.length === 1 ? 'pista' : 'pistas' }}
+                  </small>
                 </div>
 
-                <q-icon
-                  v-if="round.id === activeRoundId"
-                  name="chevron_right"
-                  class="round-active-icon"
-                />
+                <q-icon v-if="round.id === activeRoundId" name="chevron_right" />
               </button>
             </div>
           </div>
@@ -344,14 +341,7 @@
               </div>
 
               <div class="round-editor-actions">
-                <q-btn
-                  flat
-                  dense
-                  round
-                  icon="content_copy"
-                  class="round-action-button"
-                  @click="duplicateRound"
-                >
+                <q-btn flat dense round icon="content_copy" @click="duplicateRound">
                   <q-tooltip>Duplicar imagen</q-tooltip>
                 </q-btn>
 
@@ -381,7 +371,7 @@
                 class="app-input"
               />
 
-              <span class="field-help"> Esta información será privada para el operador. </span>
+              <span class="field-help"> La respuesta solo será visible para el operador. </span>
             </div>
 
             <div class="form-section">
@@ -444,9 +434,7 @@
                 <div>
                   <label class="field-label">Cuadrícula</label>
 
-                  <span class="field-help">
-                    Cada imagen puede tener su propia cantidad de casillas.
-                  </span>
+                  <span class="field-help"> Configura cuántas casillas cubrirán esta imagen. </span>
                 </div>
 
                 <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
@@ -524,14 +512,104 @@
                 />
               </div>
             </div>
+
+            <!-- PISTAS DE LA RONDA -->
+            <div class="form-section hints-editor-section">
+              <div class="section-title-row">
+                <div>
+                  <label class="field-label">
+                    <q-icon name="lightbulb" />
+                    Pistas
+                  </label>
+
+                  <span class="field-help"> Estas pistas podrán mostrarse durante el juego. </span>
+                </div>
+
+                <q-btn
+                  unelevated
+                  dense
+                  no-caps
+                  icon="add"
+                  label="Agregar pista"
+                  class="hint-add-button"
+                  @click="addHint"
+                />
+              </div>
+
+              <div v-if="activeRound.hints.length === 0" class="empty-hints">
+                <q-icon name="lightbulb_outline" />
+                <span>Esta imagen todavía no tiene pistas.</span>
+              </div>
+
+              <div v-else class="hint-editor-list">
+                <div
+                  v-for="(hint, hintIndex) in activeRound.hints"
+                  :key="hint.id"
+                  class="hint-editor-card"
+                >
+                  <div class="hint-editor-heading">
+                    <strong>Pista {{ hintIndex + 1 }}</strong>
+
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="delete_outline"
+                      class="remove-image-button"
+                      @click="deleteHint(hint.id)"
+                    />
+                  </div>
+
+                  <q-input
+                    v-model="hint.text"
+                    outlined
+                    dense
+                    dark
+                    autogrow
+                    placeholder="Escribe la pista..."
+                    class="app-input"
+                  />
+
+                  <div class="hint-cost-row">
+                    <q-select
+                      v-model="hint.costMode"
+                      :options="hintCostOptions"
+                      emit-value
+                      map-options
+                      dense
+                      outlined
+                      dark
+                      label="Costo"
+                      class="hint-cost-select"
+                    />
+
+                    <q-input
+                      v-if="hint.costMode === 'custom'"
+                      v-model.number="hint.customCost"
+                      type="number"
+                      min="0"
+                      dense
+                      outlined
+                      dark
+                      suffix="pts"
+                      class="hint-custom-cost"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </template>
         </aside>
 
+        <!-- PREVISUALIZACIÓN -->
         <main class="preview-panel">
           <div class="preview-heading">
             <div>
               <span class="eyebrow">PREVISUALIZACIÓN</span>
-              <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
+
+              <h2>
+                {{ form.title.trim() || 'Imagen escondida' }}
+              </h2>
 
               <span v-if="activeRound" class="preview-round-label">
                 Imagen {{ activeRoundNumber }} de {{ rounds.length }}
@@ -591,7 +669,7 @@
               <img
                 v-if="activeRound.imageUrl"
                 :src="activeRound.imageUrl"
-                alt="Imagen de la actividad"
+                alt=""
                 class="hidden-image"
               />
 
@@ -608,7 +686,9 @@
                 :class="{ revealed: tile.revealed }"
                 @click="toggleTile(tile.id)"
               >
-                <span v-if="!tile.revealed">{{ tile.id }}</span>
+                <span v-if="!tile.revealed">
+                  {{ tile.id }}
+                </span>
               </button>
             </div>
           </div>
@@ -702,7 +782,7 @@
 
                 <div>
                   <strong>Por equipos</strong>
-                  <span>Equipos, ganadores de ronda y puntuación opcional.</span>
+                  <span>Equipos, marcador, puntos y pistas.</span>
                 </div>
               </button>
             </div>
@@ -752,7 +832,6 @@
                   outlined
                   dark
                   :label="`Equipo ${index + 1}`"
-                  :placeholder="`Equipo ${index + 1}`"
                   class="app-input"
                 />
               </div>
@@ -772,7 +851,7 @@
 
                   <div>
                     <strong>Sin puntuación</strong>
-                    <span> Solo registra qué equipo acertó cada imagen. </span>
+                    <span>Solo registra el equipo que acertó.</span>
                   </div>
                 </button>
 
@@ -786,7 +865,7 @@
 
                   <div>
                     <strong>Fija</strong>
-                    <span> Cada respuesta correcta vale siempre lo mismo. </span>
+                    <span>Cada respuesta vale la misma cantidad.</span>
                   </div>
                 </button>
 
@@ -802,7 +881,7 @@
 
                   <div>
                     <strong>Decreciente</strong>
-                    <span> Cada casilla descubierta reduce el valor de la ronda. </span>
+                    <span>Descubrir casillas reduce los puntos.</span>
                   </div>
                 </button>
               </div>
@@ -812,9 +891,7 @@
               <div>
                 <label class="field-label">
                   {{
-                    sessionSetup.scoringMode === 'fixed'
-                      ? 'Puntos por respuesta correcta'
-                      : 'Puntos máximos'
+                    sessionSetup.scoringMode === 'fixed' ? 'Puntos por acierto' : 'Puntos máximos'
                   }}
                 </label>
 
@@ -825,15 +902,14 @@
                   dark
                   type="number"
                   min="0"
-                  max="1000000"
-                  suffix="puntos"
+                  suffix="pts"
                   class="app-input"
                 />
               </div>
 
               <template v-if="sessionSetup.scoringMode === 'decreasing'">
                 <div>
-                  <label class="field-label"> Descuento por casilla descubierta </label>
+                  <label class="field-label"> Descuento por casilla </label>
 
                   <q-input
                     v-model.number="sessionSetup.deductionPerReveal"
@@ -842,14 +918,13 @@
                     dark
                     type="number"
                     min="0"
-                    max="1000000"
-                    suffix="puntos"
+                    suffix="pts"
                     class="app-input"
                   />
                 </div>
 
                 <div>
-                  <label class="field-label">Puntuación mínima</label>
+                  <label class="field-label"> Puntuación mínima </label>
 
                   <q-input
                     v-model.number="sessionSetup.minimumPoints"
@@ -858,42 +933,119 @@
                     dark
                     type="number"
                     min="0"
-                    :max="normalizedSetupScoring.basePoints"
-                    suffix="puntos"
+                    suffix="pts"
                     class="app-input"
                   />
                 </div>
               </template>
             </div>
+          </template>
 
-            <div v-if="sessionSetup.scoringMode === 'decreasing'" class="score-example-card">
-              <div class="score-example-heading">
-                <q-icon name="calculate" />
-
-                <div>
-                  <span>Ejemplo de puntuación</span>
-                  <strong> {{ normalizedSetupScoring.basePoints }} puntos iniciales </strong>
-                </div>
+          <!-- CONFIGURACIÓN DE PISTAS -->
+          <div v-if="activityHasHints" class="setup-section hint-setup-section">
+            <div class="hint-section-heading">
+              <div class="hint-section-icon">
+                <q-icon name="lightbulb" />
               </div>
 
-              <div class="score-example-values">
-                <span>
-                  0 casillas:
-                  <strong>{{ setupExamplePoints(0) }}</strong>
-                </span>
+              <div>
+                <label class="field-label">Sistema de pistas</label>
 
-                <span>
-                  1 casilla:
-                  <strong>{{ setupExamplePoints(1) }}</strong>
-                </span>
-
-                <span>
-                  5 casillas:
-                  <strong>{{ setupExamplePoints(5) }}</strong>
+                <span class="field-help">
+                  Define cómo podrán utilizarse las pistas durante este juego.
                 </span>
               </div>
             </div>
-          </template>
+
+            <div class="hint-mode-grid">
+              <button
+                type="button"
+                class="hint-mode-card"
+                :class="{ active: sessionSetup.hintMode === 'disabled' }"
+                @click="sessionSetup.hintMode = 'disabled'"
+              >
+                <q-icon name="block" />
+                <strong>Sin pistas</strong>
+                <span>No se podrán solicitar pistas.</span>
+              </button>
+
+              <button
+                type="button"
+                class="hint-mode-card"
+                :class="{ active: sessionSetup.hintMode === 'free' }"
+                @click="sessionSetup.hintMode = 'free'"
+              >
+                <q-icon name="redeem" />
+                <strong>Gratis</strong>
+                <span>Todas las pistas son gratuitas.</span>
+              </button>
+
+              <button
+                type="button"
+                class="hint-mode-card"
+                :class="{ active: sessionSetup.hintMode === 'paid' }"
+                @click="sessionSetup.hintMode = 'paid'"
+              >
+                <q-icon name="paid" />
+                <strong>Con costo</strong>
+                <span>Las pistas descuentan puntos.</span>
+              </button>
+
+              <button
+                type="button"
+                class="hint-mode-card"
+                :class="{ active: sessionSetup.hintMode === 'mixed' }"
+                @click="sessionSetup.hintMode = 'mixed'"
+              >
+                <q-icon name="tune" />
+                <strong>Mixto</strong>
+                <span>Primero gratis y luego con costo.</span>
+              </button>
+            </div>
+
+            <div
+              v-if="sessionSetup.hintMode === 'paid' || sessionSetup.hintMode === 'mixed'"
+              class="hint-settings-grid"
+            >
+              <div v-if="sessionSetup.hintMode === 'mixed'">
+                <label class="field-label"> Pistas gratis por equipo </label>
+
+                <q-input
+                  v-model.number="sessionSetup.freeHintsPerTeam"
+                  type="number"
+                  min="0"
+                  max="100"
+                  dense
+                  outlined
+                  dark
+                  class="app-input"
+                />
+              </div>
+
+              <div>
+                <label class="field-label"> Costo predeterminado </label>
+
+                <q-input
+                  v-model.number="sessionSetup.hintDefaultCost"
+                  type="number"
+                  min="0"
+                  dense
+                  outlined
+                  dark
+                  suffix="pts"
+                  class="app-input"
+                />
+              </div>
+            </div>
+
+            <q-toggle
+              v-if="sessionSetup.hintMode === 'paid' || sessionSetup.hintMode === 'mixed'"
+              v-model="sessionSetup.allowNegativeScore"
+              dark
+              color="purple-5"
+              label="Permitir comprar pistas aunque el equipo quede con puntuación negativa"
+            />
+          </div>
 
           <div class="setup-summary">
             <div>
@@ -913,9 +1065,9 @@
               </span>
             </div>
 
-            <div v-if="sessionSetup.mode === 'teams'">
-              <q-icon name="stars" />
-              <span>{{ setupScoringLabel }}</span>
+            <div v-if="activityHasHints">
+              <q-icon name="lightbulb" />
+              <span>{{ setupHintLabel }}</span>
             </div>
           </div>
         </div>
@@ -943,14 +1095,7 @@
                 <strong>Equipos</strong>
               </div>
 
-              <q-btn
-                flat
-                round
-                dense
-                icon="restart_alt"
-                class="scoreboard-reset-button"
-                @click="resetFullGame"
-              >
+              <q-btn flat round dense icon="restart_alt" @click="resetFullGame">
                 <q-tooltip>Reiniciar juego completo</q-tooltip>
               </q-btn>
             </div>
@@ -973,6 +1118,7 @@
 
                 <div>
                   <strong>{{ team.name }}</strong>
+
                   <small v-if="team.id === activeTeamId"> Equipo seleccionado </small>
                 </div>
               </div>
@@ -1003,7 +1149,10 @@
             >
               <span class="play-round-number">
                 <q-icon v-if="roundResults[round.id]" name="check" />
-                <template v-else>{{ index + 1 }}</template>
+
+                <template v-else>
+                  {{ index + 1 }}
+                </template>
               </span>
 
               <div>
@@ -1039,13 +1188,7 @@
             </div>
 
             <div class="operator-status-group">
-              <div
-                v-if="hasTeams && hasScoring"
-                class="available-points"
-                :class="{
-                  'available-points--decreasing': sessionScoring.mode === 'decreasing',
-                }"
-              >
+              <div v-if="hasTeams && hasScoring" class="available-points">
                 <span>
                   {{
                     sessionScoring.mode === 'decreasing'
@@ -1055,10 +1198,6 @@
                 </span>
 
                 <strong>{{ currentAwardPoints }}</strong>
-
-                <small v-if="sessionScoring.mode === 'decreasing'">
-                  {{ scoringRevealedCount }} casillas contabilizadas
-                </small>
               </div>
 
               <div class="operator-progress">
@@ -1077,21 +1216,13 @@
 
           <div v-if="hasTeams" class="active-team-bar">
             <div>
-              <span class="active-team-label">EQUIPO ACTUAL</span>
+              <span class="active-team-label"> EQUIPO ACTUAL </span>
 
               <strong>
                 {{ activeTeam?.name ?? 'Selecciona un equipo' }}
               </strong>
 
-              <small>
-                {{
-                  roundWinner
-                    ? `${roundWinner.teamName} ganó esta ronda`
-                    : hasScoring
-                      ? `${currentAwardPoints} puntos disponibles`
-                      : 'Selecciona el equipo que está respondiendo'
-                }}
-              </small>
+              <small v-if="hasScoring"> {{ activeTeam?.score ?? 0 }} puntos </small>
             </div>
 
             <div class="score-actions">
@@ -1101,12 +1232,9 @@
                   round
                   dense
                   icon="remove"
-                  class="score-adjust-button"
                   :disable="!activeTeam"
                   @click="adjustActiveTeamScore(-10)"
-                >
-                  <q-tooltip>Restar 10 puntos</q-tooltip>
-                </q-btn>
+                />
 
                 <span class="active-team-score">
                   {{ activeTeam?.score ?? 0 }}
@@ -1117,12 +1245,9 @@
                   round
                   dense
                   icon="add"
-                  class="score-adjust-button"
                   :disable="!activeTeam"
                   @click="adjustActiveTeamScore(10)"
-                >
-                  <q-tooltip>Sumar 10 puntos</q-tooltip>
-                </q-btn>
+                />
               </template>
 
               <q-btn
@@ -1148,6 +1273,106 @@
             </div>
           </div>
 
+          <!-- PISTAS DEL OPERADOR -->
+          <div
+            v-if="
+              playingRound && playingRound.hints.length > 0 && sessionHintConfig.mode !== 'disabled'
+            "
+            class="operator-hints-panel"
+          >
+            <div class="operator-hints-heading">
+              <div>
+                <span class="eyebrow">PISTAS</span>
+                <strong>Pistas de esta imagen</strong>
+              </div>
+
+              <div class="hint-heading-actions">
+                <q-btn
+                  v-if="currentPublicHint"
+                  flat
+                  dense
+                  no-caps
+                  icon="visibility_off"
+                  label="Ocultar de pantalla"
+                  class="control-secondary"
+                  @click="hidePublicHint"
+                />
+
+                <q-btn
+                  v-if="canUndoHint"
+                  flat
+                  dense
+                  no-caps
+                  icon="undo"
+                  label="Deshacer última"
+                  class="control-secondary"
+                  @click="undoLastHintUsage"
+                />
+              </div>
+            </div>
+
+            <div class="operator-hint-list">
+              <article
+                v-for="(hint, index) in playingRound.hints"
+                :key="hint.id"
+                class="operator-hint-card"
+                :class="{
+                  used: isHintUsed(hint.id),
+                  public: currentPublicHint === hint.text,
+                }"
+              >
+                <div class="operator-hint-number">
+                  <q-icon v-if="isHintUsed(hint.id)" name="check" />
+
+                  <span v-else>
+                    {{ index + 1 }}
+                  </span>
+                </div>
+
+                <div class="operator-hint-copy">
+                  <span>PISTA {{ index + 1 }}</span>
+                  <strong>{{ hint.text }}</strong>
+
+                  <small v-if="isHintUsed(hint.id)"> Utilizada </small>
+
+                  <small v-else>
+                    {{ getHintCostLabel(hint) }}
+                  </small>
+                </div>
+
+                <q-btn
+                  v-if="!isHintUsed(hint.id)"
+                  unelevated
+                  no-caps
+                  icon="lightbulb"
+                  :label="getHintActionLabel(hint)"
+                  class="hint-use-button"
+                  :disable="!canUseHintNow(hint)"
+                  @click="useHint(hint)"
+                />
+
+                <q-btn
+                  v-else
+                  flat
+                  no-caps
+                  icon="visibility"
+                  label="Mostrar"
+                  class="control-secondary"
+                  @click="showUsedHint(hint)"
+                />
+              </article>
+            </div>
+
+            <div v-if="currentPublicHint" class="current-public-hint">
+              <q-icon name="cast" />
+
+              <div>
+                <span>PISTA MOSTRADA EN PANTALLA</span>
+                <strong>{{ currentPublicHint }}</strong>
+              </div>
+            </div>
+          </div>
+
           <div class="operator-stage-shell">
             <div v-if="playingRound" class="operator-image-stage" :style="playingGridStyle">
               <img :src="playingImageUrl" :alt="playingRound.answer" class="hidden-image" />
@@ -1158,10 +1383,11 @@
                 type="button"
                 class="cover-tile operator-cover-tile"
                 :class="{ revealed: tile.revealed }"
-                :aria-label="`Descubrir casilla ${tile.id}`"
                 @click="togglePlayingTile(tile.id)"
               >
-                <span v-if="!tile.revealed">{{ tile.id }}</span>
+                <span v-if="!tile.revealed">
+                  {{ tile.id }}
+                </span>
               </button>
             </div>
           </div>
@@ -1231,6 +1457,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
+
 import {
   adjustGameTeamScore,
   applyRoundResultToTeams,
@@ -1244,9 +1471,28 @@ import {
   type GameSessionScoringConfig,
   type GameSessionTeam,
 } from '../shared/game-session';
+
+import {
+  applyGameHintCost,
+  canUseGameHint,
+  countGameHintsUsedByTeam,
+  createGameHintUsage,
+  hasGameHintBeenUsedInRound,
+  normalizeGameHint,
+  normalizeGameHintConfig,
+  resolveGameHintCost,
+  restoreGameHintCost,
+  type GameHint,
+  type GameHintConfig,
+  type GameHintCostMode,
+  type GameHintMode,
+  type GameHintUsage,
+} from '../shared/game-hints';
+
 import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 
 type ViewMode = 'library' | 'editor' | 'setup' | 'play';
+
 type StandaloneMode = 'free' | 'teams';
 
 interface HiddenImageTile {
@@ -1262,6 +1508,7 @@ interface HiddenImageStoredRound {
   columns: number;
   imageName: string;
   imageBlob: Blob;
+  hints: GameHint[];
 }
 
 interface HiddenImageRoundDraft {
@@ -1273,6 +1520,7 @@ interface HiddenImageRoundDraft {
   imageName: string;
   imageBlob: Blob | null;
   imageUrl: string;
+  hints: GameHint[];
 }
 
 interface HiddenImageActivity {
@@ -1281,6 +1529,17 @@ interface HiddenImageActivity {
   rounds: HiddenImageStoredRound[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface LegacyHiddenImageRound {
+  id?: string;
+  answer?: string;
+  bibleReference?: string;
+  rows?: number;
+  columns?: number;
+  imageName?: string;
+  imageBlob?: Blob;
+  hints?: GameHint[];
 }
 
 interface LegacyHiddenImageActivity {
@@ -1292,7 +1551,7 @@ interface LegacyHiddenImageActivity {
   columns?: number;
   imageName?: string;
   imageBlob?: Blob;
-  rounds?: HiddenImageStoredRound[];
+  rounds?: LegacyHiddenImageRound[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1310,10 +1569,16 @@ interface StandaloneSessionSetup {
   mode: StandaloneMode;
   teamCount: number;
   teams: GameSetupTeam[];
+
   scoringMode: GameScoreMode;
   basePoints: number;
   deductionPerReveal: number;
   minimumPoints: number;
+
+  hintMode: GameHintMode;
+  freeHintsPerTeam: number;
+  hintDefaultCost: number;
+  allowNegativeScore: boolean;
 }
 
 const DB_NAME = 'icp-studio';
@@ -1336,20 +1601,42 @@ const isProjectionLive = ref(false);
 const isSendingProjection = ref(false);
 
 const editingId = ref<string | null>(null);
+
 const activeRoundId = ref('');
 
 const activities = ref<HiddenImageActivity[]>([]);
+
 const rounds = ref<HiddenImageRoundDraft[]>([]);
+
 const tiles = ref<HiddenImageTile[]>([]);
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const previewUrls = new Map<string, string>();
+
 const projectionDataUrls = new Map<string, string>();
 
 let projectionSequence = 0;
 
 const gridPresets = [2, 3, 4, 5, 6];
+
+const hintCostOptions: Array<{
+  label: string;
+  value: GameHintCostMode;
+}> = [
+  {
+    label: 'Costo predeterminado',
+    value: 'default',
+  },
+  {
+    label: 'Gratis',
+    value: 'free',
+  },
+  {
+    label: 'Costo personalizado',
+    value: 'custom',
+  },
+];
 
 const form = reactive<HiddenImageForm>({
   title: '',
@@ -1361,19 +1648,30 @@ const sessionSetup = reactive<StandaloneSessionSetup>({
   mode: 'free',
   teamCount: 2,
   teams: [],
+
   scoringMode: 'fixed',
   basePoints: 100,
   deductionPerReveal: 5,
   minimumPoints: 20,
+
+  hintMode: 'free',
+  freeHintsPerTeam: 1,
+  hintDefaultCost: 10,
+  allowNegativeScore: false,
 });
 
 const playingActivity = ref<HiddenImageActivity | null>(null);
+
 const playingRoundIndex = ref(0);
+
 const playingTiles = ref<HiddenImageTile[]>([]);
+
 const playingImageUrl = ref('');
 
 const sessionMode = ref<StandaloneMode>('free');
+
 const sessionTeams = ref<GameSessionTeam[]>([]);
+
 const activeTeamId = ref('');
 
 const sessionScoring = ref<GameSessionScoringConfig>({
@@ -1383,8 +1681,20 @@ const sessionScoring = ref<GameSessionScoringConfig>({
   minimumPoints: 0,
 });
 
+const sessionHintConfig = ref<GameHintConfig>({
+  mode: 'disabled',
+  freeHintsPerTeam: 0,
+  defaultCost: 0,
+  allowNegativeScore: false,
+});
+
 const roundResults = reactive<Record<string, GameRoundResult>>({});
+
 const roundRevealCounts = reactive<Record<string, number>>({});
+
+const hintUsages = ref<GameHintUsage[]>([]);
+
+const publicHintByRound = reactive<Record<string, string>>({});
 
 const activeRoundIndex = computed(() =>
   rounds.value.findIndex((round) => round.id === activeRoundId.value),
@@ -1420,6 +1730,7 @@ const allTilesRevealed = computed(
 
 const gridStyle = computed(() => ({
   '--hidden-image-rows': String(activeRound.value?.rows ?? 4),
+
   '--hidden-image-columns': String(activeRound.value?.columns ?? 4),
 }));
 
@@ -1437,6 +1748,7 @@ const playingAllRevealed = computed(
 
 const playingGridStyle = computed(() => ({
   '--hidden-image-rows': String(playingRound.value?.rows ?? 4),
+
   '--hidden-image-columns': String(playingRound.value?.columns ?? 4),
 }));
 
@@ -1463,9 +1775,24 @@ const roundWinner = computed<GameRoundResult | null>(() => {
 const normalizedSetupScoring = computed(() =>
   normalizeGameScoringConfig({
     mode: sessionSetup.scoringMode,
+
     basePoints: Number(sessionSetup.basePoints),
+
     deductionPerReveal: Number(sessionSetup.deductionPerReveal),
+
     minimumPoints: Number(sessionSetup.minimumPoints),
+  }),
+);
+
+const normalizedSetupHints = computed(() =>
+  normalizeGameHintConfig({
+    mode: sessionSetup.hintMode,
+
+    freeHintsPerTeam: Number(sessionSetup.freeHintsPerTeam),
+
+    defaultCost: Number(sessionSetup.hintDefaultCost),
+
+    allowNegativeScore: sessionSetup.allowNegativeScore,
   }),
 );
 
@@ -1482,20 +1809,52 @@ const scoringRevealedCount = computed(() => {
 const currentAwardPoints = computed(() =>
   calculateRoundPoints({
     scoring: sessionScoring.value,
+
     revealedCount: scoringRevealedCount.value,
   }),
 );
 
-const setupScoringLabel = computed(() => {
-  if (sessionSetup.scoringMode === 'none') {
-    return 'Sin puntuación';
+const activityHasHints = computed(() => {
+  return Boolean(setupActivity.value?.rounds.some((round) => round.hints.length > 0));
+});
+
+const currentPublicHint = computed(() => {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return '';
   }
 
-  if (sessionSetup.scoringMode === 'fixed') {
-    return `${normalizedSetupScoring.value.basePoints} puntos fijos`;
+  return publicHintByRound[roundId] ?? '';
+});
+
+const canUndoHint = computed(() => {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return false;
   }
 
-  return `${normalizedSetupScoring.value.basePoints} → mínimo ${normalizedSetupScoring.value.minimumPoints}`;
+  return hintUsages.value.some((usage) => usage.roundId === roundId);
+});
+
+const setupHintLabel = computed(() => {
+  switch (sessionSetup.hintMode) {
+    case 'disabled':
+      return 'Pistas desactivadas';
+
+    case 'free':
+      return 'Pistas gratis';
+
+    case 'paid':
+      return `Pistas a ${normalizedSetupHints.value.defaultCost} pts`;
+
+    case 'mixed':
+      return `${normalizedSetupHints.value.freeHintsPerTeam} gratis por equipo`;
+
+    default:
+      return 'Pistas';
+  }
 });
 
 const awardButtonLabel = computed(() => {
@@ -1506,27 +1865,16 @@ const awardButtonLabel = computed(() => {
   return `Acierto +${currentAwardPoints.value}`;
 });
 
-function setupExamplePoints(revealed: number): number {
-  return calculateRoundPoints({
-    scoring: normalizedSetupScoring.value,
-    revealedCount: revealed,
-  });
-}
-
-function createIndexedDbError(message: string, error: DOMException | null): Error {
-  if (error) {
-    return new Error(`${message}: ${error.message}`);
-  }
-
-  return new Error(message);
-}
-
 function createId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
-  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `hidden-image-` + `${Date.now()}-` + Math.random().toString(36).slice(2);
+}
+
+function createIndexedDbError(message: string, error: DOMException | null): Error {
+  return error ? new Error(`${message}: ${error.message}`) : new Error(message);
 }
 
 function createEmptyRound(): HiddenImageRoundDraft {
@@ -1539,24 +1887,154 @@ function createEmptyRound(): HiddenImageRoundDraft {
     imageName: '',
     imageBlob: null,
     imageUrl: '',
+    hints: [],
   };
 }
 
 function createDefaultSetupTeams(count: number): GameSetupTeam[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: createId(),
-    name: `Equipo ${index + 1}`,
-  }));
+  return Array.from(
+    {
+      length: count,
+    },
+    (_, index) => ({
+      id: createId(),
+      name: `Equipo ${index + 1}`,
+    }),
+  );
 }
 
 function resetSessionSetup(): void {
   sessionSetup.mode = 'free';
+
   sessionSetup.teamCount = 2;
+
   sessionSetup.teams = createDefaultSetupTeams(2);
+
   sessionSetup.scoringMode = 'fixed';
+
   sessionSetup.basePoints = 100;
+
   sessionSetup.deductionPerReveal = 5;
+
   sessionSetup.minimumPoints = 20;
+
+  sessionSetup.hintMode = 'free';
+
+  sessionSetup.freeHintsPerTeam = 1;
+
+  sessionSetup.hintDefaultCost = 10;
+
+  sessionSetup.allowNegativeScore = false;
+}
+
+function clampGridValue(value: number): number {
+  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, Math.round(value)));
+}
+
+function normalizeStoredHints(hints?: GameHint[]): GameHint[] {
+  if (!Array.isArray(hints)) {
+    return [];
+  }
+
+  return hints
+    .map((hint) =>
+      normalizeGameHint({
+        id: hint.id || createId(),
+
+        text: hint.text || '',
+
+        costMode: hint.costMode || 'default',
+
+        customCost: Number(hint.customCost) || 0,
+      }),
+    )
+    .filter((hint) => Boolean(hint.text));
+}
+
+function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageActivity {
+  const now = new Date().toISOString();
+
+  if (Array.isArray(rawActivity.rounds) && rawActivity.rounds.length > 0) {
+    return {
+      id: rawActivity.id,
+
+      title: rawActivity.title || 'Imagen escondida',
+
+      rounds: rawActivity.rounds
+        .filter(
+          (
+            round,
+          ): round is LegacyHiddenImageRound & {
+            imageBlob: Blob;
+          } => round.imageBlob instanceof Blob,
+        )
+        .map((round) => ({
+          id: round.id || createId(),
+
+          answer: round.answer || '',
+
+          bibleReference: round.bibleReference || '',
+
+          rows: clampGridValue(round.rows || 4),
+
+          columns: clampGridValue(round.columns || 4),
+
+          imageName: round.imageName || 'imagen',
+
+          imageBlob: round.imageBlob,
+
+          hints: normalizeStoredHints(round.hints),
+        })),
+
+      createdAt: rawActivity.createdAt || now,
+
+      updatedAt: rawActivity.updatedAt || now,
+    };
+  }
+
+  if (rawActivity.imageBlob instanceof Blob) {
+    return {
+      id: rawActivity.id,
+
+      title: rawActivity.title || 'Imagen escondida',
+
+      rounds: [
+        {
+          id: createId(),
+
+          answer: rawActivity.answer || '',
+
+          bibleReference: rawActivity.bibleReference || '',
+
+          rows: clampGridValue(rawActivity.rows || 4),
+
+          columns: clampGridValue(rawActivity.columns || 4),
+
+          imageName: rawActivity.imageName || 'imagen',
+
+          imageBlob: rawActivity.imageBlob,
+
+          hints: [],
+        },
+      ],
+
+      createdAt: rawActivity.createdAt || now,
+
+      updatedAt: rawActivity.updatedAt || now,
+    };
+  }
+
+  return {
+    id: rawActivity.id,
+
+    title: rawActivity.title || 'Imagen escondida',
+
+    rounds: [],
+
+    createdAt: rawActivity.createdAt || now,
+
+    updatedAt: rawActivity.updatedAt || now,
+  };
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -1573,71 +2051,11 @@ function openDatabase(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+    request.onsuccess = () => resolve(request.result);
 
-    request.onerror = () => {
-      reject(
-        createIndexedDbError(
-          'No se pudo abrir la base de datos de Imagen escondida',
-          request.error,
-        ),
-      );
-    };
+    request.onerror = () =>
+      reject(createIndexedDbError('No se pudo abrir la base de datos', request.error));
   });
-}
-
-function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageActivity {
-  const now = new Date().toISOString();
-
-  if (Array.isArray(rawActivity.rounds) && rawActivity.rounds.length > 0) {
-    return {
-      id: rawActivity.id,
-      title: rawActivity.title || 'Imagen escondida',
-      rounds: rawActivity.rounds.map((round) => ({
-        id: round.id || createId(),
-        answer: round.answer || '',
-        bibleReference: round.bibleReference || '',
-        rows: clampGridValue(round.rows || 4),
-        columns: clampGridValue(round.columns || 4),
-        imageName: round.imageName || 'imagen',
-        imageBlob: round.imageBlob,
-      })),
-      createdAt: rawActivity.createdAt || now,
-      updatedAt: rawActivity.updatedAt || now,
-    };
-  }
-
-  const legacyBlob = rawActivity.imageBlob;
-
-  if (legacyBlob) {
-    return {
-      id: rawActivity.id,
-      title: rawActivity.title || 'Imagen escondida',
-      rounds: [
-        {
-          id: createId(),
-          answer: rawActivity.answer || '',
-          bibleReference: rawActivity.bibleReference || '',
-          rows: clampGridValue(rawActivity.rows || 4),
-          columns: clampGridValue(rawActivity.columns || 4),
-          imageName: rawActivity.imageName || 'imagen',
-          imageBlob: legacyBlob,
-        },
-      ],
-      createdAt: rawActivity.createdAt || now,
-      updatedAt: rawActivity.updatedAt || now,
-    };
-  }
-
-  return {
-    id: rawActivity.id,
-    title: rawActivity.title || 'Imagen escondida',
-    rounds: [],
-    createdAt: rawActivity.createdAt || now,
-    updatedAt: rawActivity.updatedAt || now,
-  };
 }
 
 async function loadActivities(): Promise<void> {
@@ -1649,18 +2067,12 @@ async function loadActivities(): Promise<void> {
     const records = await new Promise<LegacyHiddenImageActivity[]>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readonly');
 
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAll();
+      const request = transaction.objectStore(STORE_NAME).getAll();
 
-      request.onsuccess = () => {
-        resolve(request.result as LegacyHiddenImageActivity[]);
-      };
+      request.onsuccess = () => resolve(request.result as LegacyHiddenImageActivity[]);
 
-      request.onerror = () => {
-        reject(
-          createIndexedDbError('No se pudieron leer las actividades guardadas', request.error),
-        );
-      };
+      request.onerror = () =>
+        reject(createIndexedDbError('No se pudieron leer las actividades', request.error));
     });
 
     activities.value = records
@@ -1672,12 +2084,12 @@ async function loadActivities(): Promise<void> {
 
     database.close();
   } catch (error) {
-    console.error('Error cargando actividades:', error);
+    console.error(error);
 
     $q.notify({
       type: 'negative',
       icon: 'error',
-      message: 'No se pudieron cargar las actividades guardadas.',
+      message: 'No se pudieron cargar las actividades.',
       position: 'top',
     });
   } finally {
@@ -1692,18 +2104,15 @@ async function persistActivity(activity: HiddenImageActivity): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
 
-      const store = transaction.objectStore(STORE_NAME);
-      store.put(activity);
+      transaction.objectStore(STORE_NAME).put(activity);
 
       transaction.oncomplete = () => resolve();
 
-      transaction.onerror = () => {
+      transaction.onerror = () =>
         reject(createIndexedDbError('No se pudo guardar la actividad', transaction.error));
-      };
 
-      transaction.onabort = () => {
-        reject(createIndexedDbError('Se canceló el guardado de la actividad', transaction.error));
-      };
+      transaction.onabort = () =>
+        reject(createIndexedDbError('Se canceló el guardado', transaction.error));
     });
   } finally {
     database.close();
@@ -1721,15 +2130,8 @@ async function removePersistedActivity(id: string): Promise<void> {
 
       transaction.oncomplete = () => resolve();
 
-      transaction.onerror = () => {
+      transaction.onerror = () =>
         reject(createIndexedDbError('No se pudo eliminar la actividad', transaction.error));
-      };
-
-      transaction.onabort = () => {
-        reject(
-          createIndexedDbError('Se canceló la eliminación de la actividad', transaction.error),
-        );
-      };
     });
   } finally {
     database.close();
@@ -1760,10 +2162,11 @@ function createActivity(): void {
 
   resetEditor();
 
-  const firstRound = createEmptyRound();
+  const round = createEmptyRound();
 
-  rounds.value = [firstRound];
-  activeRoundId.value = firstRound.id;
+  rounds.value = [round];
+
+  activeRoundId.value = round.id;
 
   rebuildTiles();
 
@@ -1772,6 +2175,7 @@ function createActivity(): void {
 
 function cancelActivity(): void {
   viewMode.value = 'library';
+
   editingId.value = null;
 
   resetEditor();
@@ -1783,7 +2187,9 @@ function resetEditor(): void {
   revokeRoundUrls();
 
   rounds.value = [];
+
   activeRoundId.value = '';
+
   tiles.value = [];
 
   resetFileInput();
@@ -1793,6 +2199,7 @@ function addRound(): void {
   const round = createEmptyRound();
 
   rounds.value.push(round);
+
   activeRoundId.value = round.id;
 
   rebuildTiles();
@@ -1819,13 +2226,25 @@ function duplicateRound(): void {
 
   const duplicate: HiddenImageRoundDraft = {
     id: createId(),
+
     answer: source.answer,
+
     bibleReference: source.bibleReference,
+
     rows: source.rows,
+
     columns: source.columns,
+
     imageName: source.imageName,
+
     imageBlob: source.imageBlob,
+
     imageUrl: source.imageBlob ? URL.createObjectURL(source.imageBlob) : '',
+
+    hints: source.hints.map((hint) => ({
+      ...hint,
+      id: createId(),
+    })),
   };
 
   rounds.value.splice(activeRoundIndex.value + 1, 0, duplicate);
@@ -1833,7 +2252,6 @@ function duplicateRound(): void {
   activeRoundId.value = duplicate.id;
 
   rebuildTiles();
-  resetFileInput();
 }
 
 function deleteRound(): void {
@@ -1855,21 +2273,14 @@ function deleteRound(): void {
 
   rounds.value.splice(index, 1);
 
-  const nextIndex = Math.min(index, rounds.value.length - 1);
+  const next = rounds.value[Math.min(index, rounds.value.length - 1)];
 
-  const nextRound = rounds.value[nextIndex];
-
-  activeRoundId.value = nextRound?.id ?? '';
+  activeRoundId.value = next?.id ?? '';
 
   rebuildTiles();
-  resetFileInput();
 }
 
 function goToPreviousRound(): void {
-  if (activeRoundIndex.value <= 0) {
-    return;
-  }
-
   const round = rounds.value[activeRoundIndex.value - 1];
 
   if (round) {
@@ -1878,15 +2289,36 @@ function goToPreviousRound(): void {
 }
 
 function goToNextRound(): void {
-  if (activeRoundIndex.value < 0 || activeRoundIndex.value >= rounds.value.length - 1) {
-    return;
-  }
-
   const round = rounds.value[activeRoundIndex.value + 1];
 
   if (round) {
     selectRound(round.id);
   }
+}
+
+function addHint(): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  round.hints.push({
+    id: createId(),
+    text: '',
+    costMode: 'default',
+    customCost: 10,
+  });
+}
+
+function deleteHint(hintId: string): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  round.hints = round.hints.filter((hint) => hint.id !== hintId);
 }
 
 function handleImageSelected(event: Event): void {
@@ -1897,6 +2329,7 @@ function handleImageSelected(event: Event): void {
   }
 
   const target = event.target as HTMLInputElement;
+
   const file = target.files?.[0];
 
   if (!file) {
@@ -1904,14 +2337,10 @@ function handleImageSelected(event: Event): void {
   }
 
   if (!file.type.startsWith('image/')) {
-    $q.notify({
-      type: 'negative',
-      icon: 'error',
-      message: 'Selecciona un archivo de imagen válido.',
-      position: 'top',
-    });
+    notifyWarning('Selecciona un archivo de imagen válido.');
 
     target.value = '';
+
     return;
   }
 
@@ -1920,7 +2349,9 @@ function handleImageSelected(event: Event): void {
   }
 
   round.imageBlob = file;
+
   round.imageName = file.name;
+
   round.imageUrl = URL.createObjectURL(file);
 
   resetTiles();
@@ -1938,7 +2369,9 @@ function removeRoundImage(): void {
   }
 
   round.imageBlob = null;
+
   round.imageName = '';
+
   round.imageUrl = '';
 
   resetFileInput();
@@ -1951,6 +2384,18 @@ function resetFileInput(): void {
   }
 }
 
+function createTiles(count: number): HiddenImageTile[] {
+  return Array.from(
+    {
+      length: count,
+    },
+    (_, index) => ({
+      id: index + 1,
+      revealed: false,
+    }),
+  );
+}
+
 function rebuildTiles(): void {
   const round = activeRound.value;
 
@@ -1960,13 +2405,6 @@ function rebuildTiles(): void {
   }
 
   tiles.value = createTiles(round.rows * round.columns);
-}
-
-function createTiles(count: number): HiddenImageTile[] {
-  return Array.from({ length: count }, (_, index): HiddenImageTile => ({
-    id: index + 1,
-    revealed: false,
-  }));
 }
 
 function toggleTile(tileId: number): void {
@@ -1989,61 +2427,50 @@ function revealAllTiles(): void {
   });
 }
 
-function revealRandomTile(): void {
-  revealRandomFromTiles(tiles.value);
-}
+function revealRandomFromTiles(target: HiddenImageTile[]): void {
+  const hidden = target.filter((tile) => !tile.revealed);
 
-function revealRandomFromTiles(targetTiles: HiddenImageTile[]): void {
-  const hiddenTiles = targetTiles.filter((tile) => !tile.revealed);
-
-  if (hiddenTiles.length === 0) {
-    return;
-  }
-
-  const tile = hiddenTiles[Math.floor(Math.random() * hiddenTiles.length)];
+  const tile = hidden[Math.floor(Math.random() * hidden.length)];
 
   if (tile) {
     tile.revealed = true;
   }
 }
 
-function changeRows(change: number): void {
-  const round = activeRound.value;
+function revealRandomTile(): void {
+  revealRandomFromTiles(tiles.value);
+}
 
-  if (!round) {
+function changeRows(change: number): void {
+  if (!activeRound.value) {
     return;
   }
 
-  round.rows = clampGridValue(round.rows + change);
+  activeRound.value.rows = clampGridValue(activeRound.value.rows + change);
+
   rebuildTiles();
 }
 
 function changeColumns(change: number): void {
-  const round = activeRound.value;
-
-  if (!round) {
+  if (!activeRound.value) {
     return;
   }
 
-  round.columns = clampGridValue(round.columns + change);
+  activeRound.value.columns = clampGridValue(activeRound.value.columns + change);
+
   rebuildTiles();
 }
 
-function clampGridValue(value: number): number {
-  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, value));
-}
-
 function applyGridPreset(size: number): void {
-  const round = activeRound.value;
-
-  if (!round) {
+  if (!activeRound.value) {
     return;
   }
 
   const value = clampGridValue(size);
 
-  round.rows = value;
-  round.columns = value;
+  activeRound.value.rows = value;
+
+  activeRound.value.columns = value;
 
   rebuildTiles();
 }
@@ -2051,11 +2478,7 @@ function applyGridPreset(size: number): void {
 function validateActivity(): boolean {
   if (!form.title.trim()) {
     notifyWarning('Escribe un nombre para la actividad.');
-    return false;
-  }
 
-  if (rounds.value.length === 0) {
-    notifyWarning('Agrega al menos una imagen.');
     return false;
   }
 
@@ -2068,7 +2491,6 @@ function validateActivity(): boolean {
 
     if (!round.imageBlob) {
       activeRoundId.value = round.id;
-      rebuildTiles();
 
       notifyWarning(`Selecciona una imagen para la ronda ${index + 1}.`);
 
@@ -2077,11 +2499,22 @@ function validateActivity(): boolean {
 
     if (!round.answer.trim()) {
       activeRoundId.value = round.id;
-      rebuildTiles();
 
       notifyWarning(`Escribe la respuesta de la ronda ${index + 1}.`);
 
       return false;
+    }
+
+    for (let hintIndex = 0; hintIndex < round.hints.length; hintIndex += 1) {
+      const hint = round.hints[hintIndex];
+
+      if (!hint?.text.trim()) {
+        activeRoundId.value = round.id;
+
+        notifyWarning(`Escribe el texto de la pista ${hintIndex + 1} de la ronda ${index + 1}.`);
+
+        return false;
+      }
     }
   }
 
@@ -2098,7 +2531,7 @@ async function saveActivity(): Promise<void> {
   try {
     const now = new Date().toISOString();
 
-    const existingActivity = editingId.value
+    const existing = editingId.value
       ? activities.value.find((activity) => activity.id === editingId.value)
       : null;
 
@@ -2109,29 +2542,41 @@ async function saveActivity(): Promise<void> {
 
       return {
         id: round.id,
+
         answer: round.answer.trim(),
+
         bibleReference: round.bibleReference.trim(),
+
         rows: round.rows,
+
         columns: round.columns,
+
         imageName: round.imageName || 'imagen',
+
         imageBlob: round.imageBlob,
+
+        hints: round.hints.map((hint) => normalizeGameHint(hint)),
       };
     });
 
     const activity: HiddenImageActivity = {
       id: editingId.value ?? createId(),
+
       title: form.title.trim(),
+
       rounds: storedRounds,
-      createdAt: existingActivity?.createdAt ?? now,
+
+      createdAt: existing?.createdAt ?? now,
+
       updatedAt: now,
     };
 
-    const wasEditing = Boolean(editingId.value);
-
     await persistActivity(activity);
+
     await loadActivities();
 
     viewMode.value = 'library';
+
     editingId.value = null;
 
     resetEditor();
@@ -2139,19 +2584,23 @@ async function saveActivity(): Promise<void> {
     $q.notify({
       type: 'positive',
       icon: 'check_circle',
-      message: wasEditing
+
+      message: existing
         ? 'Actividad actualizada correctamente.'
         : 'Actividad guardada correctamente.',
+
       position: 'top',
       timeout: 1800,
     });
   } catch (error) {
-    console.error('Error guardando actividad:', error);
+    console.error(error);
 
     $q.notify({
       type: 'negative',
       icon: 'error',
+
       message: 'No se pudo guardar la actividad.',
+
       position: 'top',
     });
   } finally {
@@ -2163,17 +2612,29 @@ function editActivity(activity: HiddenImageActivity): void {
   resetEditor();
 
   editingId.value = activity.id;
+
   form.title = activity.title;
 
-  rounds.value = activity.rounds.map((round): HiddenImageRoundDraft => ({
+  rounds.value = activity.rounds.map((round) => ({
     id: round.id,
+
     answer: round.answer,
+
     bibleReference: round.bibleReference,
+
     rows: round.rows,
+
     columns: round.columns,
+
     imageName: round.imageName,
+
     imageBlob: round.imageBlob,
+
     imageUrl: URL.createObjectURL(round.imageBlob),
+
+    hints: round.hints.map((hint) => ({
+      ...hint,
+    })),
   }));
 
   if (rounds.value.length === 0) {
@@ -2198,6 +2659,7 @@ function openActivity(activity: HiddenImageActivity): void {
 
 function cancelGameSetup(): void {
   setupActivity.value = null;
+
   resetSessionSetup();
 
   viewMode.value = 'library';
@@ -2215,16 +2677,17 @@ function changeTeamCount(change: number): void {
 
   sessionSetup.teamCount = nextCount;
 
-  if (sessionSetup.teams.length < nextCount) {
-    while (sessionSetup.teams.length < nextCount) {
-      const index = sessionSetup.teams.length;
+  while (sessionSetup.teams.length < nextCount) {
+    const index = sessionSetup.teams.length;
 
-      sessionSetup.teams.push({
-        id: createId(),
-        name: `Equipo ${index + 1}`,
-      });
-    }
-  } else {
+    sessionSetup.teams.push({
+      id: createId(),
+
+      name: `Equipo ${index + 1}`,
+    });
+  }
+
+  if (sessionSetup.teams.length > nextCount) {
     sessionSetup.teams = sessionSetup.teams.slice(0, nextCount);
   }
 }
@@ -2234,29 +2697,15 @@ function validateSessionSetup(): boolean {
     return false;
   }
 
-  if (sessionSetup.mode === 'free') {
-    return true;
-  }
+  if (sessionSetup.mode === 'teams') {
+    for (let index = 0; index < sessionSetup.teams.length; index += 1) {
+      if (!sessionSetup.teams[index]?.name.trim()) {
+        notifyWarning(`Escribe el nombre del equipo ${index + 1}.`);
 
-  for (let index = 0; index < sessionSetup.teams.length; index += 1) {
-    const team = sessionSetup.teams[index];
-
-    if (!team) {
-      continue;
-    }
-
-    if (!team.name.trim()) {
-      notifyWarning(`Escribe el nombre del equipo ${index + 1}.`);
-
-      return false;
+        return false;
+      }
     }
   }
-
-  const scoring = normalizedSetupScoring.value;
-
-  sessionSetup.basePoints = scoring.basePoints;
-  sessionSetup.deductionPerReveal = scoring.deductionPerReveal;
-  sessionSetup.minimumPoints = scoring.minimumPoints;
 
   return true;
 }
@@ -2271,6 +2720,7 @@ function startStandaloneGame(): void {
   resetGameSession();
 
   playingActivity.value = activity;
+
   playingRoundIndex.value = 0;
 
   sessionMode.value = sessionSetup.mode;
@@ -2278,7 +2728,9 @@ function startStandaloneGame(): void {
   if (sessionSetup.mode === 'teams') {
     sessionTeams.value = sessionSetup.teams.map((team, index) => ({
       id: team.id,
+
       name: team.name.trim() || `Equipo ${index + 1}`,
+
       score: 0,
     }));
 
@@ -2286,6 +2738,10 @@ function startStandaloneGame(): void {
 
     sessionScoring.value = normalizedSetupScoring.value;
   } else {
+    sessionTeams.value = [];
+
+    activeTeamId.value = '';
+
     sessionScoring.value = {
       mode: 'none',
       basePoints: 0,
@@ -2294,12 +2750,16 @@ function startStandaloneGame(): void {
     };
   }
 
+  sessionHintConfig.value = normalizedSetupHints.value;
+
   projectionDataUrls.clear();
+
   projectionSequence += 1;
 
   preparePlayingRound();
 
   setupActivity.value = null;
+
   viewMode.value = 'play';
 }
 
@@ -2307,11 +2767,15 @@ function resetGameSession(): void {
   cleanupPlayingImageUrl();
 
   playingActivity.value = null;
+
   playingRoundIndex.value = 0;
+
   playingTiles.value = [];
 
   sessionMode.value = 'free';
+
   sessionTeams.value = [];
+
   activeTeamId.value = '';
 
   sessionScoring.value = {
@@ -2319,6 +2783,13 @@ function resetGameSession(): void {
     basePoints: 0,
     deductionPerReveal: 0,
     minimumPoints: 0,
+  };
+
+  sessionHintConfig.value = {
+    mode: 'disabled',
+    freeHintsPerTeam: 0,
+    defaultCost: 0,
+    allowNegativeScore: false,
   };
 
   Object.keys(roundResults).forEach((key) => {
@@ -2329,10 +2800,18 @@ function resetGameSession(): void {
     delete roundRevealCounts[key];
   });
 
+  Object.keys(publicHintByRound).forEach((key) => {
+    delete publicHintByRound[key];
+  });
+
+  hintUsages.value = [];
+
   isProjectionLive.value = false;
+
   isSendingProjection.value = false;
 
   projectionDataUrls.clear();
+
   projectionSequence += 1;
 }
 
@@ -2364,13 +2843,12 @@ function preparePlayingRound(): void {
 }
 
 function setPlayingRound(index: number): void {
-  const activity = playingActivity.value;
-
-  if (!activity?.rounds[index]) {
+  if (!playingActivity.value?.rounds[index]) {
     return;
   }
 
   playingRoundIndex.value = index;
+
   preparePlayingRound();
 
   syncProjectionIfLive();
@@ -2383,16 +2861,15 @@ function movePlayingRound(direction: -1 | 1): void {
     return;
   }
 
-  const nextIndex = Math.min(
+  const next = Math.min(
     activity.rounds.length - 1,
+
     Math.max(0, playingRoundIndex.value + direction),
   );
 
-  if (nextIndex === playingRoundIndex.value) {
-    return;
+  if (next !== playingRoundIndex.value) {
+    setPlayingRound(next);
   }
-
-  setPlayingRound(nextIndex);
 }
 
 function updateCurrentRoundRevealCount(): void {
@@ -2402,9 +2879,11 @@ function updateCurrentRoundRevealCount(): void {
     return;
   }
 
-  const current = roundRevealCounts[roundId] ?? 0;
+  roundRevealCounts[roundId] = Math.max(
+    roundRevealCounts[roundId] ?? 0,
 
-  roundRevealCounts[roundId] = Math.max(current, playingRevealedCount.value);
+    playingRevealedCount.value,
+  );
 }
 
 function togglePlayingTile(tileId: number): void {
@@ -2417,6 +2896,7 @@ function togglePlayingTile(tileId: number): void {
   tile.revealed = !tile.revealed;
 
   updateCurrentRoundRevealCount();
+
   syncProjectionIfLive();
 }
 
@@ -2424,15 +2904,6 @@ function resetPlayingTiles(): void {
   playingTiles.value.forEach((tile) => {
     tile.revealed = false;
   });
-
-  /*
-   * Importante:
-   * no reducimos roundRevealCounts.
-   *
-   * Si una casilla ya fue mostrada, la información ya
-   * fue vista y los puntos decrecientes no deben volver
-   * a aumentar al cubrirla nuevamente.
-   */
 
   syncProjectionIfLive();
 }
@@ -2443,6 +2914,7 @@ function revealAllPlayingTiles(): void {
   });
 
   updateCurrentRoundRevealCount();
+
   syncProjectionIfLive();
 }
 
@@ -2450,13 +2922,14 @@ function revealRandomPlayingTile(): void {
   revealRandomFromTiles(playingTiles.value);
 
   updateCurrentRoundRevealCount();
+
   syncProjectionIfLive();
 }
 
 function adjustActiveTeamScore(amount: number): void {
   const team = activeTeam.value;
 
-  if (!team || !Number.isFinite(amount)) {
+  if (!team) {
     return;
   }
 
@@ -2465,6 +2938,7 @@ function adjustActiveTeamScore(amount: number): void {
 
 function awardCurrentRound(): void {
   const round = playingRound.value;
+
   const team = activeTeam.value;
 
   if (!round || !team || roundResults[round.id]) {
@@ -2473,8 +2947,11 @@ function awardCurrentRound(): void {
 
   const result = awardGameRound({
     roundId: round.id,
+
     team,
+
     scoring: sessionScoring.value,
+
     revealedCount: scoringRevealedCount.value,
   });
 
@@ -2487,12 +2964,13 @@ function awardCurrentRound(): void {
   $q.notify({
     type: 'positive',
     icon: 'emoji_events',
+
     message:
       result.points > 0
         ? `${team.name} ganó ${result.points} puntos.`
         : `${team.name} acertó la ronda.`,
+
     position: 'top',
-    timeout: 1600,
   });
 }
 
@@ -2512,20 +2990,243 @@ function undoCurrentRoundAward(): void {
   sessionTeams.value = removeRoundResultFromTeams(sessionTeams.value, result);
 
   delete roundResults[round.id];
+}
+
+function isHintUsed(hintId: string): boolean {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return false;
+  }
+
+  return hasGameHintBeenUsedInRound(hintUsages.value, roundId, hintId);
+}
+
+function getHintAvailability(hint: GameHint) {
+  const team = activeTeam.value;
+
+  return canUseGameHint({
+    hint,
+
+    config: sessionHintConfig.value,
+
+    usedHintsByTeam: team ? countGameHintsUsedByTeam(hintUsages.value, team.id) : 0,
+
+    teamScore: team?.score ?? 0,
+  });
+}
+
+function canUseHintNow(hint: GameHint): boolean {
+  if (isHintUsed(hint.id)) {
+    return false;
+  }
+
+  if (sessionHintConfig.value.mode === 'disabled') {
+    return false;
+  }
+
+  if (!hasTeams.value) {
+    return true;
+  }
+
+  if (!activeTeam.value) {
+    return false;
+  }
+
+  return getHintAvailability(hint).allowed;
+}
+
+function getHintCostLabel(hint: GameHint): string {
+  if (sessionHintConfig.value.mode === 'free' || !hasTeams.value) {
+    return 'Gratis';
+  }
+
+  const team = activeTeam.value;
+
+  const resolved = resolveGameHintCost({
+    hint,
+
+    config: sessionHintConfig.value,
+
+    usedHintsByTeam: team ? countGameHintsUsedByTeam(hintUsages.value, team.id) : 0,
+  });
+
+  return resolved.cost === 0 ? 'Gratis' : `Costo: ${resolved.cost} puntos`;
+}
+
+function getHintActionLabel(hint: GameHint): string {
+  return getHintCostLabel(hint) === 'Gratis' ? 'Mostrar' : 'Comprar';
+}
+
+function useHint(hint: GameHint): void {
+  const round = playingRound.value;
+
+  if (!round || isHintUsed(hint.id)) {
+    return;
+  }
+
+  if (!hasTeams.value) {
+    publicHintByRound[round.id] = hint.text;
+
+    syncProjectionIfLive();
+
+    return;
+  }
+
+  const team = activeTeam.value;
+
+  if (!team) {
+    notifyWarning('Selecciona el equipo que está solicitando la pista.');
+
+    return;
+  }
+
+  const availability = canUseGameHint({
+    hint,
+
+    config: sessionHintConfig.value,
+
+    usedHintsByTeam: countGameHintsUsedByTeam(hintUsages.value, team.id),
+
+    teamScore: team.score,
+  });
+
+  if (!availability.allowed) {
+    if (availability.reason === 'insufficient-score') {
+      notifyWarning(`${team.name} no tiene puntos suficientes para comprar esta pista.`);
+    }
+
+    return;
+  }
+
+  if (availability.cost > 0) {
+    sessionTeams.value = sessionTeams.value.map((currentTeam) =>
+      currentTeam.id === team.id
+        ? {
+            ...currentTeam,
+
+            score: applyGameHintCost(currentTeam.score, availability.cost),
+          }
+        : currentTeam,
+    );
+  }
+
+  const usage = createGameHintUsage({
+    id: createId(),
+
+    hint,
+
+    roundId: round.id,
+
+    teamId: team.id,
+
+    teamName: team.name,
+
+    cost: availability.cost,
+
+    wasFree: availability.wasFree,
+  });
+
+  hintUsages.value.push(usage);
+
+  publicHintByRound[round.id] = hint.text;
+
+  syncProjectionIfLive();
+
+  $q.notify({
+    type: availability.cost > 0 ? 'warning' : 'info',
+
+    icon: 'lightbulb',
+
+    message:
+      availability.cost > 0
+        ? `${team.name} compró una pista por ${availability.cost} puntos.`
+        : `${team.name} utilizó una pista gratis.`,
+
+    position: 'top',
+    timeout: 1800,
+  });
+}
+
+function showUsedHint(hint: GameHint): void {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return;
+  }
+
+  publicHintByRound[roundId] = hint.text;
+
+  syncProjectionIfLive();
+}
+
+function hidePublicHint(): void {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return;
+  }
+
+  publicHintByRound[roundId] = '';
+
+  syncProjectionIfLive();
+}
+
+function undoLastHintUsage(): void {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return;
+  }
+
+  const found = [...hintUsages.value]
+    .map((usage, usageIndex) => ({
+      usage,
+      usageIndex,
+    }))
+    .reverse()
+    .find(({ usage }) => usage.roundId === roundId);
+
+  if (!found) {
+    return;
+  }
+
+  const usage = hintUsages.value[found.usageIndex];
+
+  if (!usage) {
+    return;
+  }
+
+  if (usage.cost > 0) {
+    sessionTeams.value = sessionTeams.value.map((team) =>
+      team.id === usage.teamId
+        ? {
+            ...team,
+
+            score: restoreGameHintCost(team.score, usage.cost),
+          }
+        : team,
+    );
+  }
+
+  hintUsages.value.splice(found.usageIndex, 1);
+
+  publicHintByRound[roundId] = '';
+
+  syncProjectionIfLive();
 
   $q.notify({
     type: 'info',
     icon: 'undo',
-    message: 'Resultado de la ronda eliminado.',
+
+    message: 'Uso de pista deshecho.',
+
     position: 'top',
-    timeout: 1400,
   });
 }
 
 function resetFullGame(): void {
-  const confirmed = window.confirm(
-    '¿Reiniciar todo el marcador, los resultados y el avance de puntuación?',
-  );
+  const confirmed = window.confirm('¿Reiniciar marcador, resultados, casillas y pistas?');
 
   if (!confirmed) {
     return;
@@ -2541,18 +3242,27 @@ function resetFullGame(): void {
     delete roundRevealCounts[key];
   });
 
+  Object.keys(publicHintByRound).forEach((key) => {
+    delete publicHintByRound[key];
+  });
+
+  hintUsages.value = [];
+
   playingRoundIndex.value = 0;
+
   activeTeamId.value = sessionTeams.value[0]?.id ?? '';
 
   preparePlayingRound();
+
   syncProjectionIfLive();
 
   $q.notify({
     type: 'info',
     icon: 'restart_alt',
+
     message: 'Juego reiniciado.',
+
     position: 'top',
-    timeout: 1400,
   });
 }
 
@@ -2577,19 +3287,12 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         resolve(reader.result);
-        return;
+      } else {
+        reject(new Error('No se pudo convertir la imagen.'));
       }
-
-      reject(new Error('No se pudo convertir la imagen para la proyección.'));
     };
 
-    reader.onerror = () => {
-      reject(new Error('No se pudo leer la imagen para la proyección.'));
-    };
-
-    reader.onabort = () => {
-      reject(new Error('Se canceló la lectura de la imagen.'));
-    };
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
 
     reader.readAsDataURL(blob);
   });
@@ -2619,6 +3322,7 @@ function syncProjectionIfLive(): void {
 
 async function sendPlayingStateToProjection(showNotification = true): Promise<void> {
   const activity = playingActivity.value;
+
   const round = playingRound.value;
 
   if (!activity || !round) {
@@ -2629,7 +3333,9 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
     $q.notify({
       type: 'negative',
       icon: 'error',
+
       message: 'La salida de proyección no está disponible.',
+
       position: 'top',
     });
 
@@ -2648,7 +3354,6 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
     if (
       currentSequence !== projectionSequence ||
       viewMode.value !== 'play' ||
-      playingActivity.value?.id !== activity.id ||
       playingRound.value?.id !== round.id
     ) {
       return;
@@ -2660,20 +3365,33 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
 
     const url = createHiddenImageProjectionUrl({
       activityId: activity.id,
+
       roundId: round.id,
+
       title: activity.title,
+
       roundIndex: playingRoundIndex.value,
+
       roundCount: activity.rounds.length,
+
       rows: round.rows,
+
       columns: round.columns,
+
       imageDataUrl,
+
       revealedTileIds,
+
+      activeHint: publicHintByRound[round.id] ?? '',
     });
 
     window.icpStudio.projection.setState({
       mode: 'media',
+
       mediaType: 'image',
+
       url,
+
       name: activity.title,
     });
 
@@ -2683,19 +3401,22 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
       $q.notify({
         type: 'positive',
         icon: 'cast',
+
         message: 'Imagen escondida enviada en vivo.',
+
         position: 'top',
-        timeout: 1600,
       });
     }
   } catch (error) {
-    console.error('Error enviando Imagen escondida a proyección:', error);
+    console.error(error);
 
     if (showNotification) {
       $q.notify({
         type: 'negative',
         icon: 'error',
+
         message: 'No se pudo enviar la actividad a las pantallas.',
+
         position: 'top',
       });
     }
@@ -2720,32 +3441,45 @@ async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
 
     const duplicate: HiddenImageActivity = {
       id: createId(),
+
       title: `${activity.title} - copia`,
+
       rounds: activity.rounds.map((round) => ({
         ...round,
+
         id: createId(),
+
+        hints: round.hints.map((hint) => ({
+          ...hint,
+
+          id: createId(),
+        })),
       })),
+
       createdAt: now,
       updatedAt: now,
     };
 
     await persistActivity(duplicate);
+
     await loadActivities();
 
     $q.notify({
       type: 'positive',
       icon: 'content_copy',
+
       message: 'Actividad duplicada.',
+
       position: 'top',
-      timeout: 1600,
     });
   } catch (error) {
-    console.error('Error duplicando actividad:', error);
+    console.error(error);
 
     $q.notify({
       type: 'negative',
-      icon: 'error',
+
       message: 'No se pudo duplicar la actividad.',
+
       position: 'top',
     });
   }
@@ -2762,25 +3496,36 @@ async function deleteActivity(activity: HiddenImageActivity): Promise<void> {
 
   try {
     await removePersistedActivity(activity.id);
+
     await loadActivities();
 
     $q.notify({
       type: 'positive',
       icon: 'delete',
+
       message: 'Actividad eliminada.',
+
       position: 'top',
-      timeout: 1600,
     });
   } catch (error) {
-    console.error('Error eliminando actividad:', error);
+    console.error(error);
 
     $q.notify({
       type: 'negative',
-      icon: 'error',
+
       message: 'No se pudo eliminar la actividad.',
+
       position: 'top',
     });
   }
+}
+
+function countActivityHints(activity: HiddenImageActivity): number {
+  return activity.rounds.reduce(
+    (total, round) => total + round.hints.length,
+
+    0,
+  );
 }
 
 function notifyWarning(message: string): void {
@@ -2798,11 +3543,13 @@ function rebuildPreviewUrls(): void {
   activities.value.forEach((activity) => {
     const firstRound = activity.rounds[0];
 
-    if (!firstRound) {
-      return;
-    }
+    if (firstRound) {
+      previewUrls.set(
+        activity.id,
 
-    previewUrls.set(activity.id, URL.createObjectURL(firstRound.imageBlob));
+        URL.createObjectURL(firstRound.imageBlob),
+      );
+    }
   });
 }
 
@@ -2811,9 +3558,7 @@ function getActivityPreviewUrl(activity: HiddenImageActivity): string {
 }
 
 function revokePreviewUrls(): void {
-  previewUrls.forEach((url) => {
-    URL.revokeObjectURL(url);
-  });
+  previewUrls.forEach((url) => URL.revokeObjectURL(url));
 
   previewUrls.clear();
 }
@@ -2836,6 +3581,7 @@ function formatDate(isoDate: string): string {
 
 onMounted(() => {
   resetSessionSetup();
+
   void loadActivities();
 });
 
@@ -2847,10 +3593,13 @@ onBeforeUnmount(() => {
   }
 
   projectionSequence += 1;
+
   projectionDataUrls.clear();
 
   cleanupPlayingImageUrl();
+
   revokeRoundUrls();
+
   revokePreviewUrls();
 });
 </script>
@@ -2998,7 +3747,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-state p {
-  max-width: 500px;
+  max-width: 520px;
   margin: 10px 0 22px;
   line-height: 1.6;
 }
@@ -3075,6 +3824,7 @@ onBeforeUnmount(() => {
   right: 10px;
   bottom: 10px;
   display: flex;
+  align-items: center;
   gap: 5px;
   padding: 5px 8px;
   background: rgb(3 8 14 / 86%);
@@ -3086,9 +3836,18 @@ onBeforeUnmount(() => {
   padding: 13px;
 }
 
-.activity-card-heading {
+.activity-card-heading,
+.panel-heading,
+.preview-heading,
+.field-heading,
+.section-title-row,
+.round-editor-heading,
+.operator-topbar,
+.scoreboard-heading,
+.operator-hints-heading {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .activity-card-heading h3 {
@@ -3104,6 +3863,7 @@ onBeforeUnmount(() => {
 
 .activity-info-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 12px;
   color: #6f8197;
@@ -3151,27 +3911,15 @@ onBeforeUnmount(() => {
 .creator-area {
   display: grid;
   flex: 1;
-  grid-template-columns:
-    minmax(320px, 385px)
-    minmax(0, 1fr);
+  grid-template-columns: minmax(340px, 410px) minmax(0, 1fr);
 }
 
 .configuration-panel {
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
   padding: 18px;
   background: #0a1420;
   border-right: 1px solid #25364a;
-}
-
-.panel-heading,
-.preview-heading,
-.field-heading,
-.section-title-row,
-.round-editor-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .form-section {
@@ -3195,7 +3943,6 @@ onBeforeUnmount(() => {
 }
 
 .app-input :deep(.q-field__control) {
-  min-height: 38px;
   background: #0d1926;
 }
 
@@ -3263,6 +4010,7 @@ onBeforeUnmount(() => {
 }
 
 .round-copy span,
+.round-copy small,
 .play-round-item small {
   overflow: hidden;
   color: #71849a;
@@ -3271,8 +4019,9 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.add-round-button {
-  color: white;
+.add-round-button,
+.hint-add-button {
+  color: #fff;
   background: #6d28d9;
 }
 
@@ -3290,6 +4039,22 @@ onBeforeUnmount(() => {
   border: 1px dashed #36506d;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.image-selector > .q-icon {
+  color: #c084fc;
+  font-size: 26px;
+}
+
+.image-selector div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.image-selector span {
+  color: #718399;
+  font-size: 9px;
 }
 
 .grid-controls {
@@ -3336,6 +4101,65 @@ onBeforeUnmount(() => {
   border-color: #c084fc;
 }
 
+.grid-count {
+  color: #d8b4fe;
+  background: rgb(168 85 247 / 15%);
+}
+
+.hints-editor-section {
+  margin-top: 4px;
+}
+
+.empty-hints {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+  color: #718399;
+  background: #0d1926;
+  border: 1px dashed #31465c;
+  border-radius: 9px;
+  font-size: 10px;
+}
+
+.hint-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hint-editor-card {
+  padding: 12px;
+  background: #0d1926;
+  border: 1px solid #2b4055;
+  border-radius: 10px;
+}
+
+.hint-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.hint-editor-heading strong {
+  color: #e9d5ff;
+  font-size: 10px;
+}
+
+.hint-cost-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hint-cost-select {
+  min-width: 0;
+}
+
 .preview-panel {
   display: flex;
   min-width: 0;
@@ -3372,6 +4196,7 @@ onBeforeUnmount(() => {
   background: #34485f;
   border: 0;
   border-radius: 999px;
+  cursor: pointer;
 }
 
 .round-dot.active {
@@ -3419,6 +4244,7 @@ onBeforeUnmount(() => {
   inset: 0;
   display: grid;
   place-items: center;
+  color: #60748b;
 }
 
 .cover-tile {
@@ -3433,7 +4259,13 @@ onBeforeUnmount(() => {
   background: linear-gradient(145deg, #1b2b3d, #0f1b28);
   border: 1px solid #344b64;
   cursor: pointer;
-  transition: opacity 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+
+.cover-tile:hover:not(.revealed) {
+  background: linear-gradient(145deg, #243b53, #14283a);
 }
 
 .cover-tile.revealed {
@@ -3484,7 +4316,7 @@ onBeforeUnmount(() => {
 }
 
 .game-setup-card {
-  width: min(100%, 820px);
+  width: min(100%, 880px);
   padding: 22px;
   background: #0c1723;
   border: 1px solid #28394c;
@@ -3524,12 +4356,9 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.mode-card {
-  display: flex;
-  min-height: 84px;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
+.mode-card,
+.score-mode-card,
+.hint-mode-card {
   color: #8fa2b8;
   text-align: left;
   background: #0b1622;
@@ -3538,7 +4367,17 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.mode-card.active {
+.mode-card {
+  display: flex;
+  min-height: 84px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.mode-card.active,
+.score-mode-card.active,
+.hint-mode-card.active {
   color: #e9d5ff;
   background: rgb(192 132 252 / 9%);
   border-color: #a855f7;
@@ -3553,12 +4392,16 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-.mode-card strong {
+.mode-card strong,
+.score-mode-card strong,
+.hint-mode-card strong {
   color: #dbe7f3;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-.mode-card span {
+.mode-card span,
+.score-mode-card span,
+.hint-mode-card span {
   margin-top: 3px;
   color: #74869a;
   font-size: 9px;
@@ -3568,7 +4411,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #cbd8e5;
 }
 
 .team-name-grid {
@@ -3589,23 +4431,6 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 10px;
   padding: 13px;
-  color: #71849a;
-  text-align: left;
-  background: #09141f;
-  border: 1px solid #26394d;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.score-mode-card.active {
-  color: #c084fc;
-  background: rgb(192 132 252 / 8%);
-  border-color: #a855f7;
-}
-
-.score-mode-card .q-icon {
-  margin-top: 2px;
-  font-size: 22px;
 }
 
 .score-mode-card div {
@@ -3613,16 +4438,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-.score-mode-card strong {
-  color: #d8e4ef;
-  font-size: 10px;
-}
-
-.score-mode-card span {
-  margin-top: 4px;
-  color: #718399;
-  font-size: 8px;
-  line-height: 1.45;
+.score-mode-card .q-icon {
+  font-size: 22px;
 }
 
 .scoring-fields {
@@ -3631,66 +4448,54 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.score-example-card {
-  margin-bottom: 18px;
-  padding: 13px;
-  background: rgb(59 130 246 / 7%);
-  border: 1px solid rgb(59 130 246 / 28%);
+.hint-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.hint-section-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: #facc15;
+  background: rgb(250 204 21 / 10%);
+  border: 1px solid rgb(250 204 21 / 22%);
   border-radius: 10px;
 }
 
-.score-example-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.hint-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.score-example-heading .q-icon {
-  color: #60a5fa;
+.hint-mode-card {
+  display: flex;
+  min-height: 110px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+}
+
+.hint-mode-card .q-icon {
+  margin-bottom: 8px;
   font-size: 22px;
 }
 
-.score-example-heading div {
-  display: flex;
-  flex-direction: column;
-}
-
-.score-example-heading span {
-  color: #6e8299;
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.score-example-heading strong {
-  color: #dce8f4;
-  font-size: 11px;
-}
-
-.score-example-values {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  margin-top: 11px;
-}
-
-.score-example-values span {
-  padding: 6px 8px;
-  color: #778ba2;
-  background: #0b1723;
-  border-radius: 7px;
-  font-size: 8px;
-}
-
-.score-example-values strong {
-  margin-left: 3px;
-  color: #fff;
+.hint-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .setup-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 10px;
   padding-top: 18px;
   border-top: 1px solid #203044;
 }
@@ -3698,76 +4503,50 @@ onBeforeUnmount(() => {
 .setup-summary > div {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 9px;
-  color: #8193a7;
-  background: #0a141f;
-  border: 1px solid #24364a;
+  gap: 6px;
+  padding: 7px 10px;
+  color: #8fa2b8;
+  background: #0a1520;
+  border: 1px solid #27394d;
   border-radius: 8px;
   font-size: 9px;
 }
 
-/* PLAY MODE */
+/* PLAY */
 
 .play-area {
   display: grid;
-  min-height: 0;
   flex: 1;
-  grid-template-columns:
-    280px
-    minmax(0, 1fr);
-}
-
-.play-area--teams {
-  grid-template-columns:
-    310px
-    minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
 }
 
 .play-sidebar {
-  padding: 18px;
   overflow-y: auto;
-  background: #09131f;
-  border-right: 1px solid #25364a;
+  padding: 16px;
+  background: #09131e;
+  border-right: 1px solid #24364a;
 }
 
 .play-sidebar-heading {
-  padding-bottom: 16px;
-  border-bottom: 1px solid #1f3042;
-}
-
-.play-round-number {
-  display: grid;
-  width: 27px;
-  height: 27px;
-  flex: 0 0 auto;
-  place-items: center;
-  color: #aebfd1;
-  background: #172639;
-  border-radius: 7px;
-  font-size: 10px;
-  font-weight: 700;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #203044;
 }
 
 .scoreboard {
-  padding: 15px 0;
-  border-bottom: 1px solid #1f3042;
+  margin-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #203044;
 }
 
 .scoreboard-heading {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 9px;
+  margin-bottom: 8px;
 }
 
-.scoreboard-heading strong {
-  color: #d6e2ef;
-  font-size: 11px;
-}
-
-.scoreboard-reset-button {
-  color: #75879b;
+.scoreboard-heading > div {
+  display: flex;
+  flex-direction: column;
 }
 
 .score-team {
@@ -3775,13 +4554,12 @@ onBeforeUnmount(() => {
   width: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px;
   color: inherit;
-  text-align: left;
   background: #0d1926;
-  border: 1px solid #25384c;
+  border: 1px solid #26394e;
   border-radius: 9px;
   cursor: pointer;
 }
@@ -3792,7 +4570,7 @@ onBeforeUnmount(() => {
 }
 
 .score-team.winner {
-  box-shadow: inset 3px 0 0 #22c55e;
+  border-color: #22c55e;
 }
 
 .score-team-main {
@@ -3802,144 +4580,132 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.score-team-main > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  text-align: left;
+}
+
+.score-team-main small {
+  color: #718399;
+  font-size: 8px;
+}
+
 .team-avatar {
   display: grid;
   width: 30px;
   height: 30px;
   flex: 0 0 auto;
   place-items: center;
-  color: #c4d2e1;
-  background: #18283a;
+  color: #dbeafe;
+  background: #172a3d;
   border-radius: 8px;
   font-size: 9px;
-  font-weight: 750;
-}
-
-.score-team-main div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.score-team-main strong {
-  overflow: hidden;
-  color: #d7e3ef;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.score-team-main small {
-  color: #66809e;
-  font-size: 8px;
+  font-weight: 700;
 }
 
 .team-score {
   color: #fff;
-  font-size: 17px;
-  font-weight: 750;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .team-winner-icon {
-  color: #22c55e;
-  font-size: 20px;
+  color: #facc15;
+}
+
+.play-round-number {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  background: #162638;
+  border-radius: 7px;
+  font-size: 9px;
 }
 
 .private-answer-card {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-top: 18px;
-  padding: 14px;
-  background: #121b2a;
-  border: 1px solid #3b2e51;
-  border-radius: 11px;
-}
-
-.private-answer-card > span {
-  margin-top: 8px;
-  color: #72849a;
-  font-size: 9px;
-}
-
-.private-answer-card > strong {
-  color: #f0e9ff;
-  font-size: 12px;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 12px;
+  background: rgb(192 132 252 / 7%);
+  border: 1px solid rgb(192 132 252 / 25%);
+  border-radius: 10px;
 }
 
 .private-label {
   display: flex;
   align-items: center;
   gap: 5px;
+  margin-bottom: 8px;
   color: #c084fc;
   font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+}
+
+.private-answer-card > span {
+  color: #718399;
+  font-size: 8px;
+}
+
+.private-answer-card > strong {
+  margin-bottom: 7px;
+  color: #e9d5ff;
+  font-size: 10px;
 }
 
 .operator-workspace {
-  display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  background: #07101a;
+  overflow-y: auto;
+  padding: 16px;
+  background: #08111c;
 }
 
-.operator-topbar,
-.operator-controls,
-.active-team-bar {
-  display: flex;
+.operator-topbar {
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  margin-bottom: 12px;
 }
 
 .operator-status-group {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 10px;
 }
 
 .available-points {
   display: flex;
-  min-width: 112px;
   flex-direction: column;
   align-items: flex-end;
-  padding: 7px 10px;
-  background: rgb(34 197 94 / 8%);
-  border: 1px solid rgb(34 197 94 / 28%);
-  border-radius: 9px;
-}
-
-.available-points--decreasing {
-  background: rgb(245 158 11 / 8%);
-  border-color: rgb(245 158 11 / 28%);
+  padding: 7px 11px;
+  background: rgb(34 197 94 / 7%);
+  border: 1px solid rgb(34 197 94 / 22%);
+  border-radius: 8px;
 }
 
 .available-points span {
-  color: #6b8198;
+  color: #6f8b77;
   font-size: 7px;
   font-weight: 700;
-  letter-spacing: 0.07em;
 }
 
 .available-points strong {
-  color: #eef7f0;
-  font-size: 21px;
-  line-height: 1.05;
-}
-
-.available-points small {
-  margin-top: 2px;
-  color: #708398;
-  font-size: 7px;
+  color: #4ade80;
+  font-size: 18px;
 }
 
 .active-team-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
   padding: 10px 12px;
   background: #0c1723;
-  border: 1px solid #22364b;
+  border: 1px solid #283b50;
   border-radius: 10px;
 }
 
@@ -3949,20 +4715,16 @@ onBeforeUnmount(() => {
 }
 
 .active-team-label {
-  color: #60758d;
+  color: #60748b;
   font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
 }
 
 .active-team-bar strong {
-  color: #eef5fb;
-  font-size: 13px;
+  color: #dbeafe;
 }
 
 .active-team-bar small {
-  color: #70849a;
-  font-size: 8px;
+  color: #718399;
 }
 
 .score-actions {
@@ -3971,13 +4733,8 @@ onBeforeUnmount(() => {
   gap: 7px;
 }
 
-.score-adjust-button {
-  color: #9bacc0;
-  background: #132235;
-}
-
 .active-team-score {
-  min-width: 48px;
+  min-width: 45px;
   color: #fff;
   font-size: 20px;
   font-weight: 800;
@@ -3985,87 +4742,197 @@ onBeforeUnmount(() => {
 }
 
 .correct-answer-button {
-  min-height: 34px;
-  padding: 0 12px;
   color: #fff;
   background: #16a34a;
+}
+
+.operator-hints-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #0c1723;
+  border: 1px solid rgb(250 204 21 / 20%);
+  border-radius: 11px;
+}
+
+.operator-hints-heading {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.operator-hints-heading > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.operator-hints-heading strong {
+  color: #fde68a;
+  font-size: 11px;
+}
+
+.hint-heading-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.operator-hint-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.operator-hint-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  background: #0a141f;
+  border: 1px solid #283b4e;
+  border-radius: 9px;
+}
+
+.operator-hint-card.used {
+  border-color: rgb(34 197 94 / 28%);
+}
+
+.operator-hint-card.public {
+  background: rgb(250 204 21 / 7%);
+  border-color: rgb(250 204 21 / 45%);
+}
+
+.operator-hint-number {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #facc15;
+  background: rgb(250 204 21 / 10%);
   border-radius: 8px;
   font-size: 9px;
   font-weight: 700;
 }
 
-.operator-progress {
+.operator-hint-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.operator-hint-copy > span {
+  color: #8b7d47;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.operator-hint-copy strong {
+  color: #dce7f4;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.operator-hint-copy small {
+  margin-top: 3px;
+  color: #718399;
+  font-size: 8px;
+}
+
+.hint-use-button {
+  flex: 0 0 auto;
+  color: #111827;
+  background: #facc15;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.current-public-hint {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #718399;
-  font-size: 9px;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  color: #facc15;
+  background: rgb(250 204 21 / 7%);
+  border: 1px solid rgb(250 204 21 / 22%);
+  border-radius: 8px;
+}
+
+.current-public-hint > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.current-public-hint span {
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.current-public-hint strong {
+  color: #fef3c7;
+  font-size: 10px;
 }
 
 .operator-stage-shell {
-  min-height: 420px;
-}
-
-.operator-image-stage {
-  width: min(100%, 1050px);
-}
-
-.operator-cover-tile:hover {
-  background: #2d4662;
+  min-height: 400px;
 }
 
 .operator-controls {
-  padding: 12px;
-  background: #0c1723;
-  border: 1px solid #213247;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
+  .creator-area {
+    grid-template-columns: 350px minmax(0, 1fr);
+  }
+
+  .hint-mode-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .play-area {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 850px) {
   .creator-area,
-  .play-area,
-  .play-area--teams {
-    grid-template-columns: 1fr;
+  .play-area {
+    display: block;
   }
 
   .configuration-panel,
   .play-sidebar {
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid #25364a;
   }
 
   .score-mode-selector,
-  .scoring-fields {
+  .scoring-fields,
+  .team-name-grid,
+  .hint-settings-grid {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 700px) {
-  .hidden-image-page {
-    padding: 8px;
-  }
-
-  .page-header,
-  .operator-controls,
+  .preview-footer,
   .active-team-bar,
-  .operator-topbar {
+  .operator-controls {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .grid-controls,
-  .mode-selector,
-  .team-name-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .score-actions,
-  .operator-status-group {
-    flex-wrap: wrap;
-  }
-
-  .available-points {
+  .page-header {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 </style>
