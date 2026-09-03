@@ -19,7 +19,7 @@
 
           <div class="header-copy">
             <h1>Imagen escondida</h1>
-            <p>Prepara imágenes ocultas por casillas para juegos y competencias.</p>
+            <p>Crea actividades con una o varias imágenes ocultas por casillas.</p>
           </div>
         </div>
 
@@ -48,6 +48,7 @@
         </div>
       </header>
 
+      <!-- BIBLIOTECA -->
       <section v-if="!isCreating" class="library-area">
         <div v-if="isLoading" class="loading-state">
           <q-spinner size="34px" />
@@ -61,7 +62,10 @@
 
           <h2>Imagen escondida</h2>
 
-          <p>Todavía no tienes actividades guardadas. Crea la primera para comenzar.</p>
+          <p>
+            Todavía no tienes actividades guardadas. Puedes crear todas las actividades que quieras
+            y cada una puede contener varias imágenes.
+          </p>
 
           <q-btn
             unelevated
@@ -77,7 +81,9 @@
           <div class="library-heading">
             <div>
               <span class="eyebrow">ACTIVIDADES GUARDADAS</span>
+
               <h2>Mis actividades</h2>
+
               <p>
                 {{ activities.length }}
                 {{ activities.length === 1 ? 'actividad guardada' : 'actividades guardadas' }}
@@ -94,8 +100,17 @@
                   :alt="activity.title"
                 />
 
-                <div class="activity-grid-overlay">
-                  <span> {{ activity.rows }} × {{ activity.columns }} </span>
+                <div v-else class="activity-image-placeholder">
+                  <q-icon name="image" />
+                </div>
+
+                <div class="activity-round-count">
+                  <q-icon name="collections" />
+
+                  <span>
+                    {{ activity.rounds.length }}
+                    {{ activity.rounds.length === 1 ? 'imagen' : 'imágenes' }}
+                  </span>
                 </div>
               </div>
 
@@ -104,20 +119,18 @@
                   <div>
                     <h3>{{ activity.title }}</h3>
 
-                    <span v-if="activity.bibleReference">
-                      {{ activity.bibleReference }}
-                    </span>
+                    <span> Actualizada {{ formatDate(activity.updatedAt) }} </span>
                   </div>
 
                   <q-btn flat round dense icon="more_vert" class="more-button">
                     <q-menu dark>
-                      <q-list dense style="min-width: 160px">
+                      <q-list dense style="min-width: 170px">
                         <q-item clickable v-close-popup @click="editActivity(activity)">
                           <q-item-section avatar>
                             <q-icon name="edit" />
                           </q-item-section>
 
-                          <q-item-section>Editar</q-item-section>
+                          <q-item-section> Editar </q-item-section>
                         </q-item>
 
                         <q-item clickable v-close-popup @click="duplicateActivity(activity)">
@@ -125,7 +138,7 @@
                             <q-icon name="content_copy" />
                           </q-item-section>
 
-                          <q-item-section>Duplicar</q-item-section>
+                          <q-item-section> Duplicar actividad </q-item-section>
                         </q-item>
 
                         <q-separator dark />
@@ -140,7 +153,7 @@
                             <q-icon name="delete_outline" />
                           </q-item-section>
 
-                          <q-item-section>Eliminar</q-item-section>
+                          <q-item-section> Eliminar </q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
@@ -149,13 +162,22 @@
 
                 <div class="activity-info-row">
                   <div>
-                    <q-icon name="grid_view" />
-                    <span>{{ activity.rows * activity.columns }} casillas</span>
+                    <q-icon name="collections" />
+
+                    <span>
+                      {{ activity.rounds.length }}
+                      {{ activity.rounds.length === 1 ? 'ronda' : 'rondas' }}
+                    </span>
                   </div>
 
-                  <div>
-                    <q-icon name="schedule" />
-                    <span>{{ formatDate(activity.updatedAt) }}</span>
+                  <div v-if="activity.rounds[0]">
+                    <q-icon name="grid_view" />
+
+                    <span>
+                      {{ activity.rounds[0].rows }}
+                      ×
+                      {{ activity.rounds[0].columns }}
+                    </span>
                   </div>
                 </div>
 
@@ -184,6 +206,7 @@
         </template>
       </section>
 
+      <!-- EDITOR -->
       <section v-else class="creator-area">
         <aside class="configuration-panel">
           <div class="panel-heading">
@@ -193,7 +216,7 @@
               </span>
 
               <h2>
-                {{ editingId ? 'Editar imagen escondida' : 'Configurar actividad' }}
+                {{ editingId ? 'Editar Imagen escondida' : 'Configurar actividad' }}
               </h2>
             </div>
 
@@ -201,210 +224,376 @@
           </div>
 
           <div class="form-section">
-            <label class="field-label">Nombre de la actividad</label>
+            <label class="field-label"> Nombre de la actividad </label>
 
             <q-input
               v-model="form.title"
               dense
               outlined
               dark
-              placeholder="Ej. Personajes bíblicos"
-              class="app-input"
-            />
-          </div>
-
-          <div class="form-section">
-            <label class="field-label">Respuesta</label>
-
-            <q-input
-              v-model="form.answer"
-              dense
-              outlined
-              dark
-              placeholder="Ej. Daniel en el foso de los leones"
+              placeholder="Ej. Personajes del Antiguo Testamento"
               class="app-input"
             />
 
-            <span class="field-help"> La respuesta es información privada para el operador. </span>
+            <span class="field-help">
+              Este nombre identifica el conjunto completo de imágenes.
+            </span>
           </div>
 
-          <div class="form-section">
-            <label class="field-label">Referencia bíblica</label>
-
-            <q-input
-              v-model="form.bibleReference"
-              dense
-              outlined
-              dark
-              placeholder="Ej. Daniel 6"
-              class="app-input"
-            />
-          </div>
-
-          <div class="form-section">
-            <div class="field-heading">
+          <!-- RONDAS -->
+          <div class="form-section rounds-section">
+            <div class="section-title-row">
               <div>
-                <label class="field-label">Imagen</label>
-                <span class="field-help"> Selecciona la imagen que será descubierta. </span>
+                <label class="field-label"> Imágenes de la actividad </label>
+
+                <span class="field-help"> Cada imagen funciona como una ronda independiente. </span>
               </div>
 
               <q-btn
-                v-if="imageUrl"
-                flat
+                unelevated
                 dense
-                round
-                icon="delete_outline"
-                class="remove-image-button"
-                @click="removeImage"
+                no-caps
+                icon="add"
+                label="Agregar"
+                class="add-round-button"
+                @click="addRound"
               />
             </div>
 
-            <label class="image-selector">
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                class="file-input"
-                @change="handleImageSelected"
-              />
+            <div class="round-list">
+              <button
+                v-for="(round, index) in rounds"
+                :key="round.id"
+                type="button"
+                class="round-item"
+                :class="{
+                  active: round.id === activeRoundId,
+                }"
+                @click="selectRound(round.id)"
+              >
+                <div class="round-thumbnail">
+                  <img
+                    v-if="round.imageUrl"
+                    :src="round.imageUrl"
+                    :alt="round.answer || `Imagen ${index + 1}`"
+                  />
 
-              <q-icon :name="imageUrl ? 'swap_horiz' : 'add_photo_alternate'" />
+                  <q-icon v-else name="image" />
+                </div>
 
-              <div>
-                <strong>
-                  {{ imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen' }}
-                </strong>
+                <div class="round-copy">
+                  <strong> Imagen {{ index + 1 }} </strong>
 
-                <span>
-                  {{ selectedFileName || 'JPG, PNG, WEBP u otra imagen compatible.' }}
-                </span>
-              </div>
-            </label>
+                  <span>
+                    {{ round.answer.trim() || 'Sin respuesta' }}
+                  </span>
+                </div>
+
+                <q-icon
+                  v-if="round.id === activeRoundId"
+                  name="chevron_right"
+                  class="round-active-icon"
+                />
+              </button>
+            </div>
           </div>
 
-          <div class="form-section">
-            <div class="section-title-row">
+          <template v-if="activeRound">
+            <div class="round-editor-heading">
               <div>
-                <label class="field-label">Cuadrícula</label>
+                <span class="eyebrow"> CONFIGURACIÓN DE IMAGEN </span>
 
-                <span class="field-help"> Configura cuántas casillas cubrirán la imagen. </span>
+                <h3>Imagen {{ activeRoundNumber }}</h3>
               </div>
 
-              <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
+              <div class="round-editor-actions">
+                <q-btn
+                  flat
+                  dense
+                  round
+                  icon="content_copy"
+                  aria-label="Duplicar imagen"
+                  class="round-action-button"
+                  @click="duplicateRound"
+                >
+                  <q-tooltip> Duplicar imagen </q-tooltip>
+                </q-btn>
+
+                <q-btn
+                  flat
+                  dense
+                  round
+                  icon="delete_outline"
+                  aria-label="Eliminar imagen"
+                  class="remove-image-button"
+                  :disable="rounds.length <= 1"
+                  @click="deleteRound"
+                >
+                  <q-tooltip> Eliminar imagen </q-tooltip>
+                </q-btn>
+              </div>
             </div>
 
-            <div class="grid-controls">
-              <div class="number-control">
-                <span>Filas</span>
+            <div class="form-section">
+              <label class="field-label"> Respuesta </label>
 
-                <div class="number-control-buttons">
-                  <q-btn
-                    flat
-                    dense
-                    round
-                    icon="remove"
-                    :disable="form.rows <= MIN_GRID_SIZE"
-                    @click="changeRows(-1)"
-                  />
+              <q-input
+                v-model="activeRound.answer"
+                dense
+                outlined
+                dark
+                placeholder="Ej. Daniel en el foso de los leones"
+                class="app-input"
+              />
 
-                  <strong>{{ form.rows }}</strong>
+              <span class="field-help"> Esta información será privada para el operador. </span>
+            </div>
 
-                  <q-btn
-                    flat
-                    dense
-                    round
-                    icon="add"
-                    :disable="form.rows >= MAX_GRID_SIZE"
-                    @click="changeRows(1)"
-                  />
+            <div class="form-section">
+              <label class="field-label"> Referencia bíblica </label>
+
+              <q-input
+                v-model="activeRound.bibleReference"
+                dense
+                outlined
+                dark
+                placeholder="Ej. Daniel 6"
+                class="app-input"
+              />
+            </div>
+
+            <div class="form-section">
+              <div class="field-heading">
+                <div>
+                  <label class="field-label"> Imagen </label>
+
+                  <span class="field-help"> Selecciona la imagen que será descubierta. </span>
+                </div>
+
+                <q-btn
+                  v-if="activeRound.imageUrl"
+                  flat
+                  dense
+                  round
+                  icon="delete_outline"
+                  class="remove-image-button"
+                  aria-label="Quitar archivo de imagen"
+                  @click="removeRoundImage"
+                />
+              </div>
+
+              <label class="image-selector">
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept="image/*"
+                  class="file-input"
+                  @change="handleImageSelected"
+                />
+
+                <q-icon :name="activeRound.imageUrl ? 'swap_horiz' : 'add_photo_alternate'" />
+
+                <div>
+                  <strong>
+                    {{ activeRound.imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen' }}
+                  </strong>
+
+                  <span>
+                    {{ activeRound.imageName || 'JPG, PNG, WEBP u otra imagen compatible.' }}
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-section">
+              <div class="section-title-row">
+                <div>
+                  <label class="field-label"> Cuadrícula </label>
+
+                  <span class="field-help">
+                    Cada imagen puede tener su propia cantidad de casillas.
+                  </span>
+                </div>
+
+                <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
+              </div>
+
+              <div class="grid-controls">
+                <div class="number-control">
+                  <span>Filas</span>
+
+                  <div class="number-control-buttons">
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="remove"
+                      :disable="activeRound.rows <= MIN_GRID_SIZE"
+                      @click="changeRows(-1)"
+                    />
+
+                    <strong>
+                      {{ activeRound.rows }}
+                    </strong>
+
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="add"
+                      :disable="activeRound.rows >= MAX_GRID_SIZE"
+                      @click="changeRows(1)"
+                    />
+                  </div>
+                </div>
+
+                <div class="number-control">
+                  <span>Columnas</span>
+
+                  <div class="number-control-buttons">
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="remove"
+                      :disable="activeRound.columns <= MIN_GRID_SIZE"
+                      @click="changeColumns(-1)"
+                    />
+
+                    <strong>
+                      {{ activeRound.columns }}
+                    </strong>
+
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="add"
+                      :disable="activeRound.columns >= MAX_GRID_SIZE"
+                      @click="changeColumns(1)"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div class="number-control">
-                <span>Columnas</span>
+              <div class="grid-presets">
+                <q-btn
+                  v-for="preset in gridPresets"
+                  :key="preset"
+                  flat
+                  dense
+                  no-caps
+                  :label="`${preset} × ${preset}`"
+                  :class="[
+                    'preset-button',
+                    {
+                      active: activeRound.rows === preset && activeRound.columns === preset,
+                    },
+                  ]"
+                  @click="applyGridPreset(preset)"
+                />
+              </div>
+            </div>
 
-                <div class="number-control-buttons">
-                  <q-btn
-                    flat
-                    dense
-                    round
-                    icon="remove"
-                    :disable="form.columns <= MIN_GRID_SIZE"
-                    @click="changeColumns(-1)"
-                  />
+            <div class="form-section">
+              <div class="section-title-row">
+                <div>
+                  <label class="field-label"> Prueba de casillas </label>
 
-                  <strong>{{ form.columns }}</strong>
-
-                  <q-btn
-                    flat
-                    dense
-                    round
-                    icon="add"
-                    :disable="form.columns >= MAX_GRID_SIZE"
-                    @click="changeColumns(1)"
-                  />
+                  <span class="field-help"> Estas pruebas no alteran la actividad guardada. </span>
                 </div>
+
+                <q-btn
+                  flat
+                  dense
+                  no-caps
+                  icon="restart_alt"
+                  label="Cubrir todas"
+                  class="small-button"
+                  @click="resetTiles"
+                />
               </div>
             </div>
-
-            <div class="grid-presets">
-              <q-btn
-                v-for="preset in gridPresets"
-                :key="preset"
-                flat
-                dense
-                no-caps
-                :label="`${preset} × ${preset}`"
-                :class="[
-                  'preset-button',
-                  {
-                    active: form.rows === preset && form.columns === preset,
-                  },
-                ]"
-                @click="applyGridPreset(preset)"
-              />
-            </div>
-          </div>
-
-          <div class="form-section">
-            <div class="section-title-row">
-              <div>
-                <label class="field-label">Prueba</label>
-
-                <span class="field-help"> Prueba las casillas antes de guardar. </span>
-              </div>
-
-              <q-btn
-                flat
-                dense
-                no-caps
-                icon="restart_alt"
-                label="Cubrir todas"
-                class="small-button"
-                @click="resetTiles"
-              />
-            </div>
-          </div>
+          </template>
         </aside>
 
+        <!-- PREVIEW -->
         <main class="preview-panel">
           <div class="preview-heading">
             <div>
-              <span class="eyebrow">PREVISUALIZACIÓN</span>
-              <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
+              <span class="eyebrow"> PREVISUALIZACIÓN </span>
+
+              <h2>
+                {{ form.title.trim() || 'Imagen escondida' }}
+              </h2>
+
+              <span v-if="activeRound" class="preview-round-label">
+                Imagen {{ activeRoundNumber }} de {{ rounds.length }}
+              </span>
             </div>
 
             <div class="preview-status">
               <q-icon name="visibility" />
-              <span> {{ revealedCount }} / {{ totalTiles }} descubiertas </span>
+
+              <span>
+                {{ revealedCount }}
+                /
+                {{ totalTiles }}
+                descubiertas
+              </span>
             </div>
           </div>
 
+          <div class="preview-round-navigation">
+            <q-btn
+              flat
+              dense
+              no-caps
+              icon="chevron_left"
+              label="Anterior"
+              class="round-navigation-button"
+              :disable="activeRoundIndex <= 0"
+              @click="goToPreviousRound"
+            />
+
+            <div class="round-dots">
+              <button
+                v-for="(round, index) in rounds"
+                :key="round.id"
+                type="button"
+                class="round-dot"
+                :class="{
+                  active: round.id === activeRoundId,
+                }"
+                :aria-label="`Ir a imagen ${index + 1}`"
+                @click="selectRound(round.id)"
+              />
+            </div>
+
+            <q-btn
+              flat
+              dense
+              no-caps
+              icon-right="chevron_right"
+              label="Siguiente"
+              class="round-navigation-button"
+              :disable="activeRoundIndex >= rounds.length - 1"
+              @click="goToNextRound"
+            />
+          </div>
+
           <div class="game-preview">
-            <div class="image-stage" :class="{ 'without-image': !imageUrl }" :style="gridStyle">
+            <div
+              v-if="activeRound"
+              class="image-stage"
+              :class="{
+                'without-image': !activeRound.imageUrl,
+              }"
+              :style="gridStyle"
+            >
               <img
-                v-if="imageUrl"
-                :src="imageUrl"
+                v-if="activeRound.imageUrl"
+                :src="activeRound.imageUrl"
                 alt="Imagen de la actividad"
                 class="hidden-image"
               />
@@ -414,9 +603,9 @@
                   <q-icon name="image" />
                 </div>
 
-                <strong>Selecciona una imagen</strong>
+                <strong> Selecciona una imagen </strong>
 
-                <span> La imagen aparecerá aquí cubierta por las casillas. </span>
+                <span> Esta ronda aparecerá aquí cubierta por las casillas. </span>
               </div>
 
               <button
@@ -424,7 +613,9 @@
                 :key="tile.id"
                 type="button"
                 class="cover-tile"
-                :class="{ revealed: tile.revealed }"
+                :class="{
+                  revealed: tile.revealed,
+                }"
                 :aria-label="`Casilla ${tile.id}`"
                 @click="toggleTile(tile.id)"
               >
@@ -435,16 +626,16 @@
             </div>
           </div>
 
-          <div class="preview-footer">
+          <div v-if="activeRound" class="preview-footer">
             <div class="operator-answer">
-              <span>RESPUESTA DEL OPERADOR</span>
+              <span> RESPUESTA DEL OPERADOR </span>
 
               <strong>
-                {{ form.answer.trim() || 'Sin respuesta definida' }}
+                {{ activeRound.answer.trim() || 'Sin respuesta definida' }}
               </strong>
 
-              <small v-if="form.bibleReference.trim()">
-                {{ form.bibleReference }}
+              <small v-if="activeRound.bibleReference.trim()">
+                {{ activeRound.bibleReference }}
               </small>
             </div>
 
@@ -485,34 +676,60 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
-
-interface HiddenImageForm {
-  title: string;
-  answer: string;
-  bibleReference: string;
-  rows: number;
-  columns: number;
-}
 
 interface HiddenImageTile {
   id: number;
   revealed: boolean;
 }
 
-interface HiddenImageActivity {
+interface HiddenImageStoredRound {
   id: string;
-  title: string;
   answer: string;
   bibleReference: string;
   rows: number;
   columns: number;
   imageName: string;
   imageBlob: Blob;
+}
+
+interface HiddenImageRoundDraft {
+  id: string;
+  answer: string;
+  bibleReference: string;
+  rows: number;
+  columns: number;
+  imageName: string;
+  imageBlob: Blob | null;
+  imageUrl: string;
+}
+
+interface HiddenImageActivity {
+  id: string;
+  title: string;
+  rounds: HiddenImageStoredRound[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface LegacyHiddenImageActivity {
+  id: string;
+  title: string;
+  answer?: string;
+  bibleReference?: string;
+  rows?: number;
+  columns?: number;
+  imageName?: string;
+  imageBlob?: Blob;
+  rounds?: HiddenImageStoredRound[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface HiddenImageForm {
+  title: string;
 }
 
 const DB_NAME = 'icp-studio';
@@ -530,13 +747,11 @@ const isLoading = ref(true);
 const isSaving = ref(false);
 
 const editingId = ref<string | null>(null);
+const activeRoundId = ref('');
 
 const activities = ref<HiddenImageActivity[]>([]);
+const rounds = ref<HiddenImageRoundDraft[]>([]);
 const tiles = ref<HiddenImageTile[]>([]);
-
-const selectedImageBlob = ref<Blob | null>(null);
-const selectedFileName = ref('');
-const imageUrl = ref('');
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -546,13 +761,33 @@ const gridPresets = [2, 3, 4, 5, 6];
 
 const form = reactive<HiddenImageForm>({
   title: '',
-  answer: '',
-  bibleReference: '',
-  rows: 4,
-  columns: 4,
 });
 
-const totalTiles = computed(() => form.rows * form.columns);
+const activeRoundIndex = computed(() =>
+  rounds.value.findIndex((round) => round.id === activeRoundId.value),
+);
+
+const activeRound = computed<HiddenImageRoundDraft | null>(() => {
+  const index = activeRoundIndex.value;
+
+  if (index < 0) {
+    return null;
+  }
+
+  return rounds.value[index] ?? null;
+});
+
+const activeRoundNumber = computed(() =>
+  activeRoundIndex.value >= 0 ? activeRoundIndex.value + 1 : 0,
+);
+
+const totalTiles = computed(() => {
+  if (!activeRound.value) {
+    return 0;
+  }
+
+  return activeRound.value.rows * activeRound.value.columns;
+});
 
 const revealedCount = computed(() => tiles.value.filter((tile) => tile.revealed).length);
 
@@ -561,16 +796,9 @@ const allTilesRevealed = computed(
 );
 
 const gridStyle = computed(() => ({
-  '--hidden-image-rows': String(form.rows),
-  '--hidden-image-columns': String(form.columns),
+  '--hidden-image-rows': String(activeRound.value?.rows ?? 4),
+  '--hidden-image-columns': String(activeRound.value?.columns ?? 4),
 }));
-
-watch(
-  () => [form.rows, form.columns],
-  () => {
-    rebuildTiles();
-  },
-);
 
 function createIndexedDbError(message: string, error: DOMException | null): Error {
   if (error) {
@@ -578,6 +806,27 @@ function createIndexedDbError(message: string, error: DOMException | null): Erro
   }
 
   return new Error(message);
+}
+
+function createId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createEmptyRound(): HiddenImageRoundDraft {
+  return {
+    id: createId(),
+    answer: '',
+    bibleReference: '',
+    rows: 4,
+    columns: 4,
+    imageName: '',
+    imageBlob: null,
+    imageUrl: '',
+  };
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -609,24 +858,73 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
+function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageActivity {
+  const now = new Date().toISOString();
+
+  if (Array.isArray(rawActivity.rounds) && rawActivity.rounds.length > 0) {
+    return {
+      id: rawActivity.id,
+      title: rawActivity.title || 'Imagen escondida',
+      rounds: rawActivity.rounds.map((round) => ({
+        id: round.id || createId(),
+        answer: round.answer || '',
+        bibleReference: round.bibleReference || '',
+        rows: clampGridValue(round.rows || 4),
+        columns: clampGridValue(round.columns || 4),
+        imageName: round.imageName || 'imagen',
+        imageBlob: round.imageBlob,
+      })),
+      createdAt: rawActivity.createdAt || now,
+      updatedAt: rawActivity.updatedAt || now,
+    };
+  }
+
+  const legacyBlob = rawActivity.imageBlob;
+
+  if (legacyBlob) {
+    return {
+      id: rawActivity.id,
+      title: rawActivity.title || 'Imagen escondida',
+      rounds: [
+        {
+          id: createId(),
+          answer: rawActivity.answer || '',
+          bibleReference: rawActivity.bibleReference || '',
+          rows: clampGridValue(rawActivity.rows || 4),
+          columns: clampGridValue(rawActivity.columns || 4),
+          imageName: rawActivity.imageName || 'imagen',
+          imageBlob: legacyBlob,
+        },
+      ],
+      createdAt: rawActivity.createdAt || now,
+      updatedAt: rawActivity.updatedAt || now,
+    };
+  }
+
+  return {
+    id: rawActivity.id,
+    title: rawActivity.title || 'Imagen escondida',
+    rounds: [],
+    createdAt: rawActivity.createdAt || now,
+    updatedAt: rawActivity.updatedAt || now,
+  };
+}
+
 async function loadActivities(): Promise<void> {
   isLoading.value = true;
 
   try {
     const database = await openDatabase();
 
-    const records = await new Promise<HiddenImageActivity[]>((resolve, reject) => {
+    const records = await new Promise<LegacyHiddenImageActivity[]>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readonly');
 
       const store = transaction.objectStore(STORE_NAME);
+
       const request = store.getAll();
 
       request.onsuccess = () => {
-        resolve(
-          (request.result as HiddenImageActivity[]).sort(
-            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-          ),
-        );
+        resolve(request.result as LegacyHiddenImageActivity[]);
       };
 
       request.onerror = () => {
@@ -636,7 +934,10 @@ async function loadActivities(): Promise<void> {
       };
     });
 
-    activities.value = records;
+    activities.value = records
+      .map(normalizeActivity)
+      .filter((activity) => activity.rounds.length > 0)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     rebuildPreviewUrls();
 
@@ -724,8 +1025,14 @@ function goBack(): void {
 
 function createActivity(): void {
   editingId.value = null;
+  resetEditor();
 
-  resetForm();
+  const firstRound = createEmptyRound();
+
+  rounds.value = [firstRound];
+  activeRoundId.value = firstRound.id;
+
+  rebuildTiles();
 
   isCreating.value = true;
 }
@@ -734,24 +1041,205 @@ function cancelActivity(): void {
   isCreating.value = false;
   editingId.value = null;
 
-  resetForm();
+  resetEditor();
 }
 
-function resetForm(): void {
+function resetEditor(): void {
   form.title = '';
-  form.answer = '';
-  form.bibleReference = '';
-  form.rows = 4;
-  form.columns = 4;
 
-  clearEditorImage();
+  revokeRoundUrls();
+
+  rounds.value = [];
+  activeRoundId.value = '';
+  tiles.value = [];
+
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+}
+
+function addRound(): void {
+  const round = createEmptyRound();
+
+  rounds.value.push(round);
+  activeRoundId.value = round.id;
+
   rebuildTiles();
+
+  resetFileInput();
+}
+
+function selectRound(roundId: string): void {
+  if (activeRoundId.value === roundId) {
+    return;
+  }
+
+  activeRoundId.value = roundId;
+
+  rebuildTiles();
+  resetFileInput();
+}
+
+function duplicateRound(): void {
+  const source = activeRound.value;
+
+  if (!source) {
+    return;
+  }
+
+  const duplicate: HiddenImageRoundDraft = {
+    id: createId(),
+    answer: source.answer,
+    bibleReference: source.bibleReference,
+    rows: source.rows,
+    columns: source.columns,
+    imageName: source.imageName,
+    imageBlob: source.imageBlob,
+    imageUrl: source.imageBlob ? URL.createObjectURL(source.imageBlob) : '',
+  };
+
+  const index = activeRoundIndex.value;
+
+  rounds.value.splice(index + 1, 0, duplicate);
+
+  activeRoundId.value = duplicate.id;
+
+  rebuildTiles();
+  resetFileInput();
+}
+
+function deleteRound(): void {
+  if (rounds.value.length <= 1) {
+    return;
+  }
+
+  const index = activeRoundIndex.value;
+
+  if (index < 0) {
+    return;
+  }
+
+  const round = rounds.value[index];
+
+  if (round?.imageUrl) {
+    URL.revokeObjectURL(round.imageUrl);
+  }
+
+  rounds.value.splice(index, 1);
+
+  const nextIndex = Math.min(index, rounds.value.length - 1);
+
+  const nextRound = rounds.value[nextIndex];
+
+  activeRoundId.value = nextRound?.id ?? '';
+
+  rebuildTiles();
+  resetFileInput();
+}
+
+function goToPreviousRound(): void {
+  const index = activeRoundIndex.value;
+
+  if (index <= 0) {
+    return;
+  }
+
+  const round = rounds.value[index - 1];
+
+  if (round) {
+    selectRound(round.id);
+  }
+}
+
+function goToNextRound(): void {
+  const index = activeRoundIndex.value;
+
+  if (index < 0 || index >= rounds.value.length - 1) {
+    return;
+  }
+
+  const round = rounds.value[index + 1];
+
+  if (round) {
+    selectRound(round.id);
+  }
+}
+
+function handleImageSelected(event: Event): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  const target = event.target as HTMLInputElement;
+
+  const file = target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'Selecciona un archivo de imagen válido.',
+      position: 'top',
+    });
+
+    target.value = '';
+
+    return;
+  }
+
+  if (round.imageUrl) {
+    URL.revokeObjectURL(round.imageUrl);
+  }
+
+  round.imageBlob = file;
+  round.imageName = file.name;
+  round.imageUrl = URL.createObjectURL(file);
+
+  resetTiles();
+}
+
+function removeRoundImage(): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  if (round.imageUrl) {
+    URL.revokeObjectURL(round.imageUrl);
+  }
+
+  round.imageBlob = null;
+  round.imageName = '';
+  round.imageUrl = '';
+
+  resetFileInput();
+  resetTiles();
+}
+
+function resetFileInput(): void {
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
 }
 
 function rebuildTiles(): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    tiles.value = [];
+    return;
+  }
+
   tiles.value = Array.from(
     {
-      length: totalTiles.value,
+      length: round.rows * round.columns,
     },
     (_, index): HiddenImageTile => ({
       id: index + 1,
@@ -799,11 +1287,27 @@ function revealRandomTile(): void {
 }
 
 function changeRows(change: number): void {
-  form.rows = clampGridValue(form.rows + change);
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  round.rows = clampGridValue(round.rows + change);
+
+  rebuildTiles();
 }
 
 function changeColumns(change: number): void {
-  form.columns = clampGridValue(form.columns + change);
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  round.columns = clampGridValue(round.columns + change);
+
+  rebuildTiles();
 }
 
 function clampGridValue(value: number): number {
@@ -811,78 +1315,66 @@ function clampGridValue(value: number): number {
 }
 
 function applyGridPreset(size: number): void {
+  const round = activeRound.value;
+
+  if (!round) {
+    return;
+  }
+
   const value = clampGridValue(size);
 
-  form.rows = value;
-  form.columns = value;
+  round.rows = value;
+  round.columns = value;
+
+  rebuildTiles();
 }
 
-function handleImageSelected(event: Event): void {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
+function validateActivity(): boolean {
+  if (!form.title.trim()) {
+    notifyWarning('Escribe un nombre para la actividad.');
 
-  if (!file) {
-    return;
+    return false;
   }
 
-  if (!file.type.startsWith('image/')) {
-    $q.notify({
-      type: 'negative',
-      icon: 'error',
-      message: 'Selecciona un archivo de imagen válido.',
-      position: 'top',
-    });
+  if (rounds.value.length === 0) {
+    notifyWarning('Agrega al menos una imagen.');
 
-    target.value = '';
-
-    return;
+    return false;
   }
 
-  revokeEditorImageUrl();
+  for (let index = 0; index < rounds.value.length; index += 1) {
+    const round = rounds.value[index];
 
-  selectedImageBlob.value = file;
-  selectedFileName.value = file.name;
-  imageUrl.value = URL.createObjectURL(file);
+    if (!round) {
+      continue;
+    }
 
-  resetTiles();
-}
+    if (!round.imageBlob) {
+      notifyWarning(`Selecciona una imagen para la ronda ${index + 1}.`);
 
-function removeImage(): void {
-  clearEditorImage();
-  resetTiles();
-}
+      activeRoundId.value = round.id;
 
-function clearEditorImage(): void {
-  revokeEditorImageUrl();
+      rebuildTiles();
 
-  selectedImageBlob.value = null;
-  selectedFileName.value = '';
-  imageUrl.value = '';
+      return false;
+    }
 
-  if (fileInput.value) {
-    fileInput.value.value = '';
+    if (!round.answer.trim()) {
+      notifyWarning(`Escribe la respuesta de la ronda ${index + 1}.`);
+
+      activeRoundId.value = round.id;
+
+      rebuildTiles();
+
+      return false;
+    }
   }
-}
 
-function revokeEditorImageUrl(): void {
-  if (imageUrl.value.startsWith('blob:')) {
-    URL.revokeObjectURL(imageUrl.value);
-  }
+  return true;
 }
 
 async function saveActivity(): Promise<void> {
-  if (!form.title.trim()) {
-    notifyWarning('Escribe un nombre para la actividad.');
-    return;
-  }
-
-  if (!form.answer.trim()) {
-    notifyWarning('Escribe la respuesta de la imagen.');
-    return;
-  }
-
-  if (!selectedImageBlob.value) {
-    notifyWarning('Selecciona una imagen para la actividad.');
+  if (!validateActivity()) {
     return;
   }
 
@@ -895,28 +1387,42 @@ async function saveActivity(): Promise<void> {
       ? activities.value.find((activity) => activity.id === editingId.value)
       : null;
 
+    const storedRounds: HiddenImageStoredRound[] = rounds.value.map(
+      (round): HiddenImageStoredRound => {
+        if (!round.imageBlob) {
+          throw new Error('La ronda no contiene imagen.');
+        }
+
+        return {
+          id: round.id,
+          answer: round.answer.trim(),
+          bibleReference: round.bibleReference.trim(),
+          rows: round.rows,
+          columns: round.columns,
+          imageName: round.imageName || 'imagen',
+          imageBlob: round.imageBlob,
+        };
+      },
+    );
+
     const activity: HiddenImageActivity = {
       id: editingId.value ?? createId(),
       title: form.title.trim(),
-      answer: form.answer.trim(),
-      bibleReference: form.bibleReference.trim(),
-      rows: form.rows,
-      columns: form.columns,
-      imageName: selectedFileName.value || existingActivity?.imageName || 'imagen',
-      imageBlob: selectedImageBlob.value,
+      rounds: storedRounds,
       createdAt: existingActivity?.createdAt ?? now,
       updatedAt: now,
     };
 
-    await persistActivity(activity);
-    await loadActivities();
-
     const wasEditing = Boolean(editingId.value);
+
+    await persistActivity(activity);
+
+    await loadActivities();
 
     isCreating.value = false;
     editingId.value = null;
 
-    resetForm();
+    resetEditor();
 
     $q.notify({
       type: 'positive',
@@ -942,19 +1448,30 @@ async function saveActivity(): Promise<void> {
 }
 
 function editActivity(activity: HiddenImageActivity): void {
+  resetEditor();
+
   editingId.value = activity.id;
 
   form.title = activity.title;
-  form.answer = activity.answer;
-  form.bibleReference = activity.bibleReference;
-  form.rows = activity.rows;
-  form.columns = activity.columns;
 
-  clearEditorImage();
+  rounds.value = activity.rounds.map((round): HiddenImageRoundDraft => ({
+    id: round.id,
+    answer: round.answer,
+    bibleReference: round.bibleReference,
+    rows: round.rows,
+    columns: round.columns,
+    imageName: round.imageName,
+    imageBlob: round.imageBlob,
+    imageUrl: URL.createObjectURL(round.imageBlob),
+  }));
 
-  selectedImageBlob.value = activity.imageBlob;
-  selectedFileName.value = activity.imageName;
-  imageUrl.value = URL.createObjectURL(activity.imageBlob);
+  if (rounds.value.length === 0) {
+    const firstRound = createEmptyRound();
+
+    rounds.value = [firstRound];
+  }
+
+  activeRoundId.value = rounds.value[0]?.id ?? '';
 
   rebuildTiles();
 
@@ -965,15 +1482,19 @@ async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
   try {
     const now = new Date().toISOString();
 
-    const copy: HiddenImageActivity = {
-      ...activity,
+    const duplicate: HiddenImageActivity = {
       id: createId(),
       title: `${activity.title} - copia`,
+      rounds: activity.rounds.map((round) => ({
+        ...round,
+        id: createId(),
+      })),
       createdAt: now,
       updatedAt: now,
     };
 
-    await persistActivity(copy);
+    await persistActivity(duplicate);
+
     await loadActivities();
 
     $q.notify({
@@ -1037,24 +1558,22 @@ function notifyWarning(message: string): void {
   });
 }
 
-function createId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function getActivityPreviewUrl(activity: HiddenImageActivity): string {
-  return previewUrls.get(activity.id) ?? '';
-}
-
 function rebuildPreviewUrls(): void {
   revokePreviewUrls();
 
   activities.value.forEach((activity) => {
-    previewUrls.set(activity.id, URL.createObjectURL(activity.imageBlob));
+    const firstRound = activity.rounds[0];
+
+    if (!firstRound) {
+      return;
+    }
+
+    previewUrls.set(activity.id, URL.createObjectURL(firstRound.imageBlob));
   });
+}
+
+function getActivityPreviewUrl(activity: HiddenImageActivity): string {
+  return previewUrls.get(activity.id) ?? '';
 }
 
 function revokePreviewUrls(): void {
@@ -1063,6 +1582,14 @@ function revokePreviewUrls(): void {
   });
 
   previewUrls.clear();
+}
+
+function revokeRoundUrls(): void {
+  rounds.value.forEach((round) => {
+    if (round.imageUrl) {
+      URL.revokeObjectURL(round.imageUrl);
+    }
+  });
 }
 
 function formatDate(isoDate: string): string {
@@ -1076,13 +1603,11 @@ function formatDate(isoDate: string): string {
 }
 
 onMounted(() => {
-  rebuildTiles();
-
   void loadActivities();
 });
 
 onBeforeUnmount(() => {
-  revokeEditorImageUrl();
+  revokeRoundUrls();
   revokePreviewUrls();
 });
 </script>
@@ -1228,7 +1753,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-state p {
-  max-width: 450px;
+  max-width: 500px;
   margin: 10px 0 22px;
   color: #8191a5;
   font-size: 12px;
@@ -1264,7 +1789,7 @@ onBeforeUnmount(() => {
 
 .activity-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
 
@@ -1296,16 +1821,28 @@ onBeforeUnmount(() => {
   object-fit: cover;
 }
 
-.activity-grid-overlay {
+.activity-image-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: #53677d;
+}
+
+.activity-image-placeholder .q-icon {
+  font-size: 42px;
+}
+
+.activity-round-count {
   position: absolute;
   right: 10px;
   bottom: 10px;
-}
-
-.activity-grid-overlay span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   padding: 5px 8px;
   color: #e7eef7;
-  background: rgb(3 8 14 / 82%);
+  background: rgb(3 8 14 / 86%);
   border-radius: 7px;
   font-size: 9px;
 }
@@ -1330,7 +1867,7 @@ onBeforeUnmount(() => {
 .activity-card-heading span {
   display: block;
   margin-top: 4px;
-  color: #c084fc;
+  color: #73869c;
   font-size: 9px;
 }
 
@@ -1387,7 +1924,9 @@ onBeforeUnmount(() => {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(320px, 385px)
+    minmax(0, 1fr);
 }
 
 .configuration-panel {
@@ -1400,7 +1939,8 @@ onBeforeUnmount(() => {
 .panel-heading,
 .preview-heading,
 .field-heading,
-.section-title-row {
+.section-title-row,
+.round-editor-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1453,6 +1993,121 @@ onBeforeUnmount(() => {
   border-color: #2a3c51;
 }
 
+.rounds-section {
+  padding-bottom: 12px;
+}
+
+.add-round-button {
+  min-height: 30px;
+  padding: 0 10px;
+  color: #fff;
+  background: #6d28d9;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.round-list {
+  display: flex;
+  max-height: 260px;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.round-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  color: inherit;
+  text-align: left;
+  background: #0d1926;
+  border: 1px solid #26394e;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.round-item:hover {
+  background: #112033;
+  border-color: #3d5875;
+}
+
+.round-item.active {
+  background: rgb(192 132 252 / 9%);
+  border-color: rgb(192 132 252 / 42%);
+}
+
+.round-thumbnail {
+  display: grid;
+  width: 52px;
+  height: 36px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  color: #667b92;
+  background: #07101a;
+  border-radius: 6px;
+}
+
+.round-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.round-thumbnail .q-icon {
+  font-size: 20px;
+}
+
+.round-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.round-copy strong {
+  color: #cedae7;
+  font-size: 10px;
+}
+
+.round-copy span {
+  overflow: hidden;
+  color: #71849a;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-active-icon {
+  color: #c084fc;
+  font-size: 18px;
+}
+
+.round-editor-heading {
+  align-items: center;
+  padding: 14px 0 8px;
+  border-top: 1px solid #1e2e40;
+}
+
+.round-editor-heading h3 {
+  margin: 0;
+  color: #e6eef8;
+  font-size: 13px;
+}
+
+.round-editor-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.round-action-button {
+  color: #8498ae;
+}
+
 .remove-image-button {
   color: #ef6b73;
 }
@@ -1496,8 +2151,11 @@ onBeforeUnmount(() => {
 }
 
 .image-selector span {
+  overflow: hidden;
   color: #687b91;
   font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .grid-count {
@@ -1583,7 +2241,13 @@ onBeforeUnmount(() => {
 .preview-heading {
   flex: 0 0 auto;
   align-items: center;
-  margin-bottom: 14px;
+}
+
+.preview-round-label {
+  display: block;
+  margin-top: 4px;
+  color: #8194aa;
+  font-size: 9px;
 }
 
 .preview-status {
@@ -1597,6 +2261,45 @@ onBeforeUnmount(() => {
 .preview-status .q-icon {
   color: #c084fc;
   font-size: 16px;
+}
+
+.preview-round-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 8px 10px;
+  background: #0d1824;
+  border: 1px solid #213247;
+  border-radius: 9px;
+}
+
+.round-navigation-button {
+  color: #879bb1;
+  font-size: 9px;
+}
+
+.round-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.round-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  background: #34485f;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.round-dot.active {
+  width: 20px;
+  background: #c084fc;
 }
 
 .game-preview {
@@ -1622,6 +2325,7 @@ onBeforeUnmount(() => {
   background: #101c29;
   border: 1px solid #344b64;
   border-radius: 10px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 28%);
 }
 
 .hidden-image {
@@ -1641,6 +2345,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   flex-direction: column;
   gap: 8px;
+  padding: 24px;
   color: #60748a;
   text-align: center;
 }
@@ -1667,6 +2372,7 @@ onBeforeUnmount(() => {
 .image-placeholder span {
   max-width: 330px;
   font-size: 10px;
+  line-height: 1.5;
 }
 
 .cover-tile {
@@ -1744,18 +2450,22 @@ onBeforeUnmount(() => {
   gap: 7px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .creator-area {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 330px minmax(0, 1fr);
   }
 
   .preview-footer {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .preview-actions {
+    justify-content: flex-end;
+  }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 780px) {
   .hidden-image-page {
     padding: 10px;
   }
@@ -1765,18 +2475,41 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
+  .header-actions {
+    width: 100%;
+  }
+
   .creator-area {
     display: flex;
     flex-direction: column;
   }
 
   .configuration-panel {
+    overflow: visible;
     border-right: 0;
     border-bottom: 1px solid #25364a;
   }
 
   .activity-grid {
     grid-template-columns: 1fr;
+  }
+
+  .preview-panel {
+    min-height: 620px;
+  }
+}
+
+@media (max-width: 520px) {
+  .grid-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-actions {
+    flex-direction: column;
+  }
+
+  .secondary-button {
+    width: 100%;
   }
 }
 </style>
