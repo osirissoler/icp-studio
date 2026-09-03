@@ -20,13 +20,22 @@
         :tool="projectionState.tool"
       />
 
+      <HiddenImageProjectionView
+        v-else-if="hiddenImageProjection"
+        :key="hiddenImageProjection.roundId"
+        :payload="hiddenImageProjection"
+      />
+
       <section
         v-else-if="projectionState.mode === 'content'"
         key="content"
         class="projector-content"
         :style="contentLayoutStyle"
       >
-        <p v-if="projectionState.body">{{ projectionState.body }}</p>
+        <p v-if="projectionState.body">
+          {{ projectionState.body }}
+        </p>
+
         <footer v-if="projectionState.footer" class="projection-footer">
           {{ projectionState.footer }}
         </footer>
@@ -48,21 +57,32 @@
         v-else-if="projectionState.mode === 'media'"
         :key="projectionState.url"
         class="projector-media"
-        :class="{ 'projector-media--themed': projectionState.mediaType === 'audio' }"
+        :class="{
+          'projector-media--themed': projectionState.mediaType === 'audio',
+        }"
       >
         <img
           v-if="projectionState.mediaType === 'image'"
           :src="projectionState.url"
           :alt="projectionState.name"
         />
+
         <video
           v-else-if="projectionState.mediaType === 'video'"
           ref="projectedVideo"
           :src="projectionState.url"
           preload="auto"
         />
-        <div v-else class="projector-audio" :class="{ 'projector-audio--playing': audioIsPlaying }">
+
+        <div
+          v-else
+          class="projector-audio"
+          :class="{
+            'projector-audio--playing': audioIsPlaying,
+          }"
+        >
           <q-icon name="album" />
+
           <AudioVisualizer
             :type="audioVisualizer.type"
             :playing="audioIsPlaying"
@@ -70,8 +90,14 @@
             :secondary-color="visualizerColors.secondary"
             :sensitivity="audioVisualizer.sensitivity"
           />
-          <strong v-if="audioVisualizer.showTitle">{{ projectionState.name }}</strong>
-          <small>{{ audioIsPlaying ? 'Reproduciendo' : 'Pausado' }}</small>
+
+          <strong v-if="audioVisualizer.showTitle">
+            {{ projectionState.name }}
+          </strong>
+
+          <small>
+            {{ audioIsPlaying ? 'Reproduciendo' : 'Pausado' }}
+          </small>
         </div>
       </section>
 
@@ -83,34 +109,61 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import AudioVisualizer from '../components/AudioVisualizer.vue';
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
+import HiddenImageProjectionView from '../components/HiddenImageProjectionView.vue';
 import RouletteWheel from '../components/RouletteWheel.vue';
 import TimeToolDisplay from '../components/TimeToolDisplay.vue';
 import type { MediaPlaybackCommand, ProjectionState } from '@/shared/projection';
+import { parseHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
 
 const projectionSettings = useProjectionSettingsStore();
+
 const { audioVisualizer, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
 
-const projectionState = ref<ProjectionState>({ mode: 'blank' });
+const projectionState = ref<ProjectionState>({
+  mode: 'blank',
+});
+
 const projectedVideo = ref<HTMLVideoElement | null>(null);
+
 const audioIsPlaying = ref(false);
+
 let unsubscribeState: (() => void) | undefined;
+
 let unsubscribeMediaControl: (() => void) | undefined;
+
+const hiddenImageProjection = computed(() => {
+  const state = projectionState.value;
+
+  if (state.mode !== 'media' || state.mediaType !== 'image') {
+    return null;
+  }
+
+  return parseHiddenImageProjectionUrl(state.url);
+});
 
 function applyMediaCommand(command: MediaPlaybackCommand): void {
   if (projectionState.value.mode === 'media' && projectionState.value.mediaType === 'audio') {
-    if (command.action === 'play') audioIsPlaying.value = true;
-    if (command.action === 'pause') audioIsPlaying.value = false;
+    if (command.action === 'play') {
+      audioIsPlaying.value = true;
+    }
+
+    if (command.action === 'pause') {
+      audioIsPlaying.value = false;
+    }
   }
 
   const video = projectedVideo.value;
-  if (!video) return;
+
+  if (!video) {
+    return;
+  }
 
   if (typeof command.time === 'number' && Number.isFinite(command.time)) {
     video.currentTime = Math.max(0, command.time);
@@ -126,9 +179,11 @@ function applyMediaCommand(command: MediaPlaybackCommand): void {
 onMounted(() => {
   unsubscribeState = window.icpStudio?.projection.onState((state) => {
     projectionState.value = state;
+
     if (state.mode !== 'media' || state.mediaType !== 'audio') {
       audioIsPlaying.value = false;
     }
+
     void nextTick(() => {
       if (state.mode === 'media' && state.mediaType === 'video') {
         projectedVideo.value?.pause();

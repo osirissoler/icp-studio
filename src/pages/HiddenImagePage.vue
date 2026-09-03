@@ -19,9 +19,8 @@
 
           <div class="header-copy">
             <h1>Imagen escondida</h1>
-            <p>
-              Crea actividades con una o varias imágenes ocultas por casillas.
-            </p>
+
+            <p>Crea actividades con una o varias imágenes ocultas por casillas.</p>
           </div>
         </div>
 
@@ -36,13 +35,7 @@
         />
 
         <div v-else-if="viewMode === 'editor'" class="header-actions">
-          <q-btn
-            flat
-            no-caps
-            label="Cancelar"
-            class="cancel-button"
-            @click="cancelActivity"
-          />
+          <q-btn flat no-caps label="Cancelar" class="cancel-button" @click="cancelActivity" />
 
           <q-btn
             unelevated
@@ -56,6 +49,11 @@
         </div>
 
         <div v-else class="header-actions">
+          <q-badge v-if="isProjectionLive" color="positive" rounded class="live-badge">
+            <span class="live-badge-dot" />
+            EN VIVO
+          </q-badge>
+
           <q-btn
             flat
             no-caps
@@ -69,14 +67,11 @@
             unelevated
             no-caps
             icon="cast"
-            label="Enviar en vivo"
+            :label="isProjectionLive ? 'Actualizar en vivo' : 'Enviar en vivo'"
             class="primary-button"
-            disable
-          >
-            <q-tooltip>
-              La conexión con las pantallas será el próximo paso.
-            </q-tooltip>
-          </q-btn>
+            :loading="isSendingProjection"
+            @click="sendPlayingStateToProjection(true)"
+          />
         </div>
       </header>
 
@@ -95,8 +90,8 @@
           <h2>Imagen escondida</h2>
 
           <p>
-            Todavía no tienes actividades guardadas. Puedes crear todas las
-            actividades que quieras y cada una puede contener varias imágenes.
+            Todavía no tienes actividades guardadas. Puedes crear todas las actividades que quieras
+            y cada una puede contener varias imágenes.
           </p>
 
           <q-btn
@@ -112,26 +107,19 @@
         <template v-else>
           <div class="library-heading">
             <div>
-              <span class="eyebrow">ACTIVIDADES GUARDADAS</span>
+              <span class="eyebrow"> ACTIVIDADES GUARDADAS </span>
+
               <h2>Mis actividades</h2>
 
               <p>
                 {{ activities.length }}
-                {{
-                  activities.length === 1
-                    ? 'actividad guardada'
-                    : 'actividades guardadas'
-                }}
+                {{ activities.length === 1 ? 'actividad guardada' : 'actividades guardadas' }}
               </p>
             </div>
           </div>
 
           <div class="activity-grid">
-            <article
-              v-for="activity in activities"
-              :key="activity.id"
-              class="activity-card"
-            >
+            <article v-for="activity in activities" :key="activity.id" class="activity-card">
               <div class="activity-image">
                 <img
                   v-if="getActivityPreviewUrl(activity)"
@@ -157,34 +145,30 @@
                 <div class="activity-card-heading">
                   <div>
                     <h3>{{ activity.title }}</h3>
-                    <span>Actualizada {{ formatDate(activity.updatedAt) }}</span>
+
+                    <span>
+                      Actualizada
+                      {{ formatDate(activity.updatedAt) }}
+                    </span>
                   </div>
 
                   <q-btn flat round dense icon="more_vert" class="more-button">
                     <q-menu dark>
                       <q-list dense style="min-width: 170px">
-                        <q-item
-                          clickable
-                          v-close-popup
-                          @click="editActivity(activity)"
-                        >
+                        <q-item clickable v-close-popup @click="editActivity(activity)">
                           <q-item-section avatar>
                             <q-icon name="edit" />
                           </q-item-section>
 
-                          <q-item-section>Editar</q-item-section>
+                          <q-item-section> Editar </q-item-section>
                         </q-item>
 
-                        <q-item
-                          clickable
-                          v-close-popup
-                          @click="duplicateActivity(activity)"
-                        >
+                        <q-item clickable v-close-popup @click="duplicateActivity(activity)">
                           <q-item-section avatar>
                             <q-icon name="content_copy" />
                           </q-item-section>
 
-                          <q-item-section>Duplicar actividad</q-item-section>
+                          <q-item-section> Duplicar actividad </q-item-section>
                         </q-item>
 
                         <q-separator dark />
@@ -199,7 +183,7 @@
                             <q-icon name="delete_outline" />
                           </q-item-section>
 
-                          <q-item-section>Eliminar</q-item-section>
+                          <q-item-section> Eliminar </q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
@@ -262,11 +246,7 @@
               </span>
 
               <h2>
-                {{
-                  editingId
-                    ? 'Editar Imagen escondida'
-                    : 'Configurar actividad'
-                }}
+                {{ editingId ? 'Editar Imagen escondida' : 'Configurar actividad' }}
               </h2>
             </div>
 
@@ -274,7 +254,7 @@
           </div>
 
           <div class="form-section">
-            <label class="field-label">Nombre de la actividad</label>
+            <label class="field-label"> Nombre de la actividad </label>
 
             <q-input
               v-model="form.title"
@@ -293,11 +273,9 @@
           <div class="form-section rounds-section">
             <div class="section-title-row">
               <div>
-                <label class="field-label">Imágenes de la actividad</label>
+                <label class="field-label"> Imágenes de la actividad </label>
 
-                <span class="field-help">
-                  Cada imagen funciona como una ronda independiente.
-                </span>
+                <span class="field-help"> Cada imagen funciona como una ronda independiente. </span>
               </div>
 
               <q-btn
@@ -317,7 +295,9 @@
                 :key="round.id"
                 type="button"
                 class="round-item"
-                :class="{ active: round.id === activeRoundId }"
+                :class="{
+                  active: round.id === activeRoundId,
+                }"
                 @click="selectRound(round.id)"
               >
                 <div class="round-thumbnail">
@@ -331,8 +311,11 @@
                 </div>
 
                 <div class="round-copy">
-                  <strong>Imagen {{ index + 1 }}</strong>
-                  <span>{{ round.answer.trim() || 'Sin respuesta' }}</span>
+                  <strong> Imagen {{ index + 1 }} </strong>
+
+                  <span>
+                    {{ round.answer.trim() || 'Sin respuesta' }}
+                  </span>
                 </div>
 
                 <q-icon
@@ -347,8 +330,12 @@
           <template v-if="activeRound">
             <div class="round-editor-heading">
               <div>
-                <span class="eyebrow">CONFIGURACIÓN DE IMAGEN</span>
-                <h3>Imagen {{ activeRoundNumber }}</h3>
+                <span class="eyebrow"> CONFIGURACIÓN DE IMAGEN </span>
+
+                <h3>
+                  Imagen
+                  {{ activeRoundNumber }}
+                </h3>
               </div>
 
               <div class="round-editor-actions">
@@ -360,7 +347,7 @@
                   class="round-action-button"
                   @click="duplicateRound"
                 >
-                  <q-tooltip>Duplicar imagen</q-tooltip>
+                  <q-tooltip> Duplicar imagen </q-tooltip>
                 </q-btn>
 
                 <q-btn
@@ -372,13 +359,13 @@
                   :disable="rounds.length <= 1"
                   @click="deleteRound"
                 >
-                  <q-tooltip>Eliminar imagen</q-tooltip>
+                  <q-tooltip> Eliminar imagen </q-tooltip>
                 </q-btn>
               </div>
             </div>
 
             <div class="form-section">
-              <label class="field-label">Respuesta</label>
+              <label class="field-label"> Respuesta </label>
 
               <q-input
                 v-model="activeRound.answer"
@@ -389,13 +376,11 @@
                 class="app-input"
               />
 
-              <span class="field-help">
-                Esta información será privada para el operador.
-              </span>
+              <span class="field-help"> Esta información será privada para el operador. </span>
             </div>
 
             <div class="form-section">
-              <label class="field-label">Referencia bíblica</label>
+              <label class="field-label"> Referencia bíblica </label>
 
               <q-input
                 v-model="activeRound.bibleReference"
@@ -410,11 +395,9 @@
             <div class="form-section">
               <div class="field-heading">
                 <div>
-                  <label class="field-label">Imagen</label>
+                  <label class="field-label"> Imagen </label>
 
-                  <span class="field-help">
-                    Selecciona la imagen que será descubierta.
-                  </span>
+                  <span class="field-help"> Selecciona la imagen que será descubierta. </span>
                 </div>
 
                 <q-btn
@@ -437,28 +420,15 @@
                   @change="handleImageSelected"
                 />
 
-                <q-icon
-                  :name="
-                    activeRound.imageUrl
-                      ? 'swap_horiz'
-                      : 'add_photo_alternate'
-                  "
-                />
+                <q-icon :name="activeRound.imageUrl ? 'swap_horiz' : 'add_photo_alternate'" />
 
                 <div>
                   <strong>
-                    {{
-                      activeRound.imageUrl
-                        ? 'Cambiar imagen'
-                        : 'Seleccionar imagen'
-                    }}
+                    {{ activeRound.imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen' }}
                   </strong>
 
                   <span>
-                    {{
-                      activeRound.imageName ||
-                      'JPG, PNG, WEBP u otra imagen compatible.'
-                    }}
+                    {{ activeRound.imageName || 'JPG, PNG, WEBP u otra imagen compatible.' }}
                   </span>
                 </div>
               </label>
@@ -467,7 +437,7 @@
             <div class="form-section">
               <div class="section-title-row">
                 <div>
-                  <label class="field-label">Cuadrícula</label>
+                  <label class="field-label"> Cuadrícula </label>
 
                   <span class="field-help">
                     Cada imagen puede tener su propia cantidad de casillas.
@@ -475,7 +445,8 @@
                 </div>
 
                 <q-badge class="grid-count">
-                  {{ totalTiles }} casillas
+                  {{ totalTiles }}
+                  casillas
                 </q-badge>
               </div>
 
@@ -493,7 +464,9 @@
                       @click="changeRows(-1)"
                     />
 
-                    <strong>{{ activeRound.rows }}</strong>
+                    <strong>
+                      {{ activeRound.rows }}
+                    </strong>
 
                     <q-btn
                       flat
@@ -519,7 +492,9 @@
                       @click="changeColumns(-1)"
                     />
 
-                    <strong>{{ activeRound.columns }}</strong>
+                    <strong>
+                      {{ activeRound.columns }}
+                    </strong>
 
                     <q-btn
                       flat
@@ -544,9 +519,7 @@
                   :class="[
                     'preset-button',
                     {
-                      active:
-                        activeRound.rows === preset &&
-                        activeRound.columns === preset,
+                      active: activeRound.rows === preset && activeRound.columns === preset,
                     },
                   ]"
                   @click="applyGridPreset(preset)"
@@ -559,11 +532,17 @@
         <main class="preview-panel">
           <div class="preview-heading">
             <div>
-              <span class="eyebrow">PREVISUALIZACIÓN</span>
-              <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
+              <span class="eyebrow"> PREVISUALIZACIÓN </span>
+
+              <h2>
+                {{ form.title.trim() || 'Imagen escondida' }}
+              </h2>
 
               <span v-if="activeRound" class="preview-round-label">
-                Imagen {{ activeRoundNumber }} de {{ rounds.length }}
+                Imagen
+                {{ activeRoundNumber }}
+                de
+                {{ rounds.length }}
               </span>
             </div>
 
@@ -571,7 +550,10 @@
               <q-icon name="visibility" />
 
               <span>
-                {{ revealedCount }} / {{ totalTiles }} descubiertas
+                {{ revealedCount }}
+                /
+                {{ totalTiles }}
+                descubiertas
               </span>
             </div>
           </div>
@@ -594,7 +576,9 @@
                 :key="round.id"
                 type="button"
                 class="round-dot"
-                :class="{ active: round.id === activeRoundId }"
+                :class="{
+                  active: round.id === activeRoundId,
+                }"
                 :aria-label="`Ir a imagen ${index + 1}`"
                 @click="selectRound(round.id)"
               />
@@ -616,7 +600,9 @@
             <div
               v-if="activeRound"
               class="image-stage"
-              :class="{ 'without-image': !activeRound.imageUrl }"
+              :class="{
+                'without-image': !activeRound.imageUrl,
+              }"
               :style="gridStyle"
             >
               <img
@@ -628,7 +614,7 @@
 
               <div v-else class="image-placeholder">
                 <q-icon name="image" />
-                <strong>Selecciona una imagen</strong>
+                <strong> Selecciona una imagen </strong>
               </div>
 
               <button
@@ -636,17 +622,21 @@
                 :key="tile.id"
                 type="button"
                 class="cover-tile"
-                :class="{ revealed: tile.revealed }"
+                :class="{
+                  revealed: tile.revealed,
+                }"
                 @click="toggleTile(tile.id)"
               >
-                <span v-if="!tile.revealed">{{ tile.id }}</span>
+                <span v-if="!tile.revealed">
+                  {{ tile.id }}
+                </span>
               </button>
             </div>
           </div>
 
           <div v-if="activeRound" class="preview-footer">
             <div class="operator-answer">
-              <span>RESPUESTA DEL OPERADOR</span>
+              <span> RESPUESTA DEL OPERADOR </span>
 
               <strong>
                 {{ activeRound.answer.trim() || 'Sin respuesta definida' }}
@@ -694,11 +684,15 @@
       <section v-else class="play-area">
         <aside class="play-sidebar">
           <div class="play-sidebar-heading">
-            <span class="eyebrow">MODO OPERADOR</span>
-            <h2>{{ playingActivity?.title }}</h2>
+            <span class="eyebrow"> MODO OPERADOR </span>
+
+            <h2>
+              {{ playingActivity?.title }}
+            </h2>
 
             <p>
-              Imagen {{ playingRoundIndex + 1 }}
+              Imagen
+              {{ playingRoundIndex + 1 }}
               de
               {{ playingActivity?.rounds.length ?? 0 }}
             </p>
@@ -710,20 +704,24 @@
               :key="round.id"
               type="button"
               class="play-round-item"
-              :class="{ active: index === playingRoundIndex }"
+              :class="{
+                active: index === playingRoundIndex,
+              }"
               @click="setPlayingRound(index)"
             >
-              <span class="play-round-number">{{ index + 1 }}</span>
+              <span class="play-round-number">
+                {{ index + 1 }}
+              </span>
 
               <div>
-                <strong>Imagen {{ index + 1 }}</strong>
-                <small>{{ round.answer }}</small>
+                <strong> Imagen {{ index + 1 }} </strong>
+
+                <small>
+                  {{ round.answer }}
+                </small>
               </div>
 
-              <q-icon
-                v-if="index === playingRoundIndex"
-                name="play_arrow"
-              />
+              <q-icon v-if="index === playingRoundIndex" name="play_arrow" />
             </button>
           </div>
 
@@ -734,11 +732,17 @@
             </div>
 
             <span>Respuesta</span>
-            <strong>{{ playingRound.answer }}</strong>
+
+            <strong>
+              {{ playingRound.answer }}
+            </strong>
 
             <template v-if="playingRound.bibleReference">
-              <span>Referencia bíblica</span>
-              <strong>{{ playingRound.bibleReference }}</strong>
+              <span> Referencia bíblica </span>
+
+              <strong>
+                {{ playingRound.bibleReference }}
+              </strong>
             </template>
           </div>
         </aside>
@@ -746,10 +750,11 @@
         <main class="operator-workspace">
           <div class="operator-topbar">
             <div>
-              <span class="eyebrow">CONTROL DEL JUEGO</span>
+              <span class="eyebrow"> CONTROL DEL JUEGO </span>
 
               <h2>
-                Imagen {{ playingRoundIndex + 1 }}
+                Imagen
+                {{ playingRoundIndex + 1 }}
               </h2>
             </div>
 
@@ -767,27 +772,23 @@
           </div>
 
           <div class="operator-stage-shell">
-            <div
-              v-if="playingRound"
-              class="operator-image-stage"
-              :style="playingGridStyle"
-            >
-              <img
-                :src="playingImageUrl"
-                :alt="playingRound.answer"
-                class="hidden-image"
-              />
+            <div v-if="playingRound" class="operator-image-stage" :style="playingGridStyle">
+              <img :src="playingImageUrl" :alt="playingRound.answer" class="hidden-image" />
 
               <button
                 v-for="tile in playingTiles"
                 :key="tile.id"
                 type="button"
                 class="cover-tile operator-cover-tile"
-                :class="{ revealed: tile.revealed }"
+                :class="{
+                  revealed: tile.revealed,
+                }"
                 :aria-label="`Descubrir casilla ${tile.id}`"
                 @click="togglePlayingTile(tile.id)"
               >
-                <span v-if="!tile.revealed">{{ tile.id }}</span>
+                <span v-if="!tile.revealed">
+                  {{ tile.id }}
+                </span>
               </button>
             </div>
           </div>
@@ -842,10 +843,7 @@
                 icon-right="arrow_downward"
                 label="Siguiente"
                 class="control-primary"
-                :disable="
-                  playingRoundIndex >=
-                  (playingActivity?.rounds.length ?? 1) - 1
-                "
+                :disable="playingRoundIndex >= (playingActivity?.rounds.length ?? 1) - 1"
                 @click="movePlayingRound(1)"
               />
             </div>
@@ -857,15 +855,10 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  reactive,
-  ref,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
+import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 
 type ViewMode = 'library' | 'editor' | 'play';
 
@@ -935,17 +928,26 @@ const viewMode = ref<ViewMode>('library');
 
 const isLoading = ref(true);
 const isSaving = ref(false);
+const isProjectionLive = ref(false);
+const isSendingProjection = ref(false);
 
 const editingId = ref<string | null>(null);
+
 const activeRoundId = ref('');
 
 const activities = ref<HiddenImageActivity[]>([]);
+
 const rounds = ref<HiddenImageRoundDraft[]>([]);
+
 const tiles = ref<HiddenImageTile[]>([]);
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const previewUrls = new Map<string, string>();
+
+const projectionDataUrls = new Map<string, string>();
+
+let projectionSequence = 0;
 
 const gridPresets = [2, 3, 4, 5, 6];
 
@@ -954,14 +956,15 @@ const form = reactive<HiddenImageForm>({
 });
 
 const playingActivity = ref<HiddenImageActivity | null>(null);
+
 const playingRoundIndex = ref(0);
+
 const playingTiles = ref<HiddenImageTile[]>([]);
+
 const playingImageUrl = ref('');
 
 const activeRoundIndex = computed(() =>
-  rounds.value.findIndex(
-    (round) => round.id === activeRoundId.value,
-  ),
+  rounds.value.findIndex((round) => round.id === activeRoundId.value),
 );
 
 const activeRound = computed<HiddenImageRoundDraft | null>(() => {
@@ -975,9 +978,7 @@ const activeRound = computed<HiddenImageRoundDraft | null>(() => {
 });
 
 const activeRoundNumber = computed(() =>
-  activeRoundIndex.value >= 0
-    ? activeRoundIndex.value + 1
-    : 0,
+  activeRoundIndex.value >= 0 ? activeRoundIndex.value + 1 : 0,
 );
 
 const totalTiles = computed(() => {
@@ -988,14 +989,10 @@ const totalTiles = computed(() => {
   return activeRound.value.rows * activeRound.value.columns;
 });
 
-const revealedCount = computed(
-  () => tiles.value.filter((tile) => tile.revealed).length,
-);
+const revealedCount = computed(() => tiles.value.filter((tile) => tile.revealed).length);
 
 const allTilesRevealed = computed(
-  () =>
-    tiles.value.length > 0 &&
-    revealedCount.value === tiles.value.length,
+  () => tiles.value.length > 0 && revealedCount.value === tiles.value.length,
 );
 
 const gridStyle = computed(() => ({
@@ -1003,18 +1000,16 @@ const gridStyle = computed(() => ({
   '--hidden-image-columns': String(activeRound.value?.columns ?? 4),
 }));
 
-const playingRound = computed<HiddenImageStoredRound | null>(() => {
-  return playingActivity.value?.rounds[playingRoundIndex.value] ?? null;
-});
+const playingRound = computed<HiddenImageStoredRound | null>(
+  () => playingActivity.value?.rounds[playingRoundIndex.value] ?? null,
+);
 
 const playingRevealedCount = computed(
   () => playingTiles.value.filter((tile) => tile.revealed).length,
 );
 
 const playingAllRevealed = computed(
-  () =>
-    playingTiles.value.length > 0 &&
-    playingRevealedCount.value === playingTiles.value.length,
+  () => playingTiles.value.length > 0 && playingRevealedCount.value === playingTiles.value.length,
 );
 
 const playingGridStyle = computed(() => ({
@@ -1022,10 +1017,7 @@ const playingGridStyle = computed(() => ({
   '--hidden-image-columns': String(playingRound.value?.columns ?? 4),
 }));
 
-function createIndexedDbError(
-  message: string,
-  error: DOMException | null,
-): Error {
+function createIndexedDbError(message: string, error: DOMException | null): Error {
   if (error) {
     return new Error(`${message}: ${error.message}`);
   }
@@ -1034,16 +1026,11 @@ function createIndexedDbError(
 }
 
 function createId(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
-  return `hidden-image-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
+  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function createEmptyRound(): HiddenImageRoundDraft {
@@ -1088,15 +1075,10 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-function normalizeActivity(
-  rawActivity: LegacyHiddenImageActivity,
-): HiddenImageActivity {
+function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageActivity {
   const now = new Date().toISOString();
 
-  if (
-    Array.isArray(rawActivity.rounds) &&
-    rawActivity.rounds.length > 0
-  ) {
+  if (Array.isArray(rawActivity.rounds) && rawActivity.rounds.length > 0) {
     return {
       id: rawActivity.id,
       title: rawActivity.title || 'Imagen escondida',
@@ -1151,39 +1133,28 @@ async function loadActivities(): Promise<void> {
   try {
     const database = await openDatabase();
 
-    const records = await new Promise<LegacyHiddenImageActivity[]>(
-      (resolve, reject) => {
-        const transaction = database.transaction(
-          STORE_NAME,
-          'readonly',
+    const records = await new Promise<LegacyHiddenImageActivity[]>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readonly');
+
+      const store = transaction.objectStore(STORE_NAME);
+
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        resolve(request.result as LegacyHiddenImageActivity[]);
+      };
+
+      request.onerror = () => {
+        reject(
+          createIndexedDbError('No se pudieron leer las actividades guardadas', request.error),
         );
-
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-          resolve(request.result as LegacyHiddenImageActivity[]);
-        };
-
-        request.onerror = () => {
-          reject(
-            createIndexedDbError(
-              'No se pudieron leer las actividades guardadas',
-              request.error,
-            ),
-          );
-        };
-      },
-    );
+      };
+    });
 
     activities.value = records
       .map(normalizeActivity)
       .filter((activity) => activity.rounds.length > 0)
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() -
-          new Date(a.updatedAt).getTime(),
-      );
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     rebuildPreviewUrls();
 
@@ -1202,39 +1173,25 @@ async function loadActivities(): Promise<void> {
   }
 }
 
-async function persistActivity(
-  activity: HiddenImageActivity,
-): Promise<void> {
+async function persistActivity(activity: HiddenImageActivity): Promise<void> {
   const database = await openDatabase();
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(
-        STORE_NAME,
-        'readwrite',
-      );
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
 
       const store = transaction.objectStore(STORE_NAME);
+
       store.put(activity);
 
       transaction.oncomplete = () => resolve();
 
       transaction.onerror = () => {
-        reject(
-          createIndexedDbError(
-            'No se pudo guardar la actividad',
-            transaction.error,
-          ),
-        );
+        reject(createIndexedDbError('No se pudo guardar la actividad', transaction.error));
       };
 
       transaction.onabort = () => {
-        reject(
-          createIndexedDbError(
-            'Se canceló el guardado de la actividad',
-            transaction.error,
-          ),
-        );
+        reject(createIndexedDbError('Se canceló el guardado de la actividad', transaction.error));
       };
     });
   } finally {
@@ -1247,30 +1204,19 @@ async function removePersistedActivity(id: string): Promise<void> {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(
-        STORE_NAME,
-        'readwrite',
-      );
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
 
       transaction.objectStore(STORE_NAME).delete(id);
 
       transaction.oncomplete = () => resolve();
 
       transaction.onerror = () => {
-        reject(
-          createIndexedDbError(
-            'No se pudo eliminar la actividad',
-            transaction.error,
-          ),
-        );
+        reject(createIndexedDbError('No se pudo eliminar la actividad', transaction.error));
       };
 
       transaction.onabort = () => {
         reject(
-          createIndexedDbError(
-            'Se canceló la eliminación de la actividad',
-            transaction.error,
-          ),
+          createIndexedDbError('Se canceló la eliminación de la actividad', transaction.error),
         );
       };
     });
@@ -1295,11 +1241,13 @@ function goBack(): void {
 
 function createActivity(): void {
   editingId.value = null;
+
   resetEditor();
 
   const firstRound = createEmptyRound();
 
   rounds.value = [firstRound];
+
   activeRoundId.value = firstRound.id;
 
   rebuildTiles();
@@ -1330,6 +1278,7 @@ function addRound(): void {
   const round = createEmptyRound();
 
   rounds.value.push(round);
+
   activeRoundId.value = round.id;
 
   rebuildTiles();
@@ -1362,9 +1311,7 @@ function duplicateRound(): void {
     columns: source.columns,
     imageName: source.imageName,
     imageBlob: source.imageBlob,
-    imageUrl: source.imageBlob
-      ? URL.createObjectURL(source.imageBlob)
-      : '',
+    imageUrl: source.imageBlob ? URL.createObjectURL(source.imageBlob) : '',
   };
 
   rounds.value.splice(activeRoundIndex.value + 1, 0, duplicate);
@@ -1395,6 +1342,7 @@ function deleteRound(): void {
   rounds.value.splice(index, 1);
 
   const nextIndex = Math.min(index, rounds.value.length - 1);
+
   const nextRound = rounds.value[nextIndex];
 
   activeRoundId.value = nextRound?.id ?? '';
@@ -1416,10 +1364,7 @@ function goToPreviousRound(): void {
 }
 
 function goToNextRound(): void {
-  if (
-    activeRoundIndex.value < 0 ||
-    activeRoundIndex.value >= rounds.value.length - 1
-  ) {
+  if (activeRoundIndex.value < 0 || activeRoundIndex.value >= rounds.value.length - 1) {
     return;
   }
 
@@ -1438,6 +1383,7 @@ function handleImageSelected(event: Event): void {
   }
 
   const target = event.target as HTMLInputElement;
+
   const file = target.files?.[0];
 
   if (!file) {
@@ -1453,6 +1399,7 @@ function handleImageSelected(event: Event): void {
     });
 
     target.value = '';
+
     return;
   }
 
@@ -1462,6 +1409,7 @@ function handleImageSelected(event: Event): void {
 
   round.imageBlob = file;
   round.imageName = file.name;
+
   round.imageUrl = URL.createObjectURL(file);
 
   resetTiles();
@@ -1504,13 +1452,10 @@ function rebuildTiles(): void {
 }
 
 function createTiles(count: number): HiddenImageTile[] {
-  return Array.from(
-    { length: count },
-    (_, index): HiddenImageTile => ({
-      id: index + 1,
-      revealed: false,
-    }),
-  );
+  return Array.from({ length: count }, (_, index): HiddenImageTile => ({
+    id: index + 1,
+    revealed: false,
+  }));
 }
 
 function toggleTile(tileId: number): void {
@@ -1544,8 +1489,7 @@ function revealRandomFromTiles(targetTiles: HiddenImageTile[]): void {
     return;
   }
 
-  const tile =
-    hiddenTiles[Math.floor(Math.random() * hiddenTiles.length)];
+  const tile = hiddenTiles[Math.floor(Math.random() * hiddenTiles.length)];
 
   if (tile) {
     tile.revealed = true;
@@ -1560,6 +1504,7 @@ function changeRows(change: number): void {
   }
 
   round.rows = clampGridValue(round.rows + change);
+
   rebuildTiles();
 }
 
@@ -1571,14 +1516,12 @@ function changeColumns(change: number): void {
   }
 
   round.columns = clampGridValue(round.columns + change);
+
   rebuildTiles();
 }
 
 function clampGridValue(value: number): number {
-  return Math.min(
-    MAX_GRID_SIZE,
-    Math.max(MIN_GRID_SIZE, value),
-  );
+  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, value));
 }
 
 function applyGridPreset(size: number): void {
@@ -1599,11 +1542,13 @@ function applyGridPreset(size: number): void {
 function validateActivity(): boolean {
   if (!form.title.trim()) {
     notifyWarning('Escribe un nombre para la actividad.');
+
     return false;
   }
 
   if (rounds.value.length === 0) {
     notifyWarning('Agrega al menos una imagen.');
+
     return false;
   }
 
@@ -1616,22 +1561,20 @@ function validateActivity(): boolean {
 
     if (!round.imageBlob) {
       activeRoundId.value = round.id;
+
       rebuildTiles();
 
-      notifyWarning(
-        `Selecciona una imagen para la ronda ${index + 1}.`,
-      );
+      notifyWarning(`Selecciona una imagen para la ronda ${index + 1}.`);
 
       return false;
     }
 
     if (!round.answer.trim()) {
       activeRoundId.value = round.id;
+
       rebuildTiles();
 
-      notifyWarning(
-        `Escribe la respuesta de la ronda ${index + 1}.`,
-      );
+      notifyWarning(`Escribe la respuesta de la ronda ${index + 1}.`);
 
       return false;
     }
@@ -1651,27 +1594,24 @@ async function saveActivity(): Promise<void> {
     const now = new Date().toISOString();
 
     const existingActivity = editingId.value
-      ? activities.value.find(
-          (activity) => activity.id === editingId.value,
-        )
+      ? activities.value.find((activity) => activity.id === editingId.value)
       : null;
 
-    const storedRounds: HiddenImageStoredRound[] =
-      rounds.value.map((round) => {
-        if (!round.imageBlob) {
-          throw new Error('La ronda no contiene imagen.');
-        }
+    const storedRounds: HiddenImageStoredRound[] = rounds.value.map((round) => {
+      if (!round.imageBlob) {
+        throw new Error('La ronda no contiene imagen.');
+      }
 
-        return {
-          id: round.id,
-          answer: round.answer.trim(),
-          bibleReference: round.bibleReference.trim(),
-          rows: round.rows,
-          columns: round.columns,
-          imageName: round.imageName || 'imagen',
-          imageBlob: round.imageBlob,
-        };
-      });
+      return {
+        id: round.id,
+        answer: round.answer.trim(),
+        bibleReference: round.bibleReference.trim(),
+        rows: round.rows,
+        columns: round.columns,
+        imageName: round.imageName || 'imagen',
+        imageBlob: round.imageBlob,
+      };
+    });
 
     const activity: HiddenImageActivity = {
       id: editingId.value ?? createId(),
@@ -1684,6 +1624,7 @@ async function saveActivity(): Promise<void> {
     const wasEditing = Boolean(editingId.value);
 
     await persistActivity(activity);
+
     await loadActivities();
 
     viewMode.value = 'library';
@@ -1718,20 +1659,19 @@ function editActivity(activity: HiddenImageActivity): void {
   resetEditor();
 
   editingId.value = activity.id;
+
   form.title = activity.title;
 
-  rounds.value = activity.rounds.map(
-    (round): HiddenImageRoundDraft => ({
-      id: round.id,
-      answer: round.answer,
-      bibleReference: round.bibleReference,
-      rows: round.rows,
-      columns: round.columns,
-      imageName: round.imageName,
-      imageBlob: round.imageBlob,
-      imageUrl: URL.createObjectURL(round.imageBlob),
-    }),
-  );
+  rounds.value = activity.rounds.map((round): HiddenImageRoundDraft => ({
+    id: round.id,
+    answer: round.answer,
+    bibleReference: round.bibleReference,
+    rows: round.rows,
+    columns: round.columns,
+    imageName: round.imageName,
+    imageBlob: round.imageBlob,
+    imageUrl: URL.createObjectURL(round.imageBlob),
+  }));
 
   if (rounds.value.length === 0) {
     rounds.value = [createEmptyRound()];
@@ -1747,7 +1687,13 @@ function editActivity(activity: HiddenImageActivity): void {
 function openActivity(activity: HiddenImageActivity): void {
   cleanupPlayingImageUrl();
 
+  projectionDataUrls.clear();
+
+  isProjectionLive.value = false;
+  projectionSequence += 1;
+
   playingActivity.value = activity;
+
   playingRoundIndex.value = 0;
 
   preparePlayingRound();
@@ -1756,11 +1702,24 @@ function openActivity(activity: HiddenImageActivity): void {
 }
 
 function closePlayMode(): void {
+  if (isProjectionLive.value) {
+    window.icpStudio?.projection.setState({
+      mode: 'blank',
+    });
+  }
+
   cleanupPlayingImageUrl();
+
+  projectionDataUrls.clear();
+
+  projectionSequence += 1;
 
   playingActivity.value = null;
   playingRoundIndex.value = 0;
   playingTiles.value = [];
+
+  isProjectionLive.value = false;
+  isSendingProjection.value = false;
 
   viewMode.value = 'library';
 }
@@ -1777,9 +1736,7 @@ function preparePlayingRound(): void {
 
   playingImageUrl.value = URL.createObjectURL(round.imageBlob);
 
-  playingTiles.value = createTiles(
-    round.rows * round.columns,
-  );
+  playingTiles.value = createTiles(round.rows * round.columns);
 }
 
 function setPlayingRound(index: number): void {
@@ -1790,7 +1747,10 @@ function setPlayingRound(index: number): void {
   }
 
   playingRoundIndex.value = index;
+
   preparePlayingRound();
+
+  syncProjectionIfLive();
 }
 
 function movePlayingRound(direction: -1 | 1): void {
@@ -1813,41 +1773,185 @@ function movePlayingRound(direction: -1 | 1): void {
 }
 
 function togglePlayingTile(tileId: number): void {
-  const tile = playingTiles.value.find(
-    (item) => item.id === tileId,
-  );
+  const tile = playingTiles.value.find((item) => item.id === tileId);
 
-  if (tile) {
-    tile.revealed = !tile.revealed;
+  if (!tile) {
+    return;
   }
+
+  tile.revealed = !tile.revealed;
+
+  syncProjectionIfLive();
 }
 
 function resetPlayingTiles(): void {
   playingTiles.value.forEach((tile) => {
     tile.revealed = false;
   });
+
+  syncProjectionIfLive();
 }
 
 function revealAllPlayingTiles(): void {
   playingTiles.value.forEach((tile) => {
     tile.revealed = true;
   });
+
+  syncProjectionIfLive();
 }
 
 function revealRandomPlayingTile(): void {
   revealRandomFromTiles(playingTiles.value);
+
+  syncProjectionIfLive();
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error('No se pudo convertir la imagen para la proyección.'));
+    };
+
+    reader.onerror = () => {
+      reject(new Error('No se pudo leer la imagen para la proyección.'));
+    };
+
+    reader.onabort = () => {
+      reject(new Error('Se canceló la lectura de la imagen.'));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getProjectionDataUrl(round: HiddenImageStoredRound): Promise<string> {
+  const cached = projectionDataUrls.get(round.id);
+
+  if (cached) {
+    return cached;
+  }
+
+  const dataUrl = await blobToDataUrl(round.imageBlob);
+
+  projectionDataUrls.set(round.id, dataUrl);
+
+  return dataUrl;
+}
+
+function syncProjectionIfLive(): void {
+  if (!isProjectionLive.value) {
+    return;
+  }
+
+  void sendPlayingStateToProjection(false);
+}
+
+async function sendPlayingStateToProjection(showNotification = true): Promise<void> {
+  const activity = playingActivity.value;
+
+  const round = playingRound.value;
+
+  if (!activity || !round) {
+    return;
+  }
+
+  if (!window.icpStudio?.projection) {
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'La salida de proyección no está disponible.',
+      position: 'top',
+    });
+
+    return;
+  }
+
+  const currentSequence = ++projectionSequence;
+
+  if (showNotification) {
+    isSendingProjection.value = true;
+  }
+
+  try {
+    const imageDataUrl = await getProjectionDataUrl(round);
+
+    if (
+      currentSequence !== projectionSequence ||
+      viewMode.value !== 'play' ||
+      playingActivity.value?.id !== activity.id ||
+      playingRound.value?.id !== round.id
+    ) {
+      return;
+    }
+
+    const revealedTileIds = playingTiles.value
+      .filter((tile) => tile.revealed)
+      .map((tile) => tile.id);
+
+    const url = createHiddenImageProjectionUrl({
+      activityId: activity.id,
+      roundId: round.id,
+      title: activity.title,
+      roundIndex: playingRoundIndex.value,
+      roundCount: activity.rounds.length,
+      rows: round.rows,
+      columns: round.columns,
+      imageDataUrl,
+      revealedTileIds,
+    });
+
+    window.icpStudio.projection.setState({
+      mode: 'media',
+      mediaType: 'image',
+      url,
+      name: activity.title,
+    });
+
+    isProjectionLive.value = true;
+
+    if (showNotification) {
+      $q.notify({
+        type: 'positive',
+        icon: 'cast',
+        message: 'Imagen escondida enviada en vivo.',
+        position: 'top',
+        timeout: 1600,
+      });
+    }
+  } catch (error) {
+    console.error('Error enviando Imagen escondida a proyección:', error);
+
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        icon: 'error',
+        message: 'No se pudo enviar la actividad a las pantallas.',
+        position: 'top',
+      });
+    }
+  } finally {
+    if (showNotification && currentSequence === projectionSequence) {
+      isSendingProjection.value = false;
+    }
+  }
 }
 
 function cleanupPlayingImageUrl(): void {
   if (playingImageUrl.value) {
     URL.revokeObjectURL(playingImageUrl.value);
+
     playingImageUrl.value = '';
   }
 }
 
-async function duplicateActivity(
-  activity: HiddenImageActivity,
-): Promise<void> {
+async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
   try {
     const now = new Date().toISOString();
 
@@ -1863,6 +1967,7 @@ async function duplicateActivity(
     };
 
     await persistActivity(duplicate);
+
     await loadActivities();
 
     $q.notify({
@@ -1884,9 +1989,7 @@ async function duplicateActivity(
   }
 }
 
-async function deleteActivity(
-  activity: HiddenImageActivity,
-): Promise<void> {
+async function deleteActivity(activity: HiddenImageActivity): Promise<void> {
   const confirmed = window.confirm(
     `¿Eliminar "${activity.title}"?\n\nEsta acción no se puede deshacer.`,
   );
@@ -1897,6 +2000,7 @@ async function deleteActivity(
 
   try {
     await removePersistedActivity(activity.id);
+
     await loadActivities();
 
     $q.notify({
@@ -1937,16 +2041,11 @@ function rebuildPreviewUrls(): void {
       return;
     }
 
-    previewUrls.set(
-      activity.id,
-      URL.createObjectURL(firstRound.imageBlob),
-    );
+    previewUrls.set(activity.id, URL.createObjectURL(firstRound.imageBlob));
   });
 }
 
-function getActivityPreviewUrl(
-  activity: HiddenImageActivity,
-): string {
+function getActivityPreviewUrl(activity: HiddenImageActivity): string {
   return previewUrls.get(activity.id) ?? '';
 }
 
@@ -1979,6 +2078,16 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (isProjectionLive.value) {
+    window.icpStudio?.projection.setState({
+      mode: 'blank',
+    });
+  }
+
+  projectionSequence += 1;
+
+  projectionDataUrls.clear();
+
   cleanupPlayingImageUrl();
   revokeRoundUrls();
   revokePreviewUrls();
@@ -2071,6 +2180,24 @@ onBeforeUnmount(() => {
 
 .cancel-button {
   color: #91a2b6;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.live-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: currentcolor;
+  border-radius: 999px;
+  box-shadow: 0 0 8px currentcolor;
 }
 
 .library-area {
@@ -2261,7 +2388,9 @@ onBeforeUnmount(() => {
 .creator-area {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(320px, 385px) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(320px, 385px)
+    minmax(0, 1fr);
 }
 
 .configuration-panel {
@@ -2376,8 +2505,8 @@ onBeforeUnmount(() => {
 }
 
 .add-round-button {
-  background: #6d28d9;
   color: white;
+  background: #6d28d9;
 }
 
 .file-input {
@@ -2421,8 +2550,8 @@ onBeforeUnmount(() => {
 .operator-control-group,
 .operator-round-navigation {
   display: flex;
-  gap: 7px;
   flex-wrap: wrap;
+  gap: 7px;
 }
 
 .grid-presets {
@@ -2502,14 +2631,8 @@ onBeforeUnmount(() => {
   width: min(100%, 900px);
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  grid-template-columns: repeat(
-    var(--hidden-image-columns),
-    minmax(0, 1fr)
-  );
-  grid-template-rows: repeat(
-    var(--hidden-image-rows),
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(var(--hidden-image-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--hidden-image-rows), minmax(0, 1fr));
   background: #101c29;
   border: 1px solid #344b64;
   border-radius: 10px;
@@ -2588,7 +2711,9 @@ onBeforeUnmount(() => {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns:
+    280px
+    minmax(0, 1fr);
 }
 
 .play-sidebar {
