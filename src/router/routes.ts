@@ -73,6 +73,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'actividades/imagen-escondida',
+        component: () => import('../pages/HiddenImagePage.vue'),
+        meta: {
+          title: 'Imagen escondida',
+          description: 'Crea y presenta juegos de imagen oculta por casillas.',
+          icon: 'image_search',
+        },
+      },
+      {
         path: 'herramientas',
         component: () => import('../pages/ToolsPage.vue'),
         meta: {
