@@ -10,13 +10,12 @@ export interface HiddenImageProjectionPayload {
   revealedTileIds: number[];
 
   /**
-   * Pista pública que actualmente está visible
-   * en las pantallas.
+   * Pista pública actualmente visible.
    *
-   * La respuesta y la referencia bíblica
-   * nunca forman parte de este payload.
+   * Es opcional para mantener compatibilidad
+   * con llamadas anteriores del juego.
    */
-  activeHint: string;
+  activeHint?: string;
 }
 
 const HIDDEN_IMAGE_HOST = 'library';
@@ -32,7 +31,6 @@ function clampRoundIndex(value: number, roundCount: number): number {
 
 export function createHiddenImageProjectionUrl(payload: HiddenImageProjectionPayload): string {
   const rows = clampGridSize(payload.rows);
-
   const columns = clampGridSize(payload.columns);
 
   const roundCount = Math.max(1, Math.round(payload.roundCount));
@@ -48,6 +46,8 @@ export function createHiddenImageProjectionUrl(payload: HiddenImageProjectionPay
         .sort((a, b) => a - b),
     ),
   );
+
+  const activeHint = (payload.activeHint ?? '').trim();
 
   const url = new URL(`icp-media://${HIDDEN_IMAGE_HOST}${HIDDEN_IMAGE_PATH}`);
 
@@ -71,8 +71,8 @@ export function createHiddenImageProjectionUrl(payload: HiddenImageProjectionPay
 
   url.searchParams.set('image', payload.imageDataUrl);
 
-  if (payload.activeHint.trim()) {
-    url.searchParams.set('hint', payload.activeHint.trim().slice(0, 1000));
+  if (activeHint) {
+    url.searchParams.set('hint', activeHint.slice(0, 1000));
   }
 
   return url.toString();
@@ -95,13 +95,9 @@ export function parseHiddenImageProjectionUrl(value: string): HiddenImageProject
     }
 
     const activityId = url.searchParams.get('activity') ?? '';
-
     const roundId = url.searchParams.get('round') ?? '';
-
     const title = url.searchParams.get('title') ?? '';
-
     const imageDataUrl = url.searchParams.get('image') ?? '';
-
     const activeHint = (url.searchParams.get('hint') ?? '').trim();
 
     const rows = clampGridSize(Number(url.searchParams.get('rows') ?? 4));
