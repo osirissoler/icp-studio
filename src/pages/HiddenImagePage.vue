@@ -2974,7 +2974,7 @@ async function sendPlayingStateToProjection(
       activeHint: publicHintByRound[round.id] ?? '',
     });
 
-    await window.icpStudio.projection.setState({
+    window.icpStudio.projection.setState({
       mode: 'media',
       mediaType: 'image',
       url,
