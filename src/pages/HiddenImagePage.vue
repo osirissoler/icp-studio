@@ -9,7 +9,7 @@
             dense
             icon="arrow_back"
             class="back-button"
-            aria-label="Volver a actividades"
+            aria-label="Volver"
             @click="goBack"
           />
 
@@ -29,60 +29,172 @@
           no-caps
           icon="add"
           label="Nueva actividad"
-          class="new-activity-button"
+          class="primary-button"
           @click="createActivity"
         />
 
         <div v-else class="header-actions">
-          <q-btn
-            flat
-            no-caps
-            label="Cancelar"
-            class="cancel-button"
-            @click="cancelActivity"
-          />
+          <q-btn flat no-caps label="Cancelar" class="cancel-button" @click="cancelActivity" />
 
           <q-btn
             unelevated
             no-caps
             icon="save"
-            label="Guardar"
-            class="save-button"
+            :label="editingId ? 'Guardar cambios' : 'Guardar'"
+            class="primary-button"
+            :loading="isSaving"
             @click="saveActivity"
           />
         </div>
       </header>
 
-      <section v-if="!isCreating" class="content-area">
-        <div class="empty-state">
+      <section v-if="!isCreating" class="library-area">
+        <div v-if="isLoading" class="loading-state">
+          <q-spinner size="34px" />
+          <span>Cargando actividades...</span>
+        </div>
+
+        <div v-else-if="activities.length === 0" class="empty-state">
           <div class="empty-icon">
             <q-icon name="image_search" />
           </div>
 
           <h2>Imagen escondida</h2>
 
-          <p>
-            Crea actividades donde una imagen permanece cubierta por casillas
-            y se va descubriendo durante el juego.
-          </p>
+          <p>Todavía no tienes actividades guardadas. Crea la primera para comenzar.</p>
 
           <q-btn
             unelevated
             no-caps
             icon="add"
             label="Crear primera actividad"
-            class="empty-action"
+            class="primary-button"
             @click="createActivity"
           />
         </div>
+
+        <template v-else>
+          <div class="library-heading">
+            <div>
+              <span class="eyebrow">ACTIVIDADES GUARDADAS</span>
+              <h2>Mis actividades</h2>
+              <p>
+                {{ activities.length }}
+                {{ activities.length === 1 ? 'actividad guardada' : 'actividades guardadas' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="activity-grid">
+            <article v-for="activity in activities" :key="activity.id" class="activity-card">
+              <div class="activity-image">
+                <img
+                  v-if="getActivityPreviewUrl(activity)"
+                  :src="getActivityPreviewUrl(activity)"
+                  :alt="activity.title"
+                />
+
+                <div class="activity-grid-overlay">
+                  <span> {{ activity.rows }} × {{ activity.columns }} </span>
+                </div>
+              </div>
+
+              <div class="activity-card-content">
+                <div class="activity-card-heading">
+                  <div>
+                    <h3>{{ activity.title }}</h3>
+
+                    <span v-if="activity.bibleReference">
+                      {{ activity.bibleReference }}
+                    </span>
+                  </div>
+
+                  <q-btn flat round dense icon="more_vert" class="more-button">
+                    <q-menu dark>
+                      <q-list dense style="min-width: 160px">
+                        <q-item clickable v-close-popup @click="editActivity(activity)">
+                          <q-item-section avatar>
+                            <q-icon name="edit" />
+                          </q-item-section>
+
+                          <q-item-section>Editar</q-item-section>
+                        </q-item>
+
+                        <q-item clickable v-close-popup @click="duplicateActivity(activity)">
+                          <q-item-section avatar>
+                            <q-icon name="content_copy" />
+                          </q-item-section>
+
+                          <q-item-section>Duplicar</q-item-section>
+                        </q-item>
+
+                        <q-separator dark />
+
+                        <q-item
+                          clickable
+                          v-close-popup
+                          class="delete-menu-item"
+                          @click="deleteActivity(activity)"
+                        >
+                          <q-item-section avatar>
+                            <q-icon name="delete_outline" />
+                          </q-item-section>
+
+                          <q-item-section>Eliminar</q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
+                  </q-btn>
+                </div>
+
+                <div class="activity-info-row">
+                  <div>
+                    <q-icon name="grid_view" />
+                    <span>{{ activity.rows * activity.columns }} casillas</span>
+                  </div>
+
+                  <div>
+                    <q-icon name="schedule" />
+                    <span>{{ formatDate(activity.updatedAt) }}</span>
+                  </div>
+                </div>
+
+                <div class="activity-card-actions">
+                  <q-btn
+                    flat
+                    no-caps
+                    icon="edit"
+                    label="Editar"
+                    class="secondary-button"
+                    @click="editActivity(activity)"
+                  />
+
+                  <q-btn
+                    unelevated
+                    no-caps
+                    icon="play_arrow"
+                    label="Abrir"
+                    class="open-button"
+                    @click="editActivity(activity)"
+                  />
+                </div>
+              </div>
+            </article>
+          </div>
+        </template>
       </section>
 
       <section v-else class="creator-area">
         <aside class="configuration-panel">
           <div class="panel-heading">
             <div>
-              <span class="panel-eyebrow">CONFIGURACIÓN</span>
-              <h2>Nueva actividad</h2>
+              <span class="eyebrow">
+                {{ editingId ? 'EDITANDO ACTIVIDAD' : 'NUEVA ACTIVIDAD' }}
+              </span>
+
+              <h2>
+                {{ editingId ? 'Editar imagen escondida' : 'Configurar actividad' }}
+              </h2>
             </div>
 
             <q-icon name="tune" />
@@ -113,9 +225,7 @@
               class="app-input"
             />
 
-            <span class="field-help">
-              Esta información será privada para el operador durante el juego.
-            </span>
+            <span class="field-help"> La respuesta es información privada para el operador. </span>
           </div>
 
           <div class="form-section">
@@ -135,7 +245,7 @@
             <div class="field-heading">
               <div>
                 <label class="field-label">Imagen</label>
-                <span class="field-help">JPG, PNG, WEBP u otra imagen compatible.</span>
+                <span class="field-help"> Selecciona la imagen que será descubierta. </span>
               </div>
 
               <q-btn
@@ -145,7 +255,6 @@
                 round
                 icon="delete_outline"
                 class="remove-image-button"
-                aria-label="Quitar imagen"
                 @click="removeImage"
               />
             </div>
@@ -165,11 +274,9 @@
                 <strong>
                   {{ imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen' }}
                 </strong>
+
                 <span>
-                  {{
-                    selectedFileName ||
-                    'Selecciona la imagen que será descubierta durante el juego.'
-                  }}
+                  {{ selectedFileName || 'JPG, PNG, WEBP u otra imagen compatible.' }}
                 </span>
               </div>
             </label>
@@ -179,14 +286,11 @@
             <div class="section-title-row">
               <div>
                 <label class="field-label">Cuadrícula</label>
-                <span class="field-help">
-                  Configura cuántas casillas cubrirán la imagen.
-                </span>
+
+                <span class="field-help"> Configura cuántas casillas cubrirán la imagen. </span>
               </div>
 
-              <q-badge class="grid-count">
-                {{ totalTiles }} casillas
-              </q-badge>
+              <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
             </div>
 
             <div class="grid-controls">
@@ -254,9 +358,7 @@
                 :class="[
                   'preset-button',
                   {
-                    active:
-                      form.rows === preset &&
-                      form.columns === preset,
+                    active: form.rows === preset && form.columns === preset,
                   },
                 ]"
                 @click="applyGridPreset(preset)"
@@ -267,10 +369,9 @@
           <div class="form-section">
             <div class="section-title-row">
               <div>
-                <label class="field-label">Prueba de casillas</label>
-                <span class="field-help">
-                  Descubre casillas en la previsualización para probar la actividad.
-                </span>
+                <label class="field-label">Prueba</label>
+
+                <span class="field-help"> Prueba las casillas antes de guardar. </span>
               </div>
 
               <q-btn
@@ -279,7 +380,7 @@
                 no-caps
                 icon="restart_alt"
                 label="Cubrir todas"
-                class="reset-button"
+                class="small-button"
                 @click="resetTiles"
               />
             </div>
@@ -289,26 +390,22 @@
         <main class="preview-panel">
           <div class="preview-heading">
             <div>
-              <span class="panel-eyebrow">PREVISUALIZACIÓN</span>
+              <span class="eyebrow">PREVISUALIZACIÓN</span>
               <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
             </div>
 
             <div class="preview-status">
               <q-icon name="visibility" />
-              <span>{{ revealedCount }} / {{ totalTiles }} descubiertas</span>
+              <span> {{ revealedCount }} / {{ totalTiles }} descubiertas </span>
             </div>
           </div>
 
           <div class="game-preview">
-            <div
-              class="image-stage"
-              :class="{ 'without-image': !imageUrl }"
-              :style="gridStyle"
-            >
+            <div class="image-stage" :class="{ 'without-image': !imageUrl }" :style="gridStyle">
               <img
                 v-if="imageUrl"
                 :src="imageUrl"
-                alt="Imagen seleccionada para la actividad"
+                alt="Imagen de la actividad"
                 class="hidden-image"
               />
 
@@ -319,10 +416,7 @@
 
                 <strong>Selecciona una imagen</strong>
 
-                <span>
-                  Cuando selecciones una imagen aparecerá aquí cubierta por la
-                  cuadrícula.
-                </span>
+                <span> La imagen aparecerá aquí cubierta por las casillas. </span>
               </div>
 
               <button
@@ -334,7 +428,9 @@
                 :aria-label="`Casilla ${tile.id}`"
                 @click="toggleTile(tile.id)"
               >
-                <span v-if="!tile.revealed">{{ tile.id }}</span>
+                <span v-if="!tile.revealed">
+                  {{ tile.id }}
+                </span>
               </button>
             </div>
           </div>
@@ -342,7 +438,11 @@
           <div class="preview-footer">
             <div class="operator-answer">
               <span>RESPUESTA DEL OPERADOR</span>
-              <strong>{{ form.answer.trim() || 'Sin respuesta definida' }}</strong>
+
+              <strong>
+                {{ form.answer.trim() || 'Sin respuesta definida' }}
+              </strong>
+
               <small v-if="form.bibleReference.trim()">
                 {{ form.bibleReference }}
               </small>
@@ -352,20 +452,29 @@
               <q-btn
                 flat
                 no-caps
-                icon="visibility"
-                label="Descubrir todas"
-                class="secondary-action"
-                @click="revealAllTiles"
+                icon="restart_alt"
+                label="Cubrir"
+                class="secondary-button"
+                @click="resetTiles"
               />
 
               <q-btn
                 flat
                 no-caps
                 icon="shuffle"
-                label="Descubrir aleatoria"
-                class="secondary-action"
+                label="Aleatoria"
+                class="secondary-button"
                 :disable="allTilesRevealed"
                 @click="revealRandomTile"
+              />
+
+              <q-btn
+                flat
+                no-caps
+                icon="visibility"
+                label="Descubrir todas"
+                class="secondary-button"
+                @click="revealAllTiles"
               />
             </div>
           </div>
@@ -376,7 +485,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 
@@ -393,6 +502,23 @@ interface HiddenImageTile {
   revealed: boolean;
 }
 
+interface HiddenImageActivity {
+  id: string;
+  title: string;
+  answer: string;
+  bibleReference: string;
+  rows: number;
+  columns: number;
+  imageName: string;
+  imageBlob: Blob;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const DB_NAME = 'icp-studio';
+const DB_VERSION = 1;
+const STORE_NAME = 'hidden-image-activities';
+
 const MIN_GRID_SIZE = 2;
 const MAX_GRID_SIZE = 8;
 
@@ -400,10 +526,21 @@ const router = useRouter();
 const $q = useQuasar();
 
 const isCreating = ref(false);
-const imageUrl = ref('');
-const selectedFileName = ref('');
-const fileInput = ref<HTMLInputElement | null>(null);
+const isLoading = ref(true);
+const isSaving = ref(false);
+
+const editingId = ref<string | null>(null);
+
+const activities = ref<HiddenImageActivity[]>([]);
 const tiles = ref<HiddenImageTile[]>([]);
+
+const selectedImageBlob = ref<Blob | null>(null);
+const selectedFileName = ref('');
+const imageUrl = ref('');
+
+const fileInput = ref<HTMLInputElement | null>(null);
+
+const previewUrls = new Map<string, string>();
 
 const gridPresets = [2, 3, 4, 5, 6];
 
@@ -417,14 +554,10 @@ const form = reactive<HiddenImageForm>({
 
 const totalTiles = computed(() => form.rows * form.columns);
 
-const revealedCount = computed(
-  () => tiles.value.filter((tile) => tile.revealed).length,
-);
+const revealedCount = computed(() => tiles.value.filter((tile) => tile.revealed).length);
 
 const allTilesRevealed = computed(
-  () =>
-    tiles.value.length > 0 &&
-    revealedCount.value === tiles.value.length,
+  () => tiles.value.length > 0 && revealedCount.value === tiles.value.length,
 );
 
 const gridStyle = computed(() => ({
@@ -439,6 +572,147 @@ watch(
   },
 );
 
+function createIndexedDbError(message: string, error: DOMException | null): Error {
+  if (error) {
+    return new Error(`${message}: ${error.message}`);
+  }
+
+  return new Error(message);
+}
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME, {
+          keyPath: 'id',
+        });
+      }
+    };
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(
+        createIndexedDbError(
+          'No se pudo abrir la base de datos de Imagen escondida',
+          request.error,
+        ),
+      );
+    };
+  });
+}
+
+async function loadActivities(): Promise<void> {
+  isLoading.value = true;
+
+  try {
+    const database = await openDatabase();
+
+    const records = await new Promise<HiddenImageActivity[]>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readonly');
+
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        resolve(
+          (request.result as HiddenImageActivity[]).sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+          ),
+        );
+      };
+
+      request.onerror = () => {
+        reject(
+          createIndexedDbError('No se pudieron leer las actividades guardadas', request.error),
+        );
+      };
+    });
+
+    activities.value = records;
+
+    rebuildPreviewUrls();
+
+    database.close();
+  } catch (error) {
+    console.error('Error cargando actividades:', error);
+
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'No se pudieron cargar las actividades guardadas.',
+      position: 'top',
+    });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function persistActivity(activity: HiddenImageActivity): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
+
+      const store = transaction.objectStore(STORE_NAME);
+
+      store.put(activity);
+
+      transaction.oncomplete = () => {
+        resolve();
+      };
+
+      transaction.onerror = () => {
+        reject(createIndexedDbError('No se pudo guardar la actividad', transaction.error));
+      };
+
+      transaction.onabort = () => {
+        reject(createIndexedDbError('Se canceló el guardado de la actividad', transaction.error));
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function removePersistedActivity(id: string): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
+
+      const store = transaction.objectStore(STORE_NAME);
+
+      store.delete(id);
+
+      transaction.oncomplete = () => {
+        resolve();
+      };
+
+      transaction.onerror = () => {
+        reject(createIndexedDbError('No se pudo eliminar la actividad', transaction.error));
+      };
+
+      transaction.onabort = () => {
+        reject(
+          createIndexedDbError('Se canceló la eliminación de la actividad', transaction.error),
+        );
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
+
 function goBack(): void {
   if (isCreating.value) {
     cancelActivity();
@@ -449,12 +723,17 @@ function goBack(): void {
 }
 
 function createActivity(): void {
+  editingId.value = null;
+
   resetForm();
+
   isCreating.value = true;
 }
 
 function cancelActivity(): void {
   isCreating.value = false;
+  editingId.value = null;
+
   resetForm();
 }
 
@@ -465,13 +744,15 @@ function resetForm(): void {
   form.rows = 4;
   form.columns = 4;
 
-  clearImage();
+  clearEditorImage();
   rebuildTiles();
 }
 
 function rebuildTiles(): void {
   tiles.value = Array.from(
-    { length: totalTiles.value },
+    {
+      length: totalTiles.value,
+    },
     (_, index): HiddenImageTile => ({
       id: index + 1,
       revealed: false,
@@ -509,10 +790,11 @@ function revealRandomTile(): void {
   }
 
   const randomIndex = Math.floor(Math.random() * hiddenTiles.length);
-  const selectedTile = hiddenTiles[randomIndex];
 
-  if (selectedTile) {
-    selectedTile.revealed = true;
+  const tile = hiddenTiles[randomIndex];
+
+  if (tile) {
+    tile.revealed = true;
   }
 }
 
@@ -525,17 +807,14 @@ function changeColumns(change: number): void {
 }
 
 function clampGridValue(value: number): number {
-  return Math.min(
-    MAX_GRID_SIZE,
-    Math.max(MIN_GRID_SIZE, value),
-  );
+  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, value));
 }
 
 function applyGridPreset(size: number): void {
-  const normalizedSize = clampGridValue(size);
+  const value = clampGridValue(size);
 
-  form.rows = normalizedSize;
-  form.columns = normalizedSize;
+  form.rows = value;
+  form.columns = value;
 }
 
 function handleImageSelected(event: Event): void {
@@ -555,84 +834,257 @@ function handleImageSelected(event: Event): void {
     });
 
     target.value = '';
+
     return;
   }
 
-  clearObjectUrl();
+  revokeEditorImageUrl();
 
-  imageUrl.value = URL.createObjectURL(file);
+  selectedImageBlob.value = file;
   selectedFileName.value = file.name;
+  imageUrl.value = URL.createObjectURL(file);
 
   resetTiles();
 }
 
 function removeImage(): void {
-  clearImage();
+  clearEditorImage();
   resetTiles();
 }
 
-function clearImage(): void {
-  clearObjectUrl();
+function clearEditorImage(): void {
+  revokeEditorImageUrl();
 
-  imageUrl.value = '';
+  selectedImageBlob.value = null;
   selectedFileName.value = '';
+  imageUrl.value = '';
 
   if (fileInput.value) {
     fileInput.value.value = '';
   }
 }
 
-function clearObjectUrl(): void {
+function revokeEditorImageUrl(): void {
   if (imageUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(imageUrl.value);
   }
 }
 
-function saveActivity(): void {
+async function saveActivity(): Promise<void> {
   if (!form.title.trim()) {
-    $q.notify({
-      type: 'warning',
-      icon: 'warning',
-      message: 'Escribe un nombre para la actividad.',
-      position: 'top',
-    });
+    notifyWarning('Escribe un nombre para la actividad.');
     return;
   }
 
   if (!form.answer.trim()) {
-    $q.notify({
-      type: 'warning',
-      icon: 'warning',
-      message: 'Escribe la respuesta de la imagen.',
-      position: 'top',
-    });
+    notifyWarning('Escribe la respuesta de la imagen.');
     return;
   }
 
-  if (!imageUrl.value) {
-    $q.notify({
-      type: 'warning',
-      icon: 'warning',
-      message: 'Selecciona una imagen para la actividad.',
-      position: 'top',
-    });
+  if (!selectedImageBlob.value) {
+    notifyWarning('Selecciona una imagen para la actividad.');
     return;
   }
 
+  isSaving.value = true;
+
+  try {
+    const now = new Date().toISOString();
+
+    const existingActivity = editingId.value
+      ? activities.value.find((activity) => activity.id === editingId.value)
+      : null;
+
+    const activity: HiddenImageActivity = {
+      id: editingId.value ?? createId(),
+      title: form.title.trim(),
+      answer: form.answer.trim(),
+      bibleReference: form.bibleReference.trim(),
+      rows: form.rows,
+      columns: form.columns,
+      imageName: selectedFileName.value || existingActivity?.imageName || 'imagen',
+      imageBlob: selectedImageBlob.value,
+      createdAt: existingActivity?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    await persistActivity(activity);
+    await loadActivities();
+
+    const wasEditing = Boolean(editingId.value);
+
+    isCreating.value = false;
+    editingId.value = null;
+
+    resetForm();
+
+    $q.notify({
+      type: 'positive',
+      icon: 'check_circle',
+      message: wasEditing
+        ? 'Actividad actualizada correctamente.'
+        : 'Actividad guardada correctamente.',
+      position: 'top',
+      timeout: 1800,
+    });
+  } catch (error) {
+    console.error('Error guardando actividad:', error);
+
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'No se pudo guardar la actividad.',
+      position: 'top',
+    });
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function editActivity(activity: HiddenImageActivity): void {
+  editingId.value = activity.id;
+
+  form.title = activity.title;
+  form.answer = activity.answer;
+  form.bibleReference = activity.bibleReference;
+  form.rows = activity.rows;
+  form.columns = activity.columns;
+
+  clearEditorImage();
+
+  selectedImageBlob.value = activity.imageBlob;
+  selectedFileName.value = activity.imageName;
+  imageUrl.value = URL.createObjectURL(activity.imageBlob);
+
+  rebuildTiles();
+
+  isCreating.value = true;
+}
+
+async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+
+    const copy: HiddenImageActivity = {
+      ...activity,
+      id: createId(),
+      title: `${activity.title} - copia`,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await persistActivity(copy);
+    await loadActivities();
+
+    $q.notify({
+      type: 'positive',
+      icon: 'content_copy',
+      message: 'Actividad duplicada.',
+      position: 'top',
+      timeout: 1600,
+    });
+  } catch (error) {
+    console.error('Error duplicando actividad:', error);
+
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'No se pudo duplicar la actividad.',
+      position: 'top',
+    });
+  }
+}
+
+async function deleteActivity(activity: HiddenImageActivity): Promise<void> {
+  const confirmed = window.confirm(
+    `¿Eliminar "${activity.title}"?\n\nEsta acción no se puede deshacer.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await removePersistedActivity(activity.id);
+
+    await loadActivities();
+
+    $q.notify({
+      type: 'positive',
+      icon: 'delete',
+      message: 'Actividad eliminada.',
+      position: 'top',
+      timeout: 1600,
+    });
+  } catch (error) {
+    console.error('Error eliminando actividad:', error);
+
+    $q.notify({
+      type: 'negative',
+      icon: 'error',
+      message: 'No se pudo eliminar la actividad.',
+      position: 'top',
+    });
+  }
+}
+
+function notifyWarning(message: string): void {
   $q.notify({
-    type: 'positive',
-    icon: 'check_circle',
-    message: 'La configuración es válida. El guardado permanente será el próximo paso.',
+    type: 'warning',
+    icon: 'warning',
+    message,
     position: 'top',
-    timeout: 2500,
   });
 }
 
-onBeforeUnmount(() => {
-  clearObjectUrl();
+function createId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getActivityPreviewUrl(activity: HiddenImageActivity): string {
+  return previewUrls.get(activity.id) ?? '';
+}
+
+function rebuildPreviewUrls(): void {
+  revokePreviewUrls();
+
+  activities.value.forEach((activity) => {
+    previewUrls.set(activity.id, URL.createObjectURL(activity.imageBlob));
+  });
+}
+
+function revokePreviewUrls(): void {
+  previewUrls.forEach((url) => {
+    URL.revokeObjectURL(url);
+  });
+
+  previewUrls.clear();
+}
+
+function formatDate(isoDate: string): string {
+  const date = new Date(isoDate);
+
+  return new Intl.DateTimeFormat('es-DO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+onMounted(() => {
+  rebuildTiles();
+
+  void loadActivities();
 });
 
-rebuildTiles();
+onBeforeUnmount(() => {
+  revokeEditorImageUrl();
+  revokePreviewUrls();
+});
 </script>
 
 <style scoped>
@@ -671,13 +1123,15 @@ rebuildTiles();
   gap: 12px;
 }
 
-.back-button {
-  flex: 0 0 auto;
-  color: #8fa2b8;
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.back-button:hover {
-  color: #ffffff;
+.back-button,
+.more-button {
+  color: #8fa2b8;
 }
 
 .activity-icon {
@@ -705,31 +1159,18 @@ rebuildTiles();
   color: #edf4fb;
   font-size: 17px;
   font-weight: 700;
-  line-height: 1.2;
 }
 
 .header-copy p {
   margin: 4px 0 0;
-  overflow: hidden;
   color: #8191a5;
   font-size: 11px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.new-activity-button,
-.save-button {
+.primary-button {
   min-height: 38px;
   padding: 0 14px;
-  color: #ffffff;
+  color: #fff;
   background: #2563eb;
   border-radius: 9px;
   font-size: 12px;
@@ -738,27 +1179,30 @@ rebuildTiles();
 
 .cancel-button {
   min-height: 38px;
-  padding: 0 12px;
   color: #91a2b6;
-  border-radius: 9px;
   font-size: 12px;
 }
 
-.content-area {
-  display: grid;
+.library-area {
   min-height: 0;
   flex: 1;
-  place-items: center;
-  padding: 28px;
+  padding: 20px;
 }
 
+.loading-state,
 .empty-state {
   display: flex;
-  width: min(100%, 540px);
+  min-height: 430px;
   align-items: center;
+  justify-content: center;
   flex-direction: column;
-  padding: 38px 28px;
+  color: #718399;
   text-align: center;
+}
+
+.loading-state {
+  gap: 12px;
+  font-size: 11px;
 }
 
 .empty-icon {
@@ -781,25 +1225,162 @@ rebuildTiles();
   margin: 0;
   color: #edf4fb;
   font-size: 21px;
-  font-weight: 700;
 }
 
 .empty-state p {
-  max-width: 460px;
+  max-width: 450px;
   margin: 10px 0 22px;
   color: #8191a5;
   font-size: 12px;
-  line-height: 1.65;
+  line-height: 1.6;
 }
 
-.empty-action {
-  min-height: 40px;
-  padding: 0 18px;
-  color: #ffffff;
+.library-heading {
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #65778d;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.library-heading h2,
+.panel-heading h2,
+.preview-heading h2 {
+  margin: 0;
+  color: #e7eef7;
+  font-size: 15px;
+}
+
+.library-heading p {
+  margin: 4px 0 0;
+  color: #718399;
+  font-size: 10px;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.activity-card {
+  overflow: hidden;
+  background: #0d1825;
+  border: 1px solid #25384c;
+  border-radius: 13px;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease;
+}
+
+.activity-card:hover {
+  border-color: #405c7b;
+  transform: translateY(-2px);
+}
+
+.activity-image {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  background: #050b12;
+}
+
+.activity-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.activity-grid-overlay {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+
+.activity-grid-overlay span {
+  padding: 5px 8px;
+  color: #e7eef7;
+  background: rgb(3 8 14 / 82%);
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.activity-card-content {
+  padding: 13px;
+}
+
+.activity-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-card-heading h3 {
+  margin: 0;
+  color: #e4edf7;
+  font-size: 13px;
+}
+
+.activity-card-heading span {
+  display: block;
+  margin-top: 4px;
+  color: #c084fc;
+  font-size: 9px;
+}
+
+.activity-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  color: #6f8197;
+}
+
+.activity-info-row > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+}
+
+.activity-info-row .q-icon {
+  font-size: 14px;
+}
+
+.activity-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.secondary-button {
+  min-height: 32px;
+  padding: 0 10px;
+  color: #8fa3ba;
+  background: #101e2c;
+  border: 1px solid #283c51;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.open-button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: #fff;
   background: #2563eb;
-  border-radius: 9px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.delete-menu-item {
+  color: #ff7b84;
 }
 
 .creator-area {
@@ -817,7 +1398,9 @@ rebuildTiles();
 }
 
 .panel-heading,
-.preview-heading {
+.preview-heading,
+.field-heading,
+.section-title-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -831,23 +1414,6 @@ rebuildTiles();
 .panel-heading > .q-icon {
   color: #60748d;
   font-size: 21px;
-}
-
-.panel-eyebrow {
-  display: block;
-  margin-bottom: 4px;
-  color: #65778d;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-}
-
-.panel-heading h2,
-.preview-heading h2 {
-  margin: 0;
-  color: #e7eef7;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .form-section {
@@ -873,7 +1439,6 @@ rebuildTiles();
 
 .app-input :deep(.q-field__control) {
   min-height: 38px;
-  color: #dce7f4;
   background: #0d1926;
   border-radius: 8px;
 }
@@ -886,18 +1451,6 @@ rebuildTiles();
 
 .app-input :deep(.q-field__control::before) {
   border-color: #2a3c51;
-}
-
-.app-input :deep(.q-field__control:hover::before) {
-  border-color: #45617f;
-}
-
-.field-heading,
-.section-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .remove-image-button {
@@ -918,9 +1471,6 @@ rebuildTiles();
   border: 1px dashed #36506d;
   border-radius: 10px;
   cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
 }
 
 .image-selector:hover {
@@ -929,7 +1479,6 @@ rebuildTiles();
 }
 
 .image-selector > .q-icon {
-  flex: 0 0 auto;
   color: #c084fc;
   font-size: 27px;
 }
@@ -947,11 +1496,8 @@ rebuildTiles();
 }
 
 .image-selector span {
-  overflow: hidden;
   color: #687b91;
   font-size: 9px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
 }
 
 .grid-count {
@@ -994,10 +1540,8 @@ rebuildTiles();
 }
 
 .number-control-buttons strong {
-  min-width: 24px;
   color: #edf4fb;
   font-size: 15px;
-  text-align: center;
 }
 
 .grid-presets {
@@ -1009,7 +1553,6 @@ rebuildTiles();
 
 .preset-button {
   min-height: 28px;
-  padding: 0 9px;
   color: #778a9f;
   background: #101d2b;
   border: 1px solid #25384c;
@@ -1023,8 +1566,7 @@ rebuildTiles();
   border-color: rgb(192 132 252 / 45%);
 }
 
-.reset-button {
-  min-height: 28px;
+.small-button {
   color: #8ea2b8;
   font-size: 9px;
 }
@@ -1064,9 +1606,7 @@ rebuildTiles();
   place-items: center;
   padding: 18px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 40%, rgb(35 55 78 / 28%), transparent 55%),
-    #050b12;
+  background: radial-gradient(circle at 50% 40%, rgb(35 55 78 / 28%), transparent 55%), #050b12;
   border: 1px solid #213247;
   border-radius: 12px;
 }
@@ -1082,7 +1622,6 @@ rebuildTiles();
   background: #101c29;
   border: 1px solid #344b64;
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgb(0 0 0 / 35%);
 }
 
 .hidden-image {
@@ -1102,7 +1641,6 @@ rebuildTiles();
   justify-content: center;
   flex-direction: column;
   gap: 8px;
-  padding: 24px;
   color: #60748a;
   text-align: center;
 }
@@ -1112,7 +1650,6 @@ rebuildTiles();
   width: 58px;
   height: 58px;
   place-items: center;
-  margin-bottom: 3px;
   color: #647b93;
   background: #142334;
   border-radius: 16px;
@@ -1130,7 +1667,6 @@ rebuildTiles();
 .image-placeholder span {
   max-width: 330px;
   font-size: 10px;
-  line-height: 1.5;
 }
 
 .cover-tile {
@@ -1142,18 +1678,15 @@ rebuildTiles();
   place-items: center;
   padding: 0;
   color: #9db0c5;
-  background:
-    linear-gradient(145deg, rgb(27 43 61 / 98%), rgb(15 27 40 / 99%));
+  background: linear-gradient(145deg, rgb(27 43 61 / 98%), rgb(15 27 40 / 99%));
   border: 1px solid #344b64;
   cursor: pointer;
   transition:
     opacity 220ms ease,
-    transform 180ms ease,
     background-color 180ms ease;
 }
 
 .cover-tile:hover {
-  z-index: 3;
   background: #263d56;
 }
 
@@ -1163,7 +1696,6 @@ rebuildTiles();
 }
 
 .cover-tile.revealed {
-  pointer-events: auto;
   opacity: 0;
 }
 
@@ -1173,7 +1705,6 @@ rebuildTiles();
 
 .preview-footer {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -1199,11 +1730,8 @@ rebuildTiles();
 }
 
 .operator-answer strong {
-  overflow: hidden;
   color: #dce7f4;
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .operator-answer small {
@@ -1213,21 +1741,10 @@ rebuildTiles();
 
 .preview-actions {
   display: flex;
-  flex: 0 0 auto;
   gap: 7px;
 }
 
-.secondary-action {
-  min-height: 32px;
-  padding: 0 10px;
-  color: #8fa3ba;
-  background: #101e2c;
-  border: 1px solid #283c51;
-  border-radius: 8px;
-  font-size: 9px;
-}
-
-@media (max-width: 1000px) {
+@media (max-width: 900px) {
   .creator-area {
     grid-template-columns: 300px minmax(0, 1fr);
   }
@@ -1236,13 +1753,9 @@ rebuildTiles();
     align-items: stretch;
     flex-direction: column;
   }
-
-  .preview-actions {
-    justify-content: flex-end;
-  }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 760px) {
   .hidden-image-page {
     padding: 10px;
   }
@@ -1252,46 +1765,18 @@ rebuildTiles();
     flex-direction: column;
   }
 
-  .header-actions {
-    width: 100%;
-  }
-
-  .new-activity-button,
-  .save-button {
-    flex: 1;
-  }
-
   .creator-area {
     display: flex;
     flex-direction: column;
   }
 
   .configuration-panel {
-    overflow: visible;
     border-right: 0;
     border-bottom: 1px solid #25364a;
   }
 
-  .preview-panel {
-    min-height: 600px;
-  }
-
-  .header-copy p {
-    white-space: normal;
-  }
-}
-
-@media (max-width: 520px) {
-  .grid-controls {
+  .activity-grid {
     grid-template-columns: 1fr;
-  }
-
-  .preview-actions {
-    flex-direction: column;
-  }
-
-  .secondary-action {
-    width: 100%;
   }
 }
 </style>
