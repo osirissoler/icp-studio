@@ -266,9 +266,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
 
   if (
     state.mode === 'media' &&
-    (state.mediaType === 'image' ||
-      state.mediaType === 'video' ||
-      state.mediaType === 'audio') &&
+    (state.mediaType === 'image' || state.mediaType === 'video' || state.mediaType === 'audio') &&
     typeof state.url === 'string' &&
     state.url.startsWith('icp-media://library/') &&
     typeof state.name === 'string'
@@ -286,9 +284,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.url === 'string' &&
     state.url.startsWith('icp-media://library/documents/') &&
     typeof state.name === 'string' &&
-    (state.format === 'pdf' ||
-      state.format === 'spreadsheet' ||
-      state.format === 'presentation') &&
+    (state.format === 'pdf' || state.format === 'spreadsheet' || state.format === 'presentation') &&
     typeof state.pageIndex === 'number' &&
     Number.isInteger(state.pageIndex)
   ) {
@@ -326,9 +322,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       showOverlayText: state.showOverlayText,
       showDescriptionOnImage: state.showDescriptionOnImage,
       categoryLabel: state.categoryLabel.slice(0, 100),
-      categoryColor: /^#[0-9a-f]{6}$/i.test(state.categoryColor)
-        ? state.categoryColor
-        : '#60a5fa',
+      categoryColor: /^#[0-9a-f]{6}$/i.test(state.categoryColor) ? state.categoryColor : '#60a5fa',
     };
   }
 
@@ -348,9 +342,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     typeof state.allowRepeats === 'boolean' &&
     typeof state.removeWinner === 'boolean' &&
     Array.isArray(state.usedWinnerIds) &&
-    ['full', 'first-word', 'short', 'colors-text', 'hidden'].includes(
-      String(state.labelMode),
-    )
+    ['full', 'first-word', 'short', 'colors-text', 'hidden'].includes(String(state.labelMode))
   ) {
     const options = state.options
       .slice(0, 40)
@@ -365,9 +357,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       .map((option) => ({
         id: option.id.slice(0, 200),
         label: option.label.slice(0, 120),
-        color: /^#[0-9a-f]{6}$/i.test(option.color)
-          ? option.color
-          : '#60a5fa',
+        color: /^#[0-9a-f]{6}$/i.test(option.color) ? option.color : '#60a5fa',
       }));
 
     if (options.length >= 2) {
@@ -380,10 +370,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
         winnerId: state.winnerId.slice(0, 200),
         pendingWinnerId: state.pendingWinnerId.slice(0, 200),
         spinning: state.spinning,
-        spinDuration: Math.min(
-          600000,
-          Math.max(1000, state.spinDuration),
-        ),
+        spinDuration: Math.min(600000, Math.max(1000, state.spinDuration)),
         spinStartedAt: Math.max(0, state.spinStartedAt),
         timedSpin: state.timedSpin,
         allowRepeats: state.allowRepeats,
@@ -392,70 +379,43 @@ function parseProjectionState(value: unknown): ProjectionState | null {
           .filter((id): id is string => typeof id === 'string')
           .slice(0, 40)
           .map((id) => id.slice(0, 200)),
-        labelMode: state.labelMode as
-          | 'full'
-          | 'first-word'
-          | 'short'
-          | 'colors-text'
-          | 'hidden',
+        labelMode: state.labelMode as 'full' | 'first-word' | 'short' | 'colors-text' | 'hidden',
         backgroundColor:
-          typeof state.backgroundColor === 'string' &&
-          /^#[0-9a-f]{6}$/i.test(state.backgroundColor)
+          typeof state.backgroundColor === 'string' && /^#[0-9a-f]{6}$/i.test(state.backgroundColor)
             ? state.backgroundColor
             : '#050b12',
-        showTitle:
-          typeof state.showTitle === 'boolean' ? state.showTitle : true,
+        showTitle: typeof state.showTitle === 'boolean' ? state.showTitle : true,
         winnerTextSize:
-          state.winnerTextSize === 'small' ||
-          state.winnerTextSize === 'large'
+          state.winnerTextSize === 'small' || state.winnerTextSize === 'large'
             ? state.winnerTextSize
             : 'medium',
-        confettiEnabled:
-          typeof state.confettiEnabled === 'boolean'
-            ? state.confettiEnabled
-            : true,
+        confettiEnabled: typeof state.confettiEnabled === 'boolean' ? state.confettiEnabled : true,
         confettiIntensity:
-          state.confettiIntensity === 'low' ||
-          state.confettiIntensity === 'high'
+          state.confettiIntensity === 'low' || state.confettiIntensity === 'high'
             ? state.confettiIntensity
             : 'medium',
-        confettiDuration: [0, 3, 5, 10].includes(
-          Number(state.confettiDuration),
-        )
+        confettiDuration: [0, 3, 5, 10].includes(Number(state.confettiDuration))
           ? Number(state.confettiDuration)
           : 0,
-        soundEnabled:
-          typeof state.soundEnabled === 'boolean'
-            ? state.soundEnabled
-            : false,
+        soundEnabled: typeof state.soundEnabled === 'boolean' ? state.soundEnabled : false,
         soundVolume:
-          typeof state.soundVolume === 'number' &&
-          Number.isFinite(state.soundVolume)
+          typeof state.soundVolume === 'number' && Number.isFinite(state.soundVolume)
             ? Math.min(1, Math.max(0.05, state.soundVolume))
             : 0.45,
         spinSoundEnabled:
-          typeof state.spinSoundEnabled === 'boolean'
-            ? state.spinSoundEnabled
-            : true,
+          typeof state.spinSoundEnabled === 'boolean' ? state.spinSoundEnabled : true,
         brakeSoundEnabled:
-          typeof state.brakeSoundEnabled === 'boolean'
-            ? state.brakeSoundEnabled
-            : true,
+          typeof state.brakeSoundEnabled === 'boolean' ? state.brakeSoundEnabled : true,
         winnerSoundEnabled:
-          typeof state.winnerSoundEnabled === 'boolean'
-            ? state.winnerSoundEnabled
-            : true,
+          typeof state.winnerSoundEnabled === 'boolean' ? state.winnerSoundEnabled : true,
         winnerSoundPreset:
-          state.winnerSoundPreset === 'crowd' ||
-          state.winnerSoundPreset === 'custom'
+          state.winnerSoundPreset === 'crowd' || state.winnerSoundPreset === 'custom'
             ? state.winnerSoundPreset
             : 'chime',
         customWinnerSoundUrl:
           typeof state.customWinnerSoundUrl === 'string' &&
           (state.customWinnerSoundUrl === '' ||
-            state.customWinnerSoundUrl.startsWith(
-              'icp-media://library/audio/',
-            ))
+            state.customWinnerSoundUrl.startsWith('icp-media://library/audio/'))
             ? state.customWinnerSoundUrl
             : '',
         customWinnerSoundName:
@@ -466,21 +426,14 @@ function parseProjectionState(value: unknown): ProjectionState | null {
     }
   }
 
-  if (
-    state.mode === 'time-tool' &&
-    typeof state.tool === 'object' &&
-    state.tool !== null
-  ) {
+  if (state.mode === 'time-tool' && typeof state.tool === 'object' && state.tool !== null) {
     const tool = state.tool as Record<string, unknown>;
 
     if (
       typeof tool.id === 'string' &&
       typeof tool.title === 'string' &&
-      (tool.mode === 'clock' ||
-        tool.mode === 'timer' ||
-        tool.mode === 'stopwatch') &&
-      (tool.clockStyle === 'digital' ||
-        tool.clockStyle === 'analog') &&
+      (tool.mode === 'clock' || tool.mode === 'timer' || tool.mode === 'stopwatch') &&
+      (tool.clockStyle === 'digital' || tool.clockStyle === 'analog') &&
       typeof tool.use24Hour === 'boolean' &&
       typeof tool.showSeconds === 'boolean' &&
       typeof tool.showDate === 'boolean' &&
@@ -501,8 +454,7 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       typeof tool.accentColor === 'string' &&
       typeof tool.textColor === 'string' &&
       (tool.displayScale === undefined ||
-        (typeof tool.displayScale === 'number' &&
-          Number.isFinite(tool.displayScale)))
+        (typeof tool.displayScale === 'number' && Number.isFinite(tool.displayScale)))
     ) {
       const safeColor = (value: string, fallback: string) =>
         /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
@@ -518,45 +470,24 @@ function parseProjectionState(value: unknown): ProjectionState | null {
           showSeconds: tool.showSeconds,
           showDate: tool.showDate,
           showMilliseconds: tool.showMilliseconds,
-          durationMs: Math.min(
-            359_999_000,
-            Math.max(0, tool.durationMs),
-          ),
-          baseTimeMs: Math.min(
-            359_999_000,
-            Math.max(0, tool.baseTimeMs),
-          ),
+          durationMs: Math.min(359_999_000, Math.max(0, tool.durationMs)),
+          baseTimeMs: Math.min(359_999_000, Math.max(0, tool.baseTimeMs)),
           startedAt: Math.max(0, tool.startedAt),
           running: tool.running,
           completed: tool.completed,
           countdownSound: tool.countdownSound,
           completionSound: tool.completionSound,
-          soundVolume: Math.min(
-            1,
-            Math.max(0, tool.soundVolume),
-          ),
-          backgroundColor: safeColor(
-            tool.backgroundColor,
-            '#07111d',
-          ),
-          accentColor: safeColor(
-            tool.accentColor,
-            '#38bdf8',
-          ),
-          textColor: safeColor(
-            tool.textColor,
-            '#f8fafc',
-          ),
+          soundVolume: Math.min(1, Math.max(0, tool.soundVolume)),
+          backgroundColor: safeColor(tool.backgroundColor, '#07111d'),
+          accentColor: safeColor(tool.accentColor, '#38bdf8'),
+          textColor: safeColor(tool.textColor, '#f8fafc'),
 
           // Escala del contenido digital.
           // 1 = 100%, 0.6 = 60%, 1.6 = 160%.
           // También mantiene compatibilidad con estados antiguos.
           displayScale:
             typeof tool.displayScale === 'number'
-              ? Math.min(
-                  1.6,
-                  Math.max(0.6, tool.displayScale),
-                )
+              ? Math.min(1.6, Math.max(0.6, tool.displayScale))
               : 1,
         },
       };
@@ -588,55 +519,40 @@ function parseProjectionState(value: unknown): ProjectionState | null {
 function broadcastProjectionState(state: ProjectionState): void {
   for (const projectionWindow of projectionWindows.values()) {
     if (!projectionWindow.isDestroyed()) {
-      projectionWindow.webContents.send(
-        PROJECTION_CHANNELS.stateChanged,
-        state,
-      );
+      projectionWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
     }
   }
 }
 
 function registerProjectionIpc(): void {
-  ipcMain.on(
-    PROJECTION_CHANNELS.controlMedia,
-    (event, command: MediaPlaybackCommand) => {
-      if (event.sender !== windows.main?.webContents) return;
-      if (!['play', 'pause', 'seek'].includes(command.action)) return;
+  ipcMain.on(PROJECTION_CHANNELS.controlMedia, (event, command: MediaPlaybackCommand) => {
+    if (event.sender !== windows.main?.webContents) return;
+    if (!['play', 'pause', 'seek'].includes(command.action)) return;
 
-      for (const projectionWindow of projectionWindows.values()) {
-        if (!projectionWindow.isDestroyed()) {
-          projectionWindow.webContents.send(
-            PROJECTION_CHANNELS.mediaControl,
-            command,
-          );
-        }
+    for (const projectionWindow of projectionWindows.values()) {
+      if (!projectionWindow.isDestroyed()) {
+        projectionWindow.webContents.send(PROJECTION_CHANNELS.mediaControl, command);
       }
-    },
-  );
+    }
+  });
 
-  ipcMain.on(
-    PROJECTION_CHANNELS.setState,
-    (event, value: unknown) => {
-      if (event.sender !== windows.main?.webContents) {
-        return;
-      }
+  ipcMain.on(PROJECTION_CHANNELS.setState, (event, value: unknown) => {
+    if (event.sender !== windows.main?.webContents) {
+      return;
+    }
 
-      const state = parseProjectionState(value);
+    const state = parseProjectionState(value);
 
-      if (!state) {
-        return;
-      }
+    if (!state) {
+      return;
+    }
 
-      latestProjectionState = state;
-      broadcastProjectionState(state);
-    },
-  );
+    latestProjectionState = state;
+    broadcastProjectionState(state);
+  });
 }
 
-async function loadAppWindow(
-  targetWindow: BrowserWindow,
-  route?: string,
-): Promise<void> {
+async function loadAppWindow(targetWindow: BrowserWindow, route?: string): Promise<void> {
   if (import.meta.env.QUASAR_DEV) {
     const appUrl = new URL(import.meta.env.QUASAR_APP_URL);
 
@@ -660,9 +576,7 @@ async function loadAppWindow(
   await targetWindow.loadFile('index.html');
 }
 
-async function createSongEditorWindow(
-  songId?: string,
-): Promise<void> {
+async function createSongEditorWindow(songId?: string): Promise<void> {
   if (songEditorWindow && !songEditorWindow.isDestroyed()) {
     if (songEditorWindow.isMinimized()) {
       songEditorWindow.restore();
@@ -673,9 +587,7 @@ async function createSongEditorWindow(
   }
 
   songEditorWindow = new BrowserWindow({
-    title: songId
-      ? 'ICP Studio - Editar alabanza'
-      : 'ICP Studio - Nueva alabanza',
+    title: songId ? 'ICP Studio - Editar alabanza' : 'ICP Studio - Nueva alabanza',
     icon: resolveElectronAssetsPath('icons/icon.png'),
     width: 1100,
     height: 760,
@@ -692,10 +604,7 @@ async function createSongEditorWindow(
     backgroundColor: '#0c131d',
     webPreferences: {
       contextIsolation: true,
-      preload: path.join(
-        import.meta.dirname,
-        'electron-preload.cjs',
-      ),
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
     },
   });
 
@@ -707,29 +616,21 @@ async function createSongEditorWindow(
     songEditorWindow = null;
   });
 
-  const editorRoute = songId
-    ? `/song-editor/${encodeURIComponent(songId)}`
-    : '/song-editor/new';
+  const editorRoute = songId ? `/song-editor/${encodeURIComponent(songId)}` : '/song-editor/new';
 
   await loadAppWindow(songEditorWindow, editorRoute);
 }
 
 function registerWindowIpc(): void {
-  ipcMain.on(
-    WINDOW_CHANNELS.openSongEditor,
-    (event, value: unknown) => {
-      if (event.sender !== windows.main?.webContents) {
-        return;
-      }
+  ipcMain.on(WINDOW_CHANNELS.openSongEditor, (event, value: unknown) => {
+    if (event.sender !== windows.main?.webContents) {
+      return;
+    }
 
-      const songId =
-        typeof value === 'string' && value.length <= 200
-          ? value
-          : undefined;
+    const songId = typeof value === 'string' && value.length <= 200 ? value : undefined;
 
-      void createSongEditorWindow(songId);
-    },
-  );
+    void createSongEditorWindow(songId);
+  });
 }
 
 const pendingRemoteRequests = new Map<
@@ -748,11 +649,7 @@ function requestRemoteRenderer(
   const mainWindow = windows.main;
 
   if (!mainWindow || mainWindow.isDestroyed()) {
-    return Promise.reject(
-      new Error(
-        'La ventana principal de ICP Studio todavía no está lista.',
-      ),
-    );
+    return Promise.reject(new Error('La ventana principal de ICP Studio todavía no está lista.'));
   }
 
   const id = crypto.randomUUID();
@@ -760,11 +657,7 @@ function requestRemoteRenderer(
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       pendingRemoteRequests.delete(id);
-      reject(
-        new Error(
-          'ICP Studio tardó demasiado en responder.',
-        ),
-      );
+      reject(new Error('ICP Studio tardó demasiado en responder.'));
     }, 45_000);
 
     pendingRemoteRequests.set(id, {
@@ -773,26 +666,16 @@ function requestRemoteRenderer(
       timeout,
     });
 
-    mainWindow.webContents.send(
-      REMOTE_CHANNELS.request,
-      {
-        id,
-        action,
-        payload,
-      },
-    );
+    mainWindow.webContents.send(REMOTE_CHANNELS.request, {
+      id,
+      action,
+      payload,
+    });
   });
 }
 
-function handleRemoteBridgeResponse(
-  event: IpcMainEvent,
-  response: RemoteBridgeResponse,
-): void {
-  if (
-    event.sender !== windows.main?.webContents ||
-    !response ||
-    typeof response.id !== 'string'
-  ) {
+function handleRemoteBridgeResponse(event: IpcMainEvent, response: RemoteBridgeResponse): void {
+  if (event.sender !== windows.main?.webContents || !response || typeof response.id !== 'string') {
     return;
   }
 
@@ -806,61 +689,34 @@ function handleRemoteBridgeResponse(
   if (response.success) {
     pending.resolve(response.data);
   } else {
-    pending.reject(
-      new Error(
-        response.error ??
-          'No se pudo completar la solicitud remota.',
-      ),
-    );
+    pending.reject(new Error(response.error ?? 'No se pudo completar la solicitud remota.'));
   }
 }
 
-function handleRemoteState(
-  event: IpcMainEvent,
-  state: RemoteControlState,
-): void {
+function handleRemoteState(event: IpcMainEvent, state: RemoteControlState): void {
   if (event.sender === windows.main?.webContents) {
     broadcastRemoteState(state);
   }
 }
 
 function registerRemoteIpc(): void {
-  ipcMain.handle(
-    REMOTE_CHANNELS.status,
-    () => getRemoteServerStatus(),
-  );
+  ipcMain.handle(REMOTE_CHANNELS.status, () => getRemoteServerStatus());
 
-  ipcMain.handle(
-    REMOTE_CHANNELS.start,
-    () => startRemoteServer(),
-  );
+  ipcMain.handle(REMOTE_CHANNELS.start, () => startRemoteServer());
 
-  ipcMain.handle(
-    REMOTE_CHANNELS.stop,
-    () => stopRemoteServer(),
-  );
+  ipcMain.handle(REMOTE_CHANNELS.stop, () => stopRemoteServer());
 
-  ipcMain.on(
-    REMOTE_CHANNELS.response,
-    handleRemoteBridgeResponse,
-  );
+  ipcMain.on(REMOTE_CHANNELS.response, handleRemoteBridgeResponse);
 
-  ipcMain.on(
-    REMOTE_CHANNELS.publishState,
-    handleRemoteState,
-  );
+  ipcMain.on(REMOTE_CHANNELS.publishState, handleRemoteState);
 
   configureRemoteServer({
     handleAction: requestRemoteRenderer,
-    mediaRoot: () =>
-      path.join(app.getPath('userData'), 'media'),
+    mediaRoot: () => path.join(app.getPath('userData'), 'media'),
   });
 
   onRemoteServerStatusChanged((status) => {
-    windows.main?.webContents.send(
-      REMOTE_CHANNELS.statusChanged,
-      status,
-    );
+    windows.main?.webContents.send(REMOTE_CHANNELS.statusChanged, status);
   });
 }
 
@@ -869,21 +725,13 @@ function unregisterRemoteIpc(): void {
   ipcMain.removeHandler(REMOTE_CHANNELS.start);
   ipcMain.removeHandler(REMOTE_CHANNELS.stop);
 
-  ipcMain.off(
-    REMOTE_CHANNELS.response,
-    handleRemoteBridgeResponse,
-  );
+  ipcMain.off(REMOTE_CHANNELS.response, handleRemoteBridgeResponse);
 
-  ipcMain.off(
-    REMOTE_CHANNELS.publishState,
-    handleRemoteState,
-  );
+  ipcMain.off(REMOTE_CHANNELS.publishState, handleRemoteState);
 
   for (const pending of pendingRemoteRequests.values()) {
     clearTimeout(pending.timeout);
-    pending.reject(
-      new Error('ICP Studio se está cerrando.'),
-    );
+    pending.reject(new Error('ICP Studio se está cerrando.'));
   }
 
   pendingRemoteRequests.clear();
@@ -897,38 +745,20 @@ async function createProjectionWindow(
 ): Promise<void> {
   const displayWindowOptions = display
     ? {
-        width: Math.min(
-          1280,
-          Math.round(display.workArea.width * 0.78),
-        ),
-        height: Math.min(
-          720,
-          Math.round(display.workArea.height * 0.78),
-        ),
+        width: Math.min(1280, Math.round(display.workArea.width * 0.78)),
+        height: Math.min(720, Math.round(display.workArea.height * 0.78)),
         minWidth: 640,
         minHeight: 360,
         x:
           display.workArea.x +
           Math.round(
-            (display.workArea.width -
-              Math.min(
-                1280,
-                Math.round(
-                  display.workArea.width * 0.78,
-                ),
-              )) /
+            (display.workArea.width - Math.min(1280, Math.round(display.workArea.width * 0.78))) /
               2,
           ),
         y:
           display.workArea.y +
           Math.round(
-            (display.workArea.height -
-              Math.min(
-                720,
-                Math.round(
-                  display.workArea.height * 0.78,
-                ),
-              )) /
+            (display.workArea.height - Math.min(720, Math.round(display.workArea.height * 0.78))) /
               2,
           ),
         frame: true,
@@ -965,43 +795,27 @@ async function createProjectionWindow(
     backgroundColor: '#05070d',
     webPreferences: {
       contextIsolation: true,
-      preload: path.join(
-        import.meta.dirname,
-        'electron-preload.cjs',
-      ),
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
     },
   });
 
-  const projectionId =
-    display?.id ?? projectorWindow.id;
+  const projectionId = display?.id ?? projectorWindow.id;
 
-  projectionWindows.set(
-    projectionId,
-    projectorWindow,
-  );
+  projectionWindows.set(projectionId, projectorWindow);
 
   projectorWindow.once('ready-to-show', () => {
     projectorWindow.show();
   });
 
-  projectorWindow.webContents.on(
-    'did-finish-load',
-    () => {
-      projectorWindow.webContents.send(
-        PROJECTION_CHANNELS.stateChanged,
-        latestProjectionState,
-      );
-    },
-  );
+  projectorWindow.webContents.on('did-finish-load', () => {
+    projectorWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, latestProjectionState);
+  });
 
   projectorWindow.on('closed', () => {
     projectionWindows.delete(projectionId);
   });
 
-  await loadAppWindow(
-    projectorWindow,
-    '/projector',
-  );
+  await loadAppWindow(projectorWindow, '/projector');
 }
 
 async function createWindow(): Promise<void> {
@@ -1015,10 +829,7 @@ async function createWindow(): Promise<void> {
     useContentSize: true,
     webPreferences: {
       contextIsolation: true,
-      preload: path.join(
-        import.meta.dirname,
-        'electron-preload.cjs',
-      ),
+      preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
     },
   });
 
@@ -1035,12 +846,9 @@ async function createWindow(): Promise<void> {
   if (import.meta.env.QUASAR_DEBUG) {
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.webContents.on(
-      'devtools-opened',
-      () => {
-        mainWindow.webContents.closeDevTools();
-      },
-    );
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
   }
 }
 
@@ -1050,19 +858,14 @@ void app.whenReady().then(() => {
 
   const connectedDisplays = getConnectedDisplays();
 
-  console.log(
-    'Pantallas detectadas:',
-    connectedDisplays,
-  );
+  console.log('Pantallas detectadas:', connectedDisplays);
 
   registerProjectionIpc();
   registerWindowIpc();
   registerRemoteIpc();
   registerDisplayMonitoring();
 
-  registerBibleIpc(() =>
-    windows.main ? [windows.main] : [],
-  );
+  registerBibleIpc(() => (windows.main ? [windows.main] : []));
 
   registerSongIpc(() => windows.main);
   registerMediaIpc(() => windows.main);

@@ -43,10 +43,7 @@
             <q-list dense style="min-width: 290px">
               <q-item-label header>Pantallas detectadas</q-item-label>
 
-              <q-item
-                v-for="display in displays"
-                :key="display.id"
-              >
+              <q-item v-for="display in displays" :key="display.id">
                 <q-item-section avatar>
                   <q-icon
                     :name="display.isPrimary ? 'laptop_mac' : 'connected_tv'"
@@ -75,18 +72,12 @@
 
               <q-separator dark />
 
-              <q-item
-                clickable
-                v-close-popup
-                @click="openSettings('screens')"
-              >
+              <q-item clickable v-close-popup @click="openSettings('screens')">
                 <q-item-section avatar>
                   <q-icon name="settings" />
                 </q-item-section>
 
-                <q-item-section>
-                  Configurar pantallas
-                </q-item-section>
+                <q-item-section> Configurar pantallas </q-item-section>
               </q-item>
             </q-list>
           </q-menu>
@@ -138,10 +129,7 @@
     >
       <q-scroll-area class="fit">
         <q-list padding class="navigation-list">
-          <template
-            v-for="item in orderedNavigationItems"
-            :key="item.id"
-          >
+          <template v-for="item in orderedNavigationItems" :key="item.id">
             <q-item
               clickable
               v-ripple
@@ -151,8 +139,7 @@
               active-class="navigation-item--active"
               class="navigation-item"
               :class="{
-                'navigation-item--dragging':
-                  draggingNavigationId === item.id,
+                'navigation-item--dragging': draggingNavigationId === item.id,
               }"
               @dragstart="startNavigationDrag($event, item.id)"
               @dragend="stopNavigationDrag"
@@ -160,10 +147,7 @@
               @drop.prevent="dropNavigationItem(item.id)"
             >
               <q-item-section avatar>
-                <q-icon
-                  :name="item.icon"
-                  size="23px"
-                />
+                <q-icon :name="item.icon" size="23px" />
               </q-item-section>
 
               <q-item-section>
@@ -172,15 +156,8 @@
                 </q-item-label>
               </q-item-section>
 
-              <q-item-section
-                v-if="!menuCollapsed"
-                side
-                class="navigation-drag-handle"
-              >
-                <q-icon
-                  name="drag_indicator"
-                  size="17px"
-                />
+              <q-item-section v-if="!menuCollapsed" side class="navigation-drag-handle">
+                <q-icon name="drag_indicator" size="17px" />
               </q-item-section>
 
               <q-tooltip
@@ -194,28 +171,15 @@
             </q-item>
           </template>
 
-          <q-separator
-            dark
-            class="navigation-separator"
-          />
+          <q-separator dark class="navigation-separator" />
 
-          <q-item
-            clickable
-            v-ripple
-            class="navigation-item"
-            @click="openSettings"
-          >
+          <q-item clickable v-ripple class="navigation-item" @click="openSettings">
             <q-item-section avatar>
-              <q-icon
-                name="settings"
-                size="23px"
-              />
+              <q-icon name="settings" size="23px" />
             </q-item-section>
 
             <q-item-section>
-              <q-item-label>
-                Configuración
-              </q-item-label>
+              <q-item-label> Configuración </q-item-label>
             </q-item-section>
 
             <q-tooltip
@@ -234,10 +198,7 @@
     <q-page-container>
       <router-view v-slot="{ Component, route }">
         <keep-alive>
-          <component
-            :is="Component"
-            :key="route.path"
-          />
+          <component :is="Component" :key="route.path" />
         </keep-alive>
       </router-view>
     </q-page-container>
@@ -246,35 +207,20 @@
       <q-card class="settings-dialog-card">
         <q-card-section class="settings-dialog-header">
           <div class="row items-center no-wrap">
-            <q-icon
-              name="settings"
-              size="21px"
-              color="primary"
-            />
+            <q-icon name="settings" size="21px" color="primary" />
 
-            <span>
-              Configuración
-            </span>
+            <span> Configuración </span>
           </div>
 
           <q-space />
 
-          <q-btn
-            v-close-popup
-            flat
-            round
-            dense
-            icon="close"
-            aria-label="Cerrar configuración"
-          />
+          <q-btn v-close-popup flat round dense icon="close" aria-label="Cerrar configuración" />
         </q-card-section>
 
         <q-separator dark />
 
         <q-card-section class="settings-dialog-content">
-          <SettingsPage
-            :initial-section="settingsInitialSection"
-          />
+          <SettingsPage :initial-section="settingsInitialSection" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -286,20 +232,11 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { storeToRefs } from 'pinia';
 
-import {
-  QFooter,
-  QHeader,
-  useQuasar,
-} from 'quasar';
+import { QFooter, QHeader, useQuasar } from 'quasar';
 
 import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
 
@@ -315,8 +252,7 @@ import { useNavigationSettingsStore } from '../stores/navigation-settings';
 
 const $q = useQuasar();
 
-const navigationSettings =
-  useNavigationSettingsStore();
+const navigationSettings = useNavigationSettingsStore();
 
 const {
   side: menuSide,
@@ -331,82 +267,46 @@ const displays = ref<DisplayInfo[]>([]);
 
 const settingsDialogOpen = ref(false);
 
-const settingsInitialSection =
-  ref<'general' | 'screens' | 'remote'>(
-    'general',
-  );
+const settingsInitialSection = ref<'general' | 'screens' | 'remote'>('general');
 
-const draggingNavigationId =
-  ref<NavigationItemId | null>(null);
+const draggingNavigationId = ref<NavigationItemId | null>(null);
 
-let unsubscribeDisplays:
-  | (() => void)
-  | undefined;
+let unsubscribeDisplays: (() => void) | undefined;
 
-const layoutView = computed(() =>
-  menuSide.value === 'right'
-    ? 'hHh lpR lFf'
-    : 'hHh Lpr lFf',
-);
+const layoutView = computed(() => (menuSide.value === 'right' ? 'hHh lpR lFf' : 'hHh Lpr lFf'));
 
-const toolbarContainer = computed(() =>
-  toolbarPosition.value === 'bottom'
-    ? QFooter
-    : QHeader,
-);
+const toolbarContainer = computed(() => (toolbarPosition.value === 'bottom' ? QFooter : QHeader));
 
 const menuTooltipAnchor = computed(() =>
-  menuSide.value === 'right'
-    ? 'center left'
-    : 'center right',
+  menuSide.value === 'right' ? 'center left' : 'center right',
 );
 
 const menuTooltipSelf = computed(() =>
-  menuSide.value === 'right'
-    ? 'center right'
-    : 'center left',
+  menuSide.value === 'right' ? 'center right' : 'center left',
 );
 
 const currentDate = computed(() => {
-  const formattedDate =
-    new Intl.DateTimeFormat('es-DO', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'long',
-    }).format(new Date());
+  const formattedDate = new Intl.DateTimeFormat('es-DO', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'long',
+  }).format(new Date());
 
-  return (
-    formattedDate.charAt(0).toUpperCase() +
-    formattedDate.slice(1)
-  );
+  return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 });
 
-function openSettings(
-  section:
-    | 'general'
-    | 'screens'
-    | 'remote'
-    | Event = 'general',
-): void {
-  settingsInitialSection.value =
-    typeof section === 'string'
-      ? section
-      : 'general';
+function openSettings(section: 'general' | 'screens' | 'remote' | Event = 'general'): void {
+  settingsInitialSection.value = typeof section === 'string' ? section : 'general';
 
   settingsDialogOpen.value = true;
 }
 
 onMounted(async () => {
-  displays.value =
-    (await window.icpStudio?.displays.list()) ??
-    [];
+  displays.value = (await window.icpStudio?.displays.list()) ?? [];
 
-  unsubscribeDisplays =
-    window.icpStudio?.displays.onChanged(
-      (nextDisplays) => {
-        displays.value = nextDisplays;
-      },
-    );
+  unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
+    displays.value = nextDisplays;
+  });
 });
 
 onBeforeUnmount(() => {
@@ -423,19 +323,13 @@ function toggleMenu(): void {
   navigationSettings.toggleCollapsed();
 }
 
-function startNavigationDrag(
-  event: DragEvent,
-  itemId: NavigationItemId,
-): void {
+function startNavigationDrag(event: DragEvent, itemId: NavigationItemId): void {
   draggingNavigationId.value = itemId;
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
 
-    event.dataTransfer.setData(
-      'text/plain',
-      itemId,
-    );
+    event.dataTransfer.setData('text/plain', itemId);
   }
 }
 
@@ -443,17 +337,11 @@ function stopNavigationDrag(): void {
   draggingNavigationId.value = null;
 }
 
-function dropNavigationItem(
-  targetId: NavigationItemId,
-): void {
-  const sourceId =
-    draggingNavigationId.value;
+function dropNavigationItem(targetId: NavigationItemId): void {
+  const sourceId = draggingNavigationId.value;
 
   if (sourceId) {
-    navigationSettings.moveItem(
-      sourceId,
-      targetId,
-    );
+    navigationSettings.moveItem(sourceId, targetId);
   }
 
   stopNavigationDrag();
@@ -535,12 +423,7 @@ function dropNavigationItem(
 }
 
 .settings-dialog-content::-webkit-scrollbar-thumb {
-  background:
-    linear-gradient(
-      180deg,
-      #4e7199,
-      #304d6d
-    );
+  background: linear-gradient(180deg, #4e7199, #304d6d);
 
   background-clip: padding-box;
 
@@ -550,12 +433,7 @@ function dropNavigationItem(
 }
 
 .settings-dialog-content::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(
-      180deg,
-      #6290c2,
-      #3d638b
-    );
+  background: linear-gradient(180deg, #6290c2, #3d638b);
 
   background-clip: padding-box;
 }
@@ -658,9 +536,7 @@ function dropNavigationItem(
 
   border-radius: 50%;
 
-  box-shadow:
-    0 0 0 3px
-    rgb(53 208 127 / 14%);
+  box-shadow: 0 0 0 3px rgb(53 208 127 / 14%);
 }
 
 .remote-button {
@@ -693,9 +569,7 @@ function dropNavigationItem(
   border-radius: 8px;
 }
 
-.navigation-item :deep(
-  .q-item__section--avatar
-) {
+.navigation-item :deep(.q-item__section--avatar) {
   min-width: 45px;
 }
 
