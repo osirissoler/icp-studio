@@ -34,12 +34,30 @@
             {{ tileId }}
           </span>
         </div>
+
+        <Transition name="hint">
+          <div v-if="activeHint" class="public-hint">
+            <div class="public-hint-icon">
+              <q-icon name="lightbulb" />
+            </div>
+
+            <div class="public-hint-copy">
+              <span>PISTA</span>
+              <strong>{{ activeHint }}</strong>
+            </div>
+          </div>
+        </Transition>
       </div>
     </div>
 
     <footer class="projection-status">
       <div class="status-progress">
-        <span class="status-progress-bar" :style="{ width: `${progressPercentage}%` }" />
+        <span
+          class="status-progress-bar"
+          :style="{
+            width: `${progressPercentage}%`,
+          }"
+        />
 
         <span class="status-progress-track" />
       </div>
@@ -56,6 +74,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+
 import type { HiddenImageProjectionPayload } from '../shared/hidden-image-projection';
 
 const props = defineProps<{
@@ -65,6 +84,8 @@ const props = defineProps<{
 const totalTiles = computed(() => props.payload.rows * props.payload.columns);
 
 const revealedTiles = computed(() => new Set(props.payload.revealedTileIds));
+
+const activeHint = computed(() => (props.payload.activeHint ?? '').trim());
 
 const progressPercentage = computed(() => {
   if (totalTiles.value <= 0) {
@@ -79,6 +100,7 @@ const progressPercentage = computed(() => {
 
 const gridStyle = computed(() => ({
   '--hidden-image-rows': String(props.payload.rows),
+
   '--hidden-image-columns': String(props.payload.columns),
 }));
 </script>
@@ -164,11 +186,15 @@ const gridStyle = computed(() => ({
   max-height: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+
   grid-template-columns: repeat(var(--hidden-image-columns), minmax(0, 1fr));
+
   grid-template-rows: repeat(var(--hidden-image-rows), minmax(0, 1fr));
+
   background: #000;
   border: 1px solid #33485f;
   border-radius: clamp(8px, 0.8vw, 16px);
+
   box-shadow:
     0 30px 90px rgb(0 0 0 / 44%),
     0 0 0 1px rgb(255 255 255 / 2%);
@@ -191,9 +217,13 @@ const gridStyle = computed(() => ({
   min-height: 0;
   place-items: center;
   color: #c7d4e2;
+
   background: linear-gradient(145deg, rgb(30 48 68 / 99%), rgb(12 24 36 / 99%));
+
   border: 1px solid rgb(73 99 127 / 76%);
+
   opacity: 1;
+
   transition:
     opacity 260ms ease,
     transform 260ms ease;
@@ -211,12 +241,78 @@ const gridStyle = computed(() => ({
 .projection-tile span {
   font-size: clamp(11px, 1.55vw, 27px);
   font-weight: 750;
+
   text-shadow: 0 2px 4px rgb(0 0 0 / 40%);
 }
 
 .projection-tile--revealed {
   opacity: 0;
   transform: scale(0.92);
+}
+
+.public-hint {
+  position: absolute;
+  right: clamp(18px, 2.6vw, 44px);
+  bottom: clamp(18px, 3vh, 42px);
+  left: clamp(18px, 2.6vw, 44px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.4vw, 22px);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(13px, 1.4vw, 22px) clamp(16px, 1.8vw, 28px);
+
+  color: #f8fafc;
+
+  background: linear-gradient(135deg, rgb(9 20 31 / 95%), rgb(20 31 44 / 95%));
+
+  border: 1px solid rgb(250 204 21 / 40%);
+
+  border-radius: clamp(12px, 1vw, 18px);
+
+  box-shadow:
+    0 18px 60px rgb(0 0 0 / 45%),
+    0 0 32px rgb(250 204 21 / 8%);
+
+  backdrop-filter: blur(12px);
+}
+
+.public-hint-icon {
+  display: grid;
+  width: clamp(42px, 4vw, 66px);
+  height: clamp(42px, 4vw, 66px);
+  flex: 0 0 auto;
+  place-items: center;
+  color: #fde047;
+  background: rgb(250 204 21 / 12%);
+  border: 1px solid rgb(250 204 21 / 24%);
+  border-radius: 14px;
+}
+
+.public-hint-icon .q-icon {
+  font-size: clamp(24px, 2vw, 36px);
+}
+
+.public-hint-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.public-hint-copy span {
+  color: #fde047;
+  font-size: clamp(9px, 0.8vw, 14px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.public-hint-copy strong {
+  color: #f8fafc;
+  font-size: clamp(16px, 1.55vw, 27px);
+  font-weight: 650;
+  line-height: 1.3;
 }
 
 .projection-status {
@@ -251,5 +347,18 @@ const gridStyle = computed(() => ({
   background: #c084fc;
   border-radius: inherit;
   transition: width 220ms ease;
+}
+
+.hint-enter-active,
+.hint-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.hint-enter-from,
+.hint-leave-to {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
 }
 </style>
