@@ -688,7 +688,7 @@
 
                 <div>
                   <strong>Juego libre</strong>
-                  <span>Sin equipos ni puntuación.</span>
+                  <span>Sin equipos ni marcador.</span>
                 </div>
               </button>
 
@@ -702,7 +702,7 @@
 
                 <div>
                   <strong>Por equipos</strong>
-                  <span>Marcador acumulado durante todas las imágenes.</span>
+                  <span>Equipos, ganadores de ronda y puntuación opcional.</span>
                 </div>
               </button>
             </div>
@@ -713,7 +713,7 @@
               <div class="section-title-row">
                 <div>
                   <label class="field-label">Cantidad de equipos</label>
-                  <span class="field-help">Puedes usar entre 2 y 8 equipos.</span>
+                  <span class="field-help"> Puedes usar entre 2 y 8 equipos. </span>
                 </div>
 
                 <div class="team-count-control">
@@ -722,7 +722,7 @@
                     round
                     dense
                     icon="remove"
-                    :disable="sessionSetup.teamCount <= 2"
+                    :disable="sessionSetup.teamCount <= MIN_TEAM_COUNT"
                     @click="changeTeamCount(-1)"
                   />
 
@@ -733,7 +733,7 @@
                     round
                     dense
                     icon="add"
-                    :disable="sessionSetup.teamCount >= 8"
+                    :disable="sessionSetup.teamCount >= MAX_TEAM_COUNT"
                     @click="changeTeamCount(1)"
                   />
                 </div>
@@ -759,24 +759,139 @@
             </div>
 
             <div class="setup-section">
-              <label class="field-label">Puntos por respuesta correcta</label>
+              <label class="field-label">Sistema de puntuación</label>
 
-              <q-input
-                v-model.number="sessionSetup.pointsPerCorrect"
-                dense
-                outlined
-                dark
-                type="number"
-                min="1"
-                max="10000"
-                suffix="puntos"
-                class="app-input"
-              />
+              <div class="score-mode-selector">
+                <button
+                  type="button"
+                  class="score-mode-card"
+                  :class="{ active: sessionSetup.scoringMode === 'none' }"
+                  @click="sessionSetup.scoringMode = 'none'"
+                >
+                  <q-icon name="block" />
 
-              <span class="field-help">
-                Este será el valor del botón “Marcar acierto”. Después podrás ajustar el marcador
-                manualmente.
-              </span>
+                  <div>
+                    <strong>Sin puntuación</strong>
+                    <span> Solo registra qué equipo acertó cada imagen. </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="score-mode-card"
+                  :class="{ active: sessionSetup.scoringMode === 'fixed' }"
+                  @click="sessionSetup.scoringMode = 'fixed'"
+                >
+                  <q-icon name="stars" />
+
+                  <div>
+                    <strong>Fija</strong>
+                    <span> Cada respuesta correcta vale siempre lo mismo. </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="score-mode-card"
+                  :class="{
+                    active: sessionSetup.scoringMode === 'decreasing',
+                  }"
+                  @click="sessionSetup.scoringMode = 'decreasing'"
+                >
+                  <q-icon name="trending_down" />
+
+                  <div>
+                    <strong>Decreciente</strong>
+                    <span> Cada casilla descubierta reduce el valor de la ronda. </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="sessionSetup.scoringMode !== 'none'" class="setup-section scoring-fields">
+              <div>
+                <label class="field-label">
+                  {{
+                    sessionSetup.scoringMode === 'fixed'
+                      ? 'Puntos por respuesta correcta'
+                      : 'Puntos máximos'
+                  }}
+                </label>
+
+                <q-input
+                  v-model.number="sessionSetup.basePoints"
+                  dense
+                  outlined
+                  dark
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  suffix="puntos"
+                  class="app-input"
+                />
+              </div>
+
+              <template v-if="sessionSetup.scoringMode === 'decreasing'">
+                <div>
+                  <label class="field-label"> Descuento por casilla descubierta </label>
+
+                  <q-input
+                    v-model.number="sessionSetup.deductionPerReveal"
+                    dense
+                    outlined
+                    dark
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    suffix="puntos"
+                    class="app-input"
+                  />
+                </div>
+
+                <div>
+                  <label class="field-label">Puntuación mínima</label>
+
+                  <q-input
+                    v-model.number="sessionSetup.minimumPoints"
+                    dense
+                    outlined
+                    dark
+                    type="number"
+                    min="0"
+                    :max="normalizedSetupScoring.basePoints"
+                    suffix="puntos"
+                    class="app-input"
+                  />
+                </div>
+              </template>
+            </div>
+
+            <div v-if="sessionSetup.scoringMode === 'decreasing'" class="score-example-card">
+              <div class="score-example-heading">
+                <q-icon name="calculate" />
+
+                <div>
+                  <span>Ejemplo de puntuación</span>
+                  <strong> {{ normalizedSetupScoring.basePoints }} puntos iniciales </strong>
+                </div>
+              </div>
+
+              <div class="score-example-values">
+                <span>
+                  0 casillas:
+                  <strong>{{ setupExamplePoints(0) }}</strong>
+                </span>
+
+                <span>
+                  1 casilla:
+                  <strong>{{ setupExamplePoints(1) }}</strong>
+                </span>
+
+                <span>
+                  5 casillas:
+                  <strong>{{ setupExamplePoints(5) }}</strong>
+                </span>
+              </div>
             </div>
           </template>
 
@@ -800,7 +915,7 @@
 
             <div v-if="sessionSetup.mode === 'teams'">
               <q-icon name="stars" />
-              <span>{{ safePointsPerCorrect }} puntos por acierto</span>
+              <span>{{ setupScoringLabel }}</span>
             </div>
           </div>
         </div>
@@ -858,11 +973,19 @@
 
                 <div>
                   <strong>{{ team.name }}</strong>
-                  <small v-if="team.id === activeTeamId">Equipo seleccionado</small>
+                  <small v-if="team.id === activeTeamId"> Equipo seleccionado </small>
                 </div>
               </div>
 
-              <span class="team-score">{{ team.score }}</span>
+              <span v-if="hasScoring" class="team-score">
+                {{ team.score }}
+              </span>
+
+              <q-icon
+                v-else-if="roundWinner?.teamId === team.id"
+                name="emoji_events"
+                class="team-winner-icon"
+              />
             </button>
           </div>
 
@@ -912,20 +1035,43 @@
           <div class="operator-topbar">
             <div>
               <span class="eyebrow">CONTROL DEL JUEGO</span>
-
               <h2>Imagen {{ playingRoundIndex + 1 }}</h2>
             </div>
 
-            <div class="operator-progress">
-              <q-icon name="grid_view" />
+            <div class="operator-status-group">
+              <div
+                v-if="hasTeams && hasScoring"
+                class="available-points"
+                :class="{
+                  'available-points--decreasing': sessionScoring.mode === 'decreasing',
+                }"
+              >
+                <span>
+                  {{
+                    sessionScoring.mode === 'decreasing'
+                      ? 'PUNTOS DISPONIBLES'
+                      : 'VALOR DE LA RONDA'
+                  }}
+                </span>
 
-              <strong>
-                {{ playingRevealedCount }}
-                /
-                {{ playingTiles.length }}
-              </strong>
+                <strong>{{ currentAwardPoints }}</strong>
 
-              <span>descubiertas</span>
+                <small v-if="sessionScoring.mode === 'decreasing'">
+                  {{ scoringRevealedCount }} casillas contabilizadas
+                </small>
+              </div>
+
+              <div class="operator-progress">
+                <q-icon name="grid_view" />
+
+                <strong>
+                  {{ playingRevealedCount }}
+                  /
+                  {{ playingTiles.length }}
+                </strong>
+
+                <span>descubiertas</span>
+              </div>
             </div>
           </div>
 
@@ -933,52 +1079,58 @@
             <div>
               <span class="active-team-label">EQUIPO ACTUAL</span>
 
-              <strong>{{ activeTeam?.name ?? 'Selecciona un equipo' }}</strong>
+              <strong>
+                {{ activeTeam?.name ?? 'Selecciona un equipo' }}
+              </strong>
 
               <small>
                 {{
                   roundWinner
                     ? `${roundWinner.teamName} ganó esta ronda`
-                    : 'Selecciona el equipo que está respondiendo'
+                    : hasScoring
+                      ? `${currentAwardPoints} puntos disponibles`
+                      : 'Selecciona el equipo que está respondiendo'
                 }}
               </small>
             </div>
 
             <div class="score-actions">
-              <q-btn
-                flat
-                round
-                dense
-                icon="remove"
-                class="score-adjust-button"
-                :disable="!activeTeam"
-                @click="adjustActiveTeamScore(-10)"
-              >
-                <q-tooltip>Restar 10 puntos</q-tooltip>
-              </q-btn>
+              <template v-if="hasScoring">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="remove"
+                  class="score-adjust-button"
+                  :disable="!activeTeam"
+                  @click="adjustActiveTeamScore(-10)"
+                >
+                  <q-tooltip>Restar 10 puntos</q-tooltip>
+                </q-btn>
 
-              <span class="active-team-score">
-                {{ activeTeam?.score ?? 0 }}
-              </span>
+                <span class="active-team-score">
+                  {{ activeTeam?.score ?? 0 }}
+                </span>
 
-              <q-btn
-                flat
-                round
-                dense
-                icon="add"
-                class="score-adjust-button"
-                :disable="!activeTeam"
-                @click="adjustActiveTeamScore(10)"
-              >
-                <q-tooltip>Sumar 10 puntos</q-tooltip>
-              </q-btn>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="add"
+                  class="score-adjust-button"
+                  :disable="!activeTeam"
+                  @click="adjustActiveTeamScore(10)"
+                >
+                  <q-tooltip>Sumar 10 puntos</q-tooltip>
+                </q-btn>
+              </template>
 
               <q-btn
                 v-if="!roundWinner"
                 unelevated
                 no-caps
                 icon="emoji_events"
-                :label="`Acierto +${safePointsPerCorrect}`"
+                :label="awardButtonLabel"
                 class="correct-answer-button"
                 :disable="!activeTeam"
                 @click="awardCurrentRound"
@@ -1079,6 +1231,19 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
+import {
+  adjustGameTeamScore,
+  applyRoundResultToTeams,
+  awardGameRound,
+  calculateRoundPoints,
+  normalizeGameScoringConfig,
+  removeRoundResultFromTeams,
+  resetGameTeamsScore,
+  type GameRoundResult,
+  type GameScoreMode,
+  type GameSessionScoringConfig,
+  type GameSessionTeam,
+} from '../shared/game-session';
 import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 
 type ViewMode = 'library' | 'editor' | 'setup' | 'play';
@@ -1141,23 +1306,14 @@ interface GameSetupTeam {
   name: string;
 }
 
-interface GameSessionTeam {
-  id: string;
-  name: string;
-  score: number;
-}
-
-interface RoundResult {
-  teamId: string;
-  teamName: string;
-  points: number;
-}
-
 interface StandaloneSessionSetup {
   mode: StandaloneMode;
   teamCount: number;
   teams: GameSetupTeam[];
-  pointsPerCorrect: number;
+  scoringMode: GameScoreMode;
+  basePoints: number;
+  deductionPerReveal: number;
+  minimumPoints: number;
 }
 
 const DB_NAME = 'icp-studio';
@@ -1205,7 +1361,10 @@ const sessionSetup = reactive<StandaloneSessionSetup>({
   mode: 'free',
   teamCount: 2,
   teams: [],
-  pointsPerCorrect: 100,
+  scoringMode: 'fixed',
+  basePoints: 100,
+  deductionPerReveal: 5,
+  minimumPoints: 20,
 });
 
 const playingActivity = ref<HiddenImageActivity | null>(null);
@@ -1216,8 +1375,16 @@ const playingImageUrl = ref('');
 const sessionMode = ref<StandaloneMode>('free');
 const sessionTeams = ref<GameSessionTeam[]>([]);
 const activeTeamId = ref('');
-const pointsPerCorrect = ref(100);
-const roundResults = reactive<Record<string, RoundResult>>({});
+
+const sessionScoring = ref<GameSessionScoringConfig>({
+  mode: 'none',
+  basePoints: 0,
+  deductionPerReveal: 0,
+  minimumPoints: 0,
+});
+
+const roundResults = reactive<Record<string, GameRoundResult>>({});
+const roundRevealCounts = reactive<Record<string, number>>({});
 
 const activeRoundIndex = computed(() =>
   rounds.value.findIndex((round) => round.id === activeRoundId.value),
@@ -1273,13 +1440,17 @@ const playingGridStyle = computed(() => ({
   '--hidden-image-columns': String(playingRound.value?.columns ?? 4),
 }));
 
-const hasTeams = computed(() => sessionMode.value === 'teams' && sessionTeams.value.length >= 2);
+const hasTeams = computed(
+  () => sessionMode.value === 'teams' && sessionTeams.value.length >= MIN_TEAM_COUNT,
+);
+
+const hasScoring = computed(() => hasTeams.value && sessionScoring.value.mode !== 'none');
 
 const activeTeam = computed<GameSessionTeam | null>(() => {
   return sessionTeams.value.find((team) => team.id === activeTeamId.value) ?? null;
 });
 
-const roundWinner = computed<RoundResult | null>(() => {
+const roundWinner = computed<GameRoundResult | null>(() => {
   const roundId = playingRound.value?.id;
 
   if (!roundId) {
@@ -1289,19 +1460,58 @@ const roundWinner = computed<RoundResult | null>(() => {
   return roundResults[roundId] ?? null;
 });
 
-const safePointsPerCorrect = computed(() =>
-  Math.min(
-    10000,
-    Math.max(
-      1,
-      Math.round(
-        Number(
-          viewMode.value === 'setup' ? sessionSetup.pointsPerCorrect : pointsPerCorrect.value,
-        ) || 100,
-      ),
-    ),
-  ),
+const normalizedSetupScoring = computed(() =>
+  normalizeGameScoringConfig({
+    mode: sessionSetup.scoringMode,
+    basePoints: Number(sessionSetup.basePoints),
+    deductionPerReveal: Number(sessionSetup.deductionPerReveal),
+    minimumPoints: Number(sessionSetup.minimumPoints),
+  }),
 );
+
+const scoringRevealedCount = computed(() => {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return 0;
+  }
+
+  return roundRevealCounts[roundId] ?? 0;
+});
+
+const currentAwardPoints = computed(() =>
+  calculateRoundPoints({
+    scoring: sessionScoring.value,
+    revealedCount: scoringRevealedCount.value,
+  }),
+);
+
+const setupScoringLabel = computed(() => {
+  if (sessionSetup.scoringMode === 'none') {
+    return 'Sin puntuación';
+  }
+
+  if (sessionSetup.scoringMode === 'fixed') {
+    return `${normalizedSetupScoring.value.basePoints} puntos fijos`;
+  }
+
+  return `${normalizedSetupScoring.value.basePoints} → mínimo ${normalizedSetupScoring.value.minimumPoints}`;
+});
+
+const awardButtonLabel = computed(() => {
+  if (!hasScoring.value) {
+    return 'Marcar acierto';
+  }
+
+  return `Acierto +${currentAwardPoints.value}`;
+});
+
+function setupExamplePoints(revealed: number): number {
+  return calculateRoundPoints({
+    scoring: normalizedSetupScoring.value,
+    revealedCount: revealed,
+  });
+}
 
 function createIndexedDbError(message: string, error: DOMException | null): Error {
   if (error) {
@@ -1343,7 +1553,10 @@ function resetSessionSetup(): void {
   sessionSetup.mode = 'free';
   sessionSetup.teamCount = 2;
   sessionSetup.teams = createDefaultSetupTeams(2);
-  sessionSetup.pointsPerCorrect = 100;
+  sessionSetup.scoringMode = 'fixed';
+  sessionSetup.basePoints = 100;
+  sessionSetup.deductionPerReveal = 5;
+  sessionSetup.minimumPoints = 20;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -2025,8 +2238,6 @@ function validateSessionSetup(): boolean {
     return true;
   }
 
-  sessionSetup.pointsPerCorrect = safePointsPerCorrect.value;
-
   for (let index = 0; index < sessionSetup.teams.length; index += 1) {
     const team = sessionSetup.teams[index];
 
@@ -2036,9 +2247,16 @@ function validateSessionSetup(): boolean {
 
     if (!team.name.trim()) {
       notifyWarning(`Escribe el nombre del equipo ${index + 1}.`);
+
       return false;
     }
   }
+
+  const scoring = normalizedSetupScoring.value;
+
+  sessionSetup.basePoints = scoring.basePoints;
+  sessionSetup.deductionPerReveal = scoring.deductionPerReveal;
+  sessionSetup.minimumPoints = scoring.minimumPoints;
 
   return true;
 }
@@ -2056,7 +2274,6 @@ function startStandaloneGame(): void {
   playingRoundIndex.value = 0;
 
   sessionMode.value = sessionSetup.mode;
-  pointsPerCorrect.value = safePointsPerCorrect.value;
 
   if (sessionSetup.mode === 'teams') {
     sessionTeams.value = sessionSetup.teams.map((team, index) => ({
@@ -2066,6 +2283,15 @@ function startStandaloneGame(): void {
     }));
 
     activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+
+    sessionScoring.value = normalizedSetupScoring.value;
+  } else {
+    sessionScoring.value = {
+      mode: 'none',
+      basePoints: 0,
+      deductionPerReveal: 0,
+      minimumPoints: 0,
+    };
   }
 
   projectionDataUrls.clear();
@@ -2087,10 +2313,20 @@ function resetGameSession(): void {
   sessionMode.value = 'free';
   sessionTeams.value = [];
   activeTeamId.value = '';
-  pointsPerCorrect.value = 100;
+
+  sessionScoring.value = {
+    mode: 'none',
+    basePoints: 0,
+    deductionPerReveal: 0,
+    minimumPoints: 0,
+  };
 
   Object.keys(roundResults).forEach((key) => {
     delete roundResults[key];
+  });
+
+  Object.keys(roundRevealCounts).forEach((key) => {
+    delete roundRevealCounts[key];
   });
 
   isProjectionLive.value = false;
@@ -2159,6 +2395,18 @@ function movePlayingRound(direction: -1 | 1): void {
   setPlayingRound(nextIndex);
 }
 
+function updateCurrentRoundRevealCount(): void {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return;
+  }
+
+  const current = roundRevealCounts[roundId] ?? 0;
+
+  roundRevealCounts[roundId] = Math.max(current, playingRevealedCount.value);
+}
+
 function togglePlayingTile(tileId: number): void {
   const tile = playingTiles.value.find((item) => item.id === tileId);
 
@@ -2168,6 +2416,7 @@ function togglePlayingTile(tileId: number): void {
 
   tile.revealed = !tile.revealed;
 
+  updateCurrentRoundRevealCount();
   syncProjectionIfLive();
 }
 
@@ -2175,6 +2424,15 @@ function resetPlayingTiles(): void {
   playingTiles.value.forEach((tile) => {
     tile.revealed = false;
   });
+
+  /*
+   * Importante:
+   * no reducimos roundRevealCounts.
+   *
+   * Si una casilla ya fue mostrada, la información ya
+   * fue vista y los puntos decrecientes no deben volver
+   * a aumentar al cubrirla nuevamente.
+   */
 
   syncProjectionIfLive();
 }
@@ -2184,12 +2442,14 @@ function revealAllPlayingTiles(): void {
     tile.revealed = true;
   });
 
+  updateCurrentRoundRevealCount();
   syncProjectionIfLive();
 }
 
 function revealRandomPlayingTile(): void {
   revealRandomFromTiles(playingTiles.value);
 
+  updateCurrentRoundRevealCount();
   syncProjectionIfLive();
 }
 
@@ -2200,7 +2460,7 @@ function adjustActiveTeamScore(amount: number): void {
     return;
   }
 
-  team.score += Math.round(amount);
+  sessionTeams.value = adjustGameTeamScore(sessionTeams.value, team.id, amount);
 }
 
 function awardCurrentRound(): void {
@@ -2211,22 +2471,26 @@ function awardCurrentRound(): void {
     return;
   }
 
-  const points = safePointsPerCorrect.value;
+  const result = awardGameRound({
+    roundId: round.id,
+    team,
+    scoring: sessionScoring.value,
+    revealedCount: scoringRevealedCount.value,
+  });
 
-  team.score += points;
+  sessionTeams.value = applyRoundResultToTeams(sessionTeams.value, result);
 
-  roundResults[round.id] = {
-    teamId: team.id,
-    teamName: team.name,
-    points,
-  };
+  roundResults[round.id] = result;
 
   revealAllPlayingTiles();
 
   $q.notify({
     type: 'positive',
     icon: 'emoji_events',
-    message: `${team.name} ganó ${points} puntos.`,
+    message:
+      result.points > 0
+        ? `${team.name} ganó ${result.points} puntos.`
+        : `${team.name} acertó la ronda.`,
     position: 'top',
     timeout: 1600,
   });
@@ -2245,11 +2509,7 @@ function undoCurrentRoundAward(): void {
     return;
   }
 
-  const team = sessionTeams.value.find((item) => item.id === result.teamId);
-
-  if (team) {
-    team.score -= result.points;
-  }
+  sessionTeams.value = removeRoundResultFromTeams(sessionTeams.value, result);
 
   delete roundResults[round.id];
 
@@ -2263,18 +2523,22 @@ function undoCurrentRoundAward(): void {
 }
 
 function resetFullGame(): void {
-  const confirmed = window.confirm('¿Reiniciar todo el marcador y los resultados de las rondas?');
+  const confirmed = window.confirm(
+    '¿Reiniciar todo el marcador, los resultados y el avance de puntuación?',
+  );
 
   if (!confirmed) {
     return;
   }
 
-  sessionTeams.value.forEach((team) => {
-    team.score = 0;
-  });
+  sessionTeams.value = resetGameTeamsScore(sessionTeams.value);
 
   Object.keys(roundResults).forEach((key) => {
     delete roundResults[key];
+  });
+
+  Object.keys(roundRevealCounts).forEach((key) => {
+    delete roundRevealCounts[key];
   });
 
   playingRoundIndex.value = 0;
@@ -2445,6 +2709,7 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
 function cleanupPlayingImageUrl(): void {
   if (playingImageUrl.value) {
     URL.revokeObjectURL(playingImageUrl.value);
+
     playingImageUrl.value = '';
   }
 }
@@ -2886,7 +3151,9 @@ onBeforeUnmount(() => {
 .creator-area {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(320px, 385px) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(320px, 385px)
+    minmax(0, 1fr);
 }
 
 .configuration-panel {
@@ -3217,7 +3484,7 @@ onBeforeUnmount(() => {
 }
 
 .game-setup-card {
-  width: min(100%, 760px);
+  width: min(100%, 820px);
   padding: 22px;
   background: #0c1723;
   border: 1px solid #28394c;
@@ -3310,6 +3577,116 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.score-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.score-mode-card {
+  display: flex;
+  min-height: 104px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px;
+  color: #71849a;
+  text-align: left;
+  background: #09141f;
+  border: 1px solid #26394d;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.score-mode-card.active {
+  color: #c084fc;
+  background: rgb(192 132 252 / 8%);
+  border-color: #a855f7;
+}
+
+.score-mode-card .q-icon {
+  margin-top: 2px;
+  font-size: 22px;
+}
+
+.score-mode-card div {
+  display: flex;
+  flex-direction: column;
+}
+
+.score-mode-card strong {
+  color: #d8e4ef;
+  font-size: 10px;
+}
+
+.score-mode-card span {
+  margin-top: 4px;
+  color: #718399;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.scoring-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.score-example-card {
+  margin-bottom: 18px;
+  padding: 13px;
+  background: rgb(59 130 246 / 7%);
+  border: 1px solid rgb(59 130 246 / 28%);
+  border-radius: 10px;
+}
+
+.score-example-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.score-example-heading .q-icon {
+  color: #60a5fa;
+  font-size: 22px;
+}
+
+.score-example-heading div {
+  display: flex;
+  flex-direction: column;
+}
+
+.score-example-heading span {
+  color: #6e8299;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.score-example-heading strong {
+  color: #dce8f4;
+  font-size: 11px;
+}
+
+.score-example-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 11px;
+}
+
+.score-example-values span {
+  padding: 6px 8px;
+  color: #778ba2;
+  background: #0b1723;
+  border-radius: 7px;
+  font-size: 8px;
+}
+
+.score-example-values strong {
+  margin-left: 3px;
+  color: #fff;
+}
+
 .setup-summary {
   display: flex;
   flex-wrap: wrap;
@@ -3336,11 +3713,15 @@ onBeforeUnmount(() => {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns:
+    280px
+    minmax(0, 1fr);
 }
 
 .play-area--teams {
-  grid-template-columns: 310px minmax(0, 1fr);
+  grid-template-columns:
+    310px
+    minmax(0, 1fr);
 }
 
 .play-sidebar {
@@ -3459,6 +3840,11 @@ onBeforeUnmount(() => {
   font-weight: 750;
 }
 
+.team-winner-icon {
+  color: #22c55e;
+  font-size: 20px;
+}
+
 .private-answer-card {
   display: flex;
   flex-direction: column;
@@ -3507,6 +3893,47 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+}
+
+.operator-status-group {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.available-points {
+  display: flex;
+  min-width: 112px;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 7px 10px;
+  background: rgb(34 197 94 / 8%);
+  border: 1px solid rgb(34 197 94 / 28%);
+  border-radius: 9px;
+}
+
+.available-points--decreasing {
+  background: rgb(245 158 11 / 8%);
+  border-color: rgb(245 158 11 / 28%);
+}
+
+.available-points span {
+  color: #6b8198;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+.available-points strong {
+  color: #eef7f0;
+  font-size: 21px;
+  line-height: 1.05;
+}
+
+.available-points small {
+  margin-top: 2px;
+  color: #708398;
+  font-size: 7px;
 }
 
 .active-team-bar {
@@ -3606,6 +4033,11 @@ onBeforeUnmount(() => {
     border-right: 0;
     border-bottom: 1px solid #25364a;
   }
+
+  .score-mode-selector,
+  .scoring-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -3615,7 +4047,8 @@ onBeforeUnmount(() => {
 
   .page-header,
   .operator-controls,
-  .active-team-bar {
+  .active-team-bar,
+  .operator-topbar {
     align-items: stretch;
     flex-direction: column;
   }
@@ -3626,8 +4059,13 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .score-actions {
+  .score-actions,
+  .operator-status-group {
     flex-wrap: wrap;
+  }
+
+  .available-points {
+    align-items: flex-start;
   }
 }
 </style>
