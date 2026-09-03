@@ -19,7 +19,6 @@
 
           <div class="header-copy">
             <h1>Imagen escondida</h1>
-
             <p>Crea actividades con una o varias imágenes ocultas por casillas.</p>
           </div>
         </div>
@@ -45,6 +44,26 @@
             class="primary-button"
             :loading="isSaving"
             @click="saveActivity"
+          />
+        </div>
+
+        <div v-else-if="viewMode === 'setup'" class="header-actions">
+          <q-btn
+            flat
+            no-caps
+            icon="close"
+            label="Cancelar"
+            class="cancel-button"
+            @click="cancelGameSetup"
+          />
+
+          <q-btn
+            unelevated
+            no-caps
+            icon="play_arrow"
+            label="Comenzar juego"
+            class="primary-button"
+            @click="startStandaloneGame"
           />
         </div>
 
@@ -107,8 +126,7 @@
         <template v-else>
           <div class="library-heading">
             <div>
-              <span class="eyebrow"> ACTIVIDADES GUARDADAS </span>
-
+              <span class="eyebrow">ACTIVIDADES GUARDADAS</span>
               <h2>Mis actividades</h2>
 
               <p>
@@ -145,11 +163,7 @@
                 <div class="activity-card-heading">
                   <div>
                     <h3>{{ activity.title }}</h3>
-
-                    <span>
-                      Actualizada
-                      {{ formatDate(activity.updatedAt) }}
-                    </span>
+                    <span>Actualizada {{ formatDate(activity.updatedAt) }}</span>
                   </div>
 
                   <q-btn flat round dense icon="more_vert" class="more-button">
@@ -160,7 +174,7 @@
                             <q-icon name="edit" />
                           </q-item-section>
 
-                          <q-item-section> Editar </q-item-section>
+                          <q-item-section>Editar</q-item-section>
                         </q-item>
 
                         <q-item clickable v-close-popup @click="duplicateActivity(activity)">
@@ -168,7 +182,7 @@
                             <q-icon name="content_copy" />
                           </q-item-section>
 
-                          <q-item-section> Duplicar actividad </q-item-section>
+                          <q-item-section>Duplicar actividad</q-item-section>
                         </q-item>
 
                         <q-separator dark />
@@ -183,7 +197,7 @@
                             <q-icon name="delete_outline" />
                           </q-item-section>
 
-                          <q-item-section> Eliminar </q-item-section>
+                          <q-item-section>Eliminar</q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
@@ -254,7 +268,7 @@
           </div>
 
           <div class="form-section">
-            <label class="field-label"> Nombre de la actividad </label>
+            <label class="field-label">Nombre de la actividad</label>
 
             <q-input
               v-model="form.title"
@@ -273,7 +287,7 @@
           <div class="form-section rounds-section">
             <div class="section-title-row">
               <div>
-                <label class="field-label"> Imágenes de la actividad </label>
+                <label class="field-label">Imágenes de la actividad</label>
 
                 <span class="field-help"> Cada imagen funciona como una ronda independiente. </span>
               </div>
@@ -295,9 +309,7 @@
                 :key="round.id"
                 type="button"
                 class="round-item"
-                :class="{
-                  active: round.id === activeRoundId,
-                }"
+                :class="{ active: round.id === activeRoundId }"
                 @click="selectRound(round.id)"
               >
                 <div class="round-thumbnail">
@@ -311,11 +323,8 @@
                 </div>
 
                 <div class="round-copy">
-                  <strong> Imagen {{ index + 1 }} </strong>
-
-                  <span>
-                    {{ round.answer.trim() || 'Sin respuesta' }}
-                  </span>
+                  <strong>Imagen {{ index + 1 }}</strong>
+                  <span>{{ round.answer.trim() || 'Sin respuesta' }}</span>
                 </div>
 
                 <q-icon
@@ -330,12 +339,8 @@
           <template v-if="activeRound">
             <div class="round-editor-heading">
               <div>
-                <span class="eyebrow"> CONFIGURACIÓN DE IMAGEN </span>
-
-                <h3>
-                  Imagen
-                  {{ activeRoundNumber }}
-                </h3>
+                <span class="eyebrow">CONFIGURACIÓN DE IMAGEN</span>
+                <h3>Imagen {{ activeRoundNumber }}</h3>
               </div>
 
               <div class="round-editor-actions">
@@ -347,7 +352,7 @@
                   class="round-action-button"
                   @click="duplicateRound"
                 >
-                  <q-tooltip> Duplicar imagen </q-tooltip>
+                  <q-tooltip>Duplicar imagen</q-tooltip>
                 </q-btn>
 
                 <q-btn
@@ -359,13 +364,13 @@
                   :disable="rounds.length <= 1"
                   @click="deleteRound"
                 >
-                  <q-tooltip> Eliminar imagen </q-tooltip>
+                  <q-tooltip>Eliminar imagen</q-tooltip>
                 </q-btn>
               </div>
             </div>
 
             <div class="form-section">
-              <label class="field-label"> Respuesta </label>
+              <label class="field-label">Respuesta</label>
 
               <q-input
                 v-model="activeRound.answer"
@@ -380,7 +385,7 @@
             </div>
 
             <div class="form-section">
-              <label class="field-label"> Referencia bíblica </label>
+              <label class="field-label">Referencia bíblica</label>
 
               <q-input
                 v-model="activeRound.bibleReference"
@@ -395,7 +400,7 @@
             <div class="form-section">
               <div class="field-heading">
                 <div>
-                  <label class="field-label"> Imagen </label>
+                  <label class="field-label">Imagen</label>
 
                   <span class="field-help"> Selecciona la imagen que será descubierta. </span>
                 </div>
@@ -437,17 +442,14 @@
             <div class="form-section">
               <div class="section-title-row">
                 <div>
-                  <label class="field-label"> Cuadrícula </label>
+                  <label class="field-label">Cuadrícula</label>
 
                   <span class="field-help">
                     Cada imagen puede tener su propia cantidad de casillas.
                   </span>
                 </div>
 
-                <q-badge class="grid-count">
-                  {{ totalTiles }}
-                  casillas
-                </q-badge>
+                <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
               </div>
 
               <div class="grid-controls">
@@ -464,9 +466,7 @@
                       @click="changeRows(-1)"
                     />
 
-                    <strong>
-                      {{ activeRound.rows }}
-                    </strong>
+                    <strong>{{ activeRound.rows }}</strong>
 
                     <q-btn
                       flat
@@ -492,9 +492,7 @@
                       @click="changeColumns(-1)"
                     />
 
-                    <strong>
-                      {{ activeRound.columns }}
-                    </strong>
+                    <strong>{{ activeRound.columns }}</strong>
 
                     <q-btn
                       flat
@@ -532,29 +530,18 @@
         <main class="preview-panel">
           <div class="preview-heading">
             <div>
-              <span class="eyebrow"> PREVISUALIZACIÓN </span>
-
-              <h2>
-                {{ form.title.trim() || 'Imagen escondida' }}
-              </h2>
+              <span class="eyebrow">PREVISUALIZACIÓN</span>
+              <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
 
               <span v-if="activeRound" class="preview-round-label">
-                Imagen
-                {{ activeRoundNumber }}
-                de
-                {{ rounds.length }}
+                Imagen {{ activeRoundNumber }} de {{ rounds.length }}
               </span>
             </div>
 
             <div class="preview-status">
               <q-icon name="visibility" />
 
-              <span>
-                {{ revealedCount }}
-                /
-                {{ totalTiles }}
-                descubiertas
-              </span>
+              <span> {{ revealedCount }} / {{ totalTiles }} descubiertas </span>
             </div>
           </div>
 
@@ -576,9 +563,7 @@
                 :key="round.id"
                 type="button"
                 class="round-dot"
-                :class="{
-                  active: round.id === activeRoundId,
-                }"
+                :class="{ active: round.id === activeRoundId }"
                 :aria-label="`Ir a imagen ${index + 1}`"
                 @click="selectRound(round.id)"
               />
@@ -600,9 +585,7 @@
             <div
               v-if="activeRound"
               class="image-stage"
-              :class="{
-                'without-image': !activeRound.imageUrl,
-              }"
+              :class="{ 'without-image': !activeRound.imageUrl }"
               :style="gridStyle"
             >
               <img
@@ -614,7 +597,7 @@
 
               <div v-else class="image-placeholder">
                 <q-icon name="image" />
-                <strong> Selecciona una imagen </strong>
+                <strong>Selecciona una imagen</strong>
               </div>
 
               <button
@@ -622,21 +605,17 @@
                 :key="tile.id"
                 type="button"
                 class="cover-tile"
-                :class="{
-                  revealed: tile.revealed,
-                }"
+                :class="{ revealed: tile.revealed }"
                 @click="toggleTile(tile.id)"
               >
-                <span v-if="!tile.revealed">
-                  {{ tile.id }}
-                </span>
+                <span v-if="!tile.revealed">{{ tile.id }}</span>
               </button>
             </div>
           </div>
 
           <div v-if="activeRound" class="preview-footer">
             <div class="operator-answer">
-              <span> RESPUESTA DEL OPERADOR </span>
+              <span>RESPUESTA DEL OPERADOR</span>
 
               <strong>
                 {{ activeRound.answer.trim() || 'Sin respuesta definida' }}
@@ -680,22 +659,211 @@
         </main>
       </section>
 
+      <!-- CONFIGURAR SESIÓN -->
+      <section v-else-if="viewMode === 'setup'" class="game-setup-area">
+        <div class="game-setup-card">
+          <div class="setup-heading">
+            <div class="setup-icon">
+              <q-icon name="sports_esports" />
+            </div>
+
+            <div>
+              <span class="eyebrow">PREPARAR JUEGO</span>
+              <h2>{{ setupActivity?.title }}</h2>
+              <p>Configura cómo se jugará esta ejecución.</p>
+            </div>
+          </div>
+
+          <div class="setup-section">
+            <label class="field-label">Modo de juego</label>
+
+            <div class="mode-selector">
+              <button
+                type="button"
+                class="mode-card"
+                :class="{ active: sessionSetup.mode === 'free' }"
+                @click="sessionSetup.mode = 'free'"
+              >
+                <q-icon name="person" />
+
+                <div>
+                  <strong>Juego libre</strong>
+                  <span>Sin equipos ni puntuación.</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="mode-card"
+                :class="{ active: sessionSetup.mode === 'teams' }"
+                @click="sessionSetup.mode = 'teams'"
+              >
+                <q-icon name="groups" />
+
+                <div>
+                  <strong>Por equipos</strong>
+                  <span>Marcador acumulado durante todas las imágenes.</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <template v-if="sessionSetup.mode === 'teams'">
+            <div class="setup-section">
+              <div class="section-title-row">
+                <div>
+                  <label class="field-label">Cantidad de equipos</label>
+                  <span class="field-help">Puedes usar entre 2 y 8 equipos.</span>
+                </div>
+
+                <div class="team-count-control">
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="remove"
+                    :disable="sessionSetup.teamCount <= 2"
+                    @click="changeTeamCount(-1)"
+                  />
+
+                  <strong>{{ sessionSetup.teamCount }}</strong>
+
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="add"
+                    :disable="sessionSetup.teamCount >= 8"
+                    @click="changeTeamCount(1)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="setup-section">
+              <label class="field-label">Nombres de los equipos</label>
+
+              <div class="team-name-grid">
+                <q-input
+                  v-for="(team, index) in sessionSetup.teams"
+                  :key="team.id"
+                  v-model="team.name"
+                  dense
+                  outlined
+                  dark
+                  :label="`Equipo ${index + 1}`"
+                  :placeholder="`Equipo ${index + 1}`"
+                  class="app-input"
+                />
+              </div>
+            </div>
+
+            <div class="setup-section">
+              <label class="field-label">Puntos por respuesta correcta</label>
+
+              <q-input
+                v-model.number="sessionSetup.pointsPerCorrect"
+                dense
+                outlined
+                dark
+                type="number"
+                min="1"
+                max="10000"
+                suffix="puntos"
+                class="app-input"
+              />
+
+              <span class="field-help">
+                Este será el valor del botón “Marcar acierto”. Después podrás ajustar el marcador
+                manualmente.
+              </span>
+            </div>
+          </template>
+
+          <div class="setup-summary">
+            <div>
+              <q-icon name="collections" />
+              <span>{{ setupActivity?.rounds.length ?? 0 }} imágenes</span>
+            </div>
+
+            <div>
+              <q-icon :name="sessionSetup.mode === 'teams' ? 'groups' : 'person'" />
+
+              <span>
+                {{
+                  sessionSetup.mode === 'teams'
+                    ? `${sessionSetup.teamCount} equipos`
+                    : 'Juego libre'
+                }}
+              </span>
+            </div>
+
+            <div v-if="sessionSetup.mode === 'teams'">
+              <q-icon name="stars" />
+              <span>{{ safePointsPerCorrect }} puntos por acierto</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- MODO OPERADOR -->
-      <section v-else class="play-area">
+      <section v-else class="play-area" :class="{ 'play-area--teams': hasTeams }">
         <aside class="play-sidebar">
           <div class="play-sidebar-heading">
-            <span class="eyebrow"> MODO OPERADOR </span>
+            <span class="eyebrow">MODO OPERADOR</span>
 
-            <h2>
-              {{ playingActivity?.title }}
-            </h2>
+            <h2>{{ playingActivity?.title }}</h2>
 
             <p>
-              Imagen
-              {{ playingRoundIndex + 1 }}
+              Imagen {{ playingRoundIndex + 1 }}
               de
               {{ playingActivity?.rounds.length ?? 0 }}
             </p>
+          </div>
+
+          <div v-if="hasTeams" class="scoreboard">
+            <div class="scoreboard-heading">
+              <div>
+                <span class="eyebrow">MARCADOR</span>
+                <strong>Equipos</strong>
+              </div>
+
+              <q-btn
+                flat
+                round
+                dense
+                icon="restart_alt"
+                class="scoreboard-reset-button"
+                @click="resetFullGame"
+              >
+                <q-tooltip>Reiniciar juego completo</q-tooltip>
+              </q-btn>
+            </div>
+
+            <button
+              v-for="team in sessionTeams"
+              :key="team.id"
+              type="button"
+              class="score-team"
+              :class="{
+                active: team.id === activeTeamId,
+                winner: roundWinner?.teamId === team.id,
+              }"
+              @click="activeTeamId = team.id"
+            >
+              <div class="score-team-main">
+                <span class="team-avatar">
+                  {{ teamInitials(team.name) }}
+                </span>
+
+                <div>
+                  <strong>{{ team.name }}</strong>
+                  <small v-if="team.id === activeTeamId">Equipo seleccionado</small>
+                </div>
+              </div>
+
+              <span class="team-score">{{ team.score }}</span>
+            </button>
           </div>
 
           <div class="play-round-list">
@@ -706,19 +874,18 @@
               class="play-round-item"
               :class="{
                 active: index === playingRoundIndex,
+                completed: Boolean(roundResults[round.id]),
               }"
               @click="setPlayingRound(index)"
             >
               <span class="play-round-number">
-                {{ index + 1 }}
+                <q-icon v-if="roundResults[round.id]" name="check" />
+                <template v-else>{{ index + 1 }}</template>
               </span>
 
               <div>
-                <strong> Imagen {{ index + 1 }} </strong>
-
-                <small>
-                  {{ round.answer }}
-                </small>
+                <strong>Imagen {{ index + 1 }}</strong>
+                <small>{{ round.answer }}</small>
               </div>
 
               <q-icon v-if="index === playingRoundIndex" name="play_arrow" />
@@ -732,17 +899,11 @@
             </div>
 
             <span>Respuesta</span>
-
-            <strong>
-              {{ playingRound.answer }}
-            </strong>
+            <strong>{{ playingRound.answer }}</strong>
 
             <template v-if="playingRound.bibleReference">
-              <span> Referencia bíblica </span>
-
-              <strong>
-                {{ playingRound.bibleReference }}
-              </strong>
+              <span>Referencia bíblica</span>
+              <strong>{{ playingRound.bibleReference }}</strong>
             </template>
           </div>
         </aside>
@@ -750,12 +911,9 @@
         <main class="operator-workspace">
           <div class="operator-topbar">
             <div>
-              <span class="eyebrow"> CONTROL DEL JUEGO </span>
+              <span class="eyebrow">CONTROL DEL JUEGO</span>
 
-              <h2>
-                Imagen
-                {{ playingRoundIndex + 1 }}
-              </h2>
+              <h2>Imagen {{ playingRoundIndex + 1 }}</h2>
             </div>
 
             <div class="operator-progress">
@@ -771,6 +929,73 @@
             </div>
           </div>
 
+          <div v-if="hasTeams" class="active-team-bar">
+            <div>
+              <span class="active-team-label">EQUIPO ACTUAL</span>
+
+              <strong>{{ activeTeam?.name ?? 'Selecciona un equipo' }}</strong>
+
+              <small>
+                {{
+                  roundWinner
+                    ? `${roundWinner.teamName} ganó esta ronda`
+                    : 'Selecciona el equipo que está respondiendo'
+                }}
+              </small>
+            </div>
+
+            <div class="score-actions">
+              <q-btn
+                flat
+                round
+                dense
+                icon="remove"
+                class="score-adjust-button"
+                :disable="!activeTeam"
+                @click="adjustActiveTeamScore(-10)"
+              >
+                <q-tooltip>Restar 10 puntos</q-tooltip>
+              </q-btn>
+
+              <span class="active-team-score">
+                {{ activeTeam?.score ?? 0 }}
+              </span>
+
+              <q-btn
+                flat
+                round
+                dense
+                icon="add"
+                class="score-adjust-button"
+                :disable="!activeTeam"
+                @click="adjustActiveTeamScore(10)"
+              >
+                <q-tooltip>Sumar 10 puntos</q-tooltip>
+              </q-btn>
+
+              <q-btn
+                v-if="!roundWinner"
+                unelevated
+                no-caps
+                icon="emoji_events"
+                :label="`Acierto +${safePointsPerCorrect}`"
+                class="correct-answer-button"
+                :disable="!activeTeam"
+                @click="awardCurrentRound"
+              />
+
+              <q-btn
+                v-else
+                flat
+                no-caps
+                icon="undo"
+                label="Quitar resultado"
+                class="control-secondary"
+                @click="undoCurrentRoundAward"
+              />
+            </div>
+          </div>
+
           <div class="operator-stage-shell">
             <div v-if="playingRound" class="operator-image-stage" :style="playingGridStyle">
               <img :src="playingImageUrl" :alt="playingRound.answer" class="hidden-image" />
@@ -780,15 +1005,11 @@
                 :key="tile.id"
                 type="button"
                 class="cover-tile operator-cover-tile"
-                :class="{
-                  revealed: tile.revealed,
-                }"
+                :class="{ revealed: tile.revealed }"
                 :aria-label="`Descubrir casilla ${tile.id}`"
                 @click="togglePlayingTile(tile.id)"
               >
-                <span v-if="!tile.revealed">
-                  {{ tile.id }}
-                </span>
+                <span v-if="!tile.revealed">{{ tile.id }}</span>
               </button>
             </div>
           </div>
@@ -860,7 +1081,8 @@ import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 
-type ViewMode = 'library' | 'editor' | 'play';
+type ViewMode = 'library' | 'editor' | 'setup' | 'play';
+type StandaloneMode = 'free' | 'teams';
 
 interface HiddenImageTile {
   id: number;
@@ -914,12 +1136,38 @@ interface HiddenImageForm {
   title: string;
 }
 
+interface GameSetupTeam {
+  id: string;
+  name: string;
+}
+
+interface GameSessionTeam {
+  id: string;
+  name: string;
+  score: number;
+}
+
+interface RoundResult {
+  teamId: string;
+  teamName: string;
+  points: number;
+}
+
+interface StandaloneSessionSetup {
+  mode: StandaloneMode;
+  teamCount: number;
+  teams: GameSetupTeam[];
+  pointsPerCorrect: number;
+}
+
 const DB_NAME = 'icp-studio';
 const DB_VERSION = 1;
 const STORE_NAME = 'hidden-image-activities';
 
 const MIN_GRID_SIZE = 2;
 const MAX_GRID_SIZE = 8;
+const MIN_TEAM_COUNT = 2;
+const MAX_TEAM_COUNT = 8;
 
 const router = useRouter();
 const $q = useQuasar();
@@ -932,19 +1180,15 @@ const isProjectionLive = ref(false);
 const isSendingProjection = ref(false);
 
 const editingId = ref<string | null>(null);
-
 const activeRoundId = ref('');
 
 const activities = ref<HiddenImageActivity[]>([]);
-
 const rounds = ref<HiddenImageRoundDraft[]>([]);
-
 const tiles = ref<HiddenImageTile[]>([]);
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const previewUrls = new Map<string, string>();
-
 const projectionDataUrls = new Map<string, string>();
 
 let projectionSequence = 0;
@@ -955,13 +1199,25 @@ const form = reactive<HiddenImageForm>({
   title: '',
 });
 
+const setupActivity = ref<HiddenImageActivity | null>(null);
+
+const sessionSetup = reactive<StandaloneSessionSetup>({
+  mode: 'free',
+  teamCount: 2,
+  teams: [],
+  pointsPerCorrect: 100,
+});
+
 const playingActivity = ref<HiddenImageActivity | null>(null);
-
 const playingRoundIndex = ref(0);
-
 const playingTiles = ref<HiddenImageTile[]>([]);
-
 const playingImageUrl = ref('');
+
+const sessionMode = ref<StandaloneMode>('free');
+const sessionTeams = ref<GameSessionTeam[]>([]);
+const activeTeamId = ref('');
+const pointsPerCorrect = ref(100);
+const roundResults = reactive<Record<string, RoundResult>>({});
 
 const activeRoundIndex = computed(() =>
   rounds.value.findIndex((round) => round.id === activeRoundId.value),
@@ -1000,9 +1256,9 @@ const gridStyle = computed(() => ({
   '--hidden-image-columns': String(activeRound.value?.columns ?? 4),
 }));
 
-const playingRound = computed<HiddenImageStoredRound | null>(
-  () => playingActivity.value?.rounds[playingRoundIndex.value] ?? null,
-);
+const playingRound = computed<HiddenImageStoredRound | null>(() => {
+  return playingActivity.value?.rounds[playingRoundIndex.value] ?? null;
+});
 
 const playingRevealedCount = computed(
   () => playingTiles.value.filter((tile) => tile.revealed).length,
@@ -1016,6 +1272,36 @@ const playingGridStyle = computed(() => ({
   '--hidden-image-rows': String(playingRound.value?.rows ?? 4),
   '--hidden-image-columns': String(playingRound.value?.columns ?? 4),
 }));
+
+const hasTeams = computed(() => sessionMode.value === 'teams' && sessionTeams.value.length >= 2);
+
+const activeTeam = computed<GameSessionTeam | null>(() => {
+  return sessionTeams.value.find((team) => team.id === activeTeamId.value) ?? null;
+});
+
+const roundWinner = computed<RoundResult | null>(() => {
+  const roundId = playingRound.value?.id;
+
+  if (!roundId) {
+    return null;
+  }
+
+  return roundResults[roundId] ?? null;
+});
+
+const safePointsPerCorrect = computed(() =>
+  Math.min(
+    10000,
+    Math.max(
+      1,
+      Math.round(
+        Number(
+          viewMode.value === 'setup' ? sessionSetup.pointsPerCorrect : pointsPerCorrect.value,
+        ) || 100,
+      ),
+    ),
+  ),
+);
 
 function createIndexedDbError(message: string, error: DOMException | null): Error {
   if (error) {
@@ -1044,6 +1330,20 @@ function createEmptyRound(): HiddenImageRoundDraft {
     imageBlob: null,
     imageUrl: '',
   };
+}
+
+function createDefaultSetupTeams(count: number): GameSetupTeam[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: createId(),
+    name: `Equipo ${index + 1}`,
+  }));
+}
+
+function resetSessionSetup(): void {
+  sessionSetup.mode = 'free';
+  sessionSetup.teamCount = 2;
+  sessionSetup.teams = createDefaultSetupTeams(2);
+  sessionSetup.pointsPerCorrect = 100;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -1137,7 +1437,6 @@ async function loadActivities(): Promise<void> {
       const transaction = database.transaction(STORE_NAME, 'readonly');
 
       const store = transaction.objectStore(STORE_NAME);
-
       const request = store.getAll();
 
       request.onsuccess = () => {
@@ -1181,7 +1480,6 @@ async function persistActivity(activity: HiddenImageActivity): Promise<void> {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
 
       const store = transaction.objectStore(STORE_NAME);
-
       store.put(activity);
 
       transaction.oncomplete = () => resolve();
@@ -1231,6 +1529,11 @@ function goBack(): void {
     return;
   }
 
+  if (viewMode.value === 'setup') {
+    cancelGameSetup();
+    return;
+  }
+
   if (viewMode.value === 'play') {
     closePlayMode();
     return;
@@ -1247,7 +1550,6 @@ function createActivity(): void {
   const firstRound = createEmptyRound();
 
   rounds.value = [firstRound];
-
   activeRoundId.value = firstRound.id;
 
   rebuildTiles();
@@ -1278,7 +1580,6 @@ function addRound(): void {
   const round = createEmptyRound();
 
   rounds.value.push(round);
-
   activeRoundId.value = round.id;
 
   rebuildTiles();
@@ -1383,7 +1684,6 @@ function handleImageSelected(event: Event): void {
   }
 
   const target = event.target as HTMLInputElement;
-
   const file = target.files?.[0];
 
   if (!file) {
@@ -1399,7 +1699,6 @@ function handleImageSelected(event: Event): void {
     });
 
     target.value = '';
-
     return;
   }
 
@@ -1409,7 +1708,6 @@ function handleImageSelected(event: Event): void {
 
   round.imageBlob = file;
   round.imageName = file.name;
-
   round.imageUrl = URL.createObjectURL(file);
 
   resetTiles();
@@ -1504,7 +1802,6 @@ function changeRows(change: number): void {
   }
 
   round.rows = clampGridValue(round.rows + change);
-
   rebuildTiles();
 }
 
@@ -1516,7 +1813,6 @@ function changeColumns(change: number): void {
   }
 
   round.columns = clampGridValue(round.columns + change);
-
   rebuildTiles();
 }
 
@@ -1542,13 +1838,11 @@ function applyGridPreset(size: number): void {
 function validateActivity(): boolean {
   if (!form.title.trim()) {
     notifyWarning('Escribe un nombre para la actividad.');
-
     return false;
   }
 
   if (rounds.value.length === 0) {
     notifyWarning('Agrega al menos una imagen.');
-
     return false;
   }
 
@@ -1561,7 +1855,6 @@ function validateActivity(): boolean {
 
     if (!round.imageBlob) {
       activeRoundId.value = round.id;
-
       rebuildTiles();
 
       notifyWarning(`Selecciona una imagen para la ronda ${index + 1}.`);
@@ -1571,7 +1864,6 @@ function validateActivity(): boolean {
 
     if (!round.answer.trim()) {
       activeRoundId.value = round.id;
-
       rebuildTiles();
 
       notifyWarning(`Escribe la respuesta de la ronda ${index + 1}.`);
@@ -1624,7 +1916,6 @@ async function saveActivity(): Promise<void> {
     const wasEditing = Boolean(editingId.value);
 
     await persistActivity(activity);
-
     await loadActivities();
 
     viewMode.value = 'library';
@@ -1659,7 +1950,6 @@ function editActivity(activity: HiddenImageActivity): void {
   resetEditor();
 
   editingId.value = activity.id;
-
   form.title = activity.title;
 
   rounds.value = activity.rounds.map((round): HiddenImageRoundDraft => ({
@@ -1685,20 +1975,129 @@ function editActivity(activity: HiddenImageActivity): void {
 }
 
 function openActivity(activity: HiddenImageActivity): void {
-  cleanupPlayingImageUrl();
+  setupActivity.value = activity;
 
-  projectionDataUrls.clear();
+  resetSessionSetup();
+  resetGameSession();
 
-  isProjectionLive.value = false;
-  projectionSequence += 1;
+  viewMode.value = 'setup';
+}
+
+function cancelGameSetup(): void {
+  setupActivity.value = null;
+  resetSessionSetup();
+
+  viewMode.value = 'library';
+}
+
+function changeTeamCount(change: number): void {
+  const nextCount = Math.min(
+    MAX_TEAM_COUNT,
+    Math.max(MIN_TEAM_COUNT, sessionSetup.teamCount + change),
+  );
+
+  if (nextCount === sessionSetup.teamCount) {
+    return;
+  }
+
+  sessionSetup.teamCount = nextCount;
+
+  if (sessionSetup.teams.length < nextCount) {
+    while (sessionSetup.teams.length < nextCount) {
+      const index = sessionSetup.teams.length;
+
+      sessionSetup.teams.push({
+        id: createId(),
+        name: `Equipo ${index + 1}`,
+      });
+    }
+  } else {
+    sessionSetup.teams = sessionSetup.teams.slice(0, nextCount);
+  }
+}
+
+function validateSessionSetup(): boolean {
+  if (!setupActivity.value) {
+    return false;
+  }
+
+  if (sessionSetup.mode === 'free') {
+    return true;
+  }
+
+  sessionSetup.pointsPerCorrect = safePointsPerCorrect.value;
+
+  for (let index = 0; index < sessionSetup.teams.length; index += 1) {
+    const team = sessionSetup.teams[index];
+
+    if (!team) {
+      continue;
+    }
+
+    if (!team.name.trim()) {
+      notifyWarning(`Escribe el nombre del equipo ${index + 1}.`);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function startStandaloneGame(): void {
+  const activity = setupActivity.value;
+
+  if (!activity || !validateSessionSetup()) {
+    return;
+  }
+
+  resetGameSession();
 
   playingActivity.value = activity;
-
   playingRoundIndex.value = 0;
+
+  sessionMode.value = sessionSetup.mode;
+  pointsPerCorrect.value = safePointsPerCorrect.value;
+
+  if (sessionSetup.mode === 'teams') {
+    sessionTeams.value = sessionSetup.teams.map((team, index) => ({
+      id: team.id,
+      name: team.name.trim() || `Equipo ${index + 1}`,
+      score: 0,
+    }));
+
+    activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+  }
+
+  projectionDataUrls.clear();
+  projectionSequence += 1;
 
   preparePlayingRound();
 
+  setupActivity.value = null;
   viewMode.value = 'play';
+}
+
+function resetGameSession(): void {
+  cleanupPlayingImageUrl();
+
+  playingActivity.value = null;
+  playingRoundIndex.value = 0;
+  playingTiles.value = [];
+
+  sessionMode.value = 'free';
+  sessionTeams.value = [];
+  activeTeamId.value = '';
+  pointsPerCorrect.value = 100;
+
+  Object.keys(roundResults).forEach((key) => {
+    delete roundResults[key];
+  });
+
+  isProjectionLive.value = false;
+  isSendingProjection.value = false;
+
+  projectionDataUrls.clear();
+  projectionSequence += 1;
 }
 
 function closePlayMode(): void {
@@ -1708,18 +2107,7 @@ function closePlayMode(): void {
     });
   }
 
-  cleanupPlayingImageUrl();
-
-  projectionDataUrls.clear();
-
-  projectionSequence += 1;
-
-  playingActivity.value = null;
-  playingRoundIndex.value = 0;
-  playingTiles.value = [];
-
-  isProjectionLive.value = false;
-  isSendingProjection.value = false;
+  resetGameSession();
 
   viewMode.value = 'library';
 }
@@ -1747,7 +2135,6 @@ function setPlayingRound(index: number): void {
   }
 
   playingRoundIndex.value = index;
-
   preparePlayingRound();
 
   syncProjectionIfLive();
@@ -1806,6 +2193,119 @@ function revealRandomPlayingTile(): void {
   syncProjectionIfLive();
 }
 
+function adjustActiveTeamScore(amount: number): void {
+  const team = activeTeam.value;
+
+  if (!team || !Number.isFinite(amount)) {
+    return;
+  }
+
+  team.score += Math.round(amount);
+}
+
+function awardCurrentRound(): void {
+  const round = playingRound.value;
+  const team = activeTeam.value;
+
+  if (!round || !team || roundResults[round.id]) {
+    return;
+  }
+
+  const points = safePointsPerCorrect.value;
+
+  team.score += points;
+
+  roundResults[round.id] = {
+    teamId: team.id,
+    teamName: team.name,
+    points,
+  };
+
+  revealAllPlayingTiles();
+
+  $q.notify({
+    type: 'positive',
+    icon: 'emoji_events',
+    message: `${team.name} ganó ${points} puntos.`,
+    position: 'top',
+    timeout: 1600,
+  });
+}
+
+function undoCurrentRoundAward(): void {
+  const round = playingRound.value;
+
+  if (!round) {
+    return;
+  }
+
+  const result = roundResults[round.id];
+
+  if (!result) {
+    return;
+  }
+
+  const team = sessionTeams.value.find((item) => item.id === result.teamId);
+
+  if (team) {
+    team.score -= result.points;
+  }
+
+  delete roundResults[round.id];
+
+  $q.notify({
+    type: 'info',
+    icon: 'undo',
+    message: 'Resultado de la ronda eliminado.',
+    position: 'top',
+    timeout: 1400,
+  });
+}
+
+function resetFullGame(): void {
+  const confirmed = window.confirm('¿Reiniciar todo el marcador y los resultados de las rondas?');
+
+  if (!confirmed) {
+    return;
+  }
+
+  sessionTeams.value.forEach((team) => {
+    team.score = 0;
+  });
+
+  Object.keys(roundResults).forEach((key) => {
+    delete roundResults[key];
+  });
+
+  playingRoundIndex.value = 0;
+  activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+
+  preparePlayingRound();
+  syncProjectionIfLive();
+
+  $q.notify({
+    type: 'info',
+    icon: 'restart_alt',
+    message: 'Juego reiniciado.',
+    position: 'top',
+    timeout: 1400,
+  });
+}
+
+function teamInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return '?';
+  }
+
+  if (parts.length === 1) {
+    return parts[0]?.slice(0, 2).toUpperCase() ?? '?';
+  }
+
+  return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1855,7 +2355,6 @@ function syncProjectionIfLive(): void {
 
 async function sendPlayingStateToProjection(showNotification = true): Promise<void> {
   const activity = playingActivity.value;
-
   const round = playingRound.value;
 
   if (!activity || !round) {
@@ -1946,7 +2445,6 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
 function cleanupPlayingImageUrl(): void {
   if (playingImageUrl.value) {
     URL.revokeObjectURL(playingImageUrl.value);
-
     playingImageUrl.value = '';
   }
 }
@@ -1967,7 +2465,6 @@ async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
     };
 
     await persistActivity(duplicate);
-
     await loadActivities();
 
     $q.notify({
@@ -2000,7 +2497,6 @@ async function deleteActivity(activity: HiddenImageActivity): Promise<void> {
 
   try {
     await removePersistedActivity(activity.id);
-
     await loadActivities();
 
     $q.notify({
@@ -2074,6 +2570,7 @@ function formatDate(isoDate: string): string {
 }
 
 onMounted(() => {
+  resetSessionSetup();
   void loadActivities();
 });
 
@@ -2085,7 +2582,6 @@ onBeforeUnmount(() => {
   }
 
   projectionSequence += 1;
-
   projectionDataUrls.clear();
 
   cleanupPlayingImageUrl();
@@ -2255,14 +2751,16 @@ onBeforeUnmount(() => {
 .panel-heading h2,
 .preview-heading h2,
 .operator-topbar h2,
-.play-sidebar-heading h2 {
+.play-sidebar-heading h2,
+.game-setup-card h2 {
   margin: 0;
   color: #e7eef7;
   font-size: 15px;
 }
 
 .library-heading p,
-.play-sidebar-heading p {
+.play-sidebar-heading p,
+.setup-heading p {
   margin: 4px 0 0;
   color: #718399;
   font-size: 10px;
@@ -2388,9 +2886,7 @@ onBeforeUnmount(() => {
 .creator-area {
   display: grid;
   flex: 1;
-  grid-template-columns:
-    minmax(320px, 385px)
-    minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 385px) minmax(0, 1fr);
 }
 
 .configuration-panel {
@@ -2463,6 +2959,10 @@ onBeforeUnmount(() => {
 .play-round-item.active {
   background: rgb(192 132 252 / 10%);
   border-color: rgb(192 132 252 / 45%);
+}
+
+.play-round-item.completed:not(.active) {
+  border-color: rgb(34 197 94 / 35%);
 }
 
 .round-thumbnail {
@@ -2705,15 +3205,142 @@ onBeforeUnmount(() => {
   color: #c084fc;
 }
 
+/* SETUP */
+
+.game-setup-area {
+  display: grid;
+  flex: 1;
+  place-items: start center;
+  padding: 28px;
+  overflow-y: auto;
+  background: #08111c;
+}
+
+.game-setup-card {
+  width: min(100%, 760px);
+  padding: 22px;
+  background: #0c1723;
+  border: 1px solid #28394c;
+  border-radius: 14px;
+}
+
+.setup-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.setup-icon {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #c084fc;
+  background: rgb(192 132 252 / 12%);
+  border-radius: 13px;
+}
+
+.setup-icon .q-icon {
+  font-size: 28px;
+}
+
+.setup-section {
+  padding: 18px 0;
+  border-top: 1px solid #203044;
+}
+
+.mode-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.mode-card {
+  display: flex;
+  min-height: 84px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  color: #8fa2b8;
+  text-align: left;
+  background: #0b1622;
+  border: 1px solid #273a4e;
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.mode-card.active {
+  color: #e9d5ff;
+  background: rgb(192 132 252 / 9%);
+  border-color: #a855f7;
+}
+
+.mode-card .q-icon {
+  font-size: 27px;
+}
+
+.mode-card div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mode-card strong {
+  color: #dbe7f3;
+  font-size: 11px;
+}
+
+.mode-card span {
+  margin-top: 3px;
+  color: #74869a;
+  font-size: 9px;
+}
+
+.team-count-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd8e5;
+}
+
+.team-name-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.setup-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding-top: 18px;
+  border-top: 1px solid #203044;
+}
+
+.setup-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  color: #8193a7;
+  background: #0a141f;
+  border: 1px solid #24364a;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
 /* PLAY MODE */
 
 .play-area {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns:
-    280px
-    minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.play-area--teams {
+  grid-template-columns: 310px minmax(0, 1fr);
 }
 
 .play-sidebar {
@@ -2739,6 +3366,97 @@ onBeforeUnmount(() => {
   border-radius: 7px;
   font-size: 10px;
   font-weight: 700;
+}
+
+.scoreboard {
+  padding: 15px 0;
+  border-bottom: 1px solid #1f3042;
+}
+
+.scoreboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.scoreboard-heading strong {
+  color: #d6e2ef;
+  font-size: 11px;
+}
+
+.scoreboard-reset-button {
+  color: #75879b;
+}
+
+.score-team {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  color: inherit;
+  text-align: left;
+  background: #0d1926;
+  border: 1px solid #25384c;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.score-team.active {
+  background: rgb(59 130 246 / 10%);
+  border-color: #3b82f6;
+}
+
+.score-team.winner {
+  box-shadow: inset 3px 0 0 #22c55e;
+}
+
+.score-team-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #c4d2e1;
+  background: #18283a;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.score-team-main div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.score-team-main strong {
+  overflow: hidden;
+  color: #d7e3ef;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-team-main small {
+  color: #66809e;
+  font-size: 8px;
+}
+
+.team-score {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 750;
 }
 
 .private-answer-card {
@@ -2783,11 +3501,78 @@ onBeforeUnmount(() => {
 }
 
 .operator-topbar,
-.operator-controls {
+.operator-controls,
+.active-team-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+}
+
+.active-team-bar {
+  padding: 10px 12px;
+  background: #0c1723;
+  border: 1px solid #22364b;
+  border-radius: 10px;
+}
+
+.active-team-bar > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.active-team-label {
+  color: #60758d;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.active-team-bar strong {
+  color: #eef5fb;
+  font-size: 13px;
+}
+
+.active-team-bar small {
+  color: #70849a;
+  font-size: 8px;
+}
+
+.score-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.score-adjust-button {
+  color: #9bacc0;
+  background: #132235;
+}
+
+.active-team-score {
+  min-width: 48px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.correct-answer-button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #fff;
+  background: #16a34a;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.operator-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #718399;
+  font-size: 9px;
 }
 
 .operator-stage-shell {
@@ -2809,9 +3594,10 @@ onBeforeUnmount(() => {
   border-radius: 10px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .creator-area,
-  .play-area {
+  .play-area,
+  .play-area--teams {
     grid-template-columns: 1fr;
   }
 
@@ -2822,19 +3608,26 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 650px) {
+@media (max-width: 700px) {
   .hidden-image-page {
     padding: 8px;
   }
 
   .page-header,
-  .operator-controls {
+  .operator-controls,
+  .active-team-bar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .grid-controls {
+  .grid-controls,
+  .mode-selector,
+  .team-name-grid {
     grid-template-columns: 1fr;
+  }
+
+  .score-actions {
+    flex-wrap: wrap;
   }
 }
 </style>
