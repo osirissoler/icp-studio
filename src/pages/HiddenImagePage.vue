@@ -12,11 +12,9 @@
             aria-label="Volver"
             @click="goBack"
           />
-
           <div class="activity-icon">
             <q-icon name="image_search" />
           </div>
-
           <div class="header-copy">
             <h1>Imagen escondida</h1>
             <p>Crea actividades con imágenes, casillas, pistas y puntuación.</p>
@@ -35,7 +33,6 @@
 
         <div v-else-if="viewMode === 'editor'" class="header-actions">
           <q-btn flat no-caps label="Cancelar" class="cancel-button" @click="cancelActivity" />
-
           <q-btn
             unelevated
             no-caps
@@ -54,15 +51,17 @@
             icon="close"
             label="Cancelar"
             class="cancel-button"
+            :disable="isSendingProjection"
             @click="cancelGameSetup"
           />
-
           <q-btn
             unelevated
             no-caps
-            icon="play_arrow"
-            label="Comenzar juego"
+            icon="cast"
+            label="Comenzar en vivo"
             class="primary-button"
+            :loading="isSendingProjection"
+            :disable="isSendingProjection"
             @click="startStandaloneGame"
           />
         </div>
@@ -86,9 +85,10 @@
             unelevated
             no-caps
             icon="cast"
-            :label="isProjectionLive ? 'Actualizar en vivo' : 'Enviar en vivo'"
+            label="Actualizar en vivo"
             class="primary-button"
             :loading="isSendingProjection"
+            :disable="!isProjectionLive || isSendingProjection"
             @click="sendPlayingStateToProjection(true)"
           />
         </div>
@@ -105,14 +105,11 @@
           <div class="empty-icon">
             <q-icon name="image_search" />
           </div>
-
           <h2>Imagen escondida</h2>
-
           <p>
             Todavía no tienes actividades guardadas. Cada actividad puede contener varias imágenes y
             cada imagen puede tener sus propias pistas.
           </p>
-
           <q-btn
             unelevated
             no-caps
@@ -128,7 +125,6 @@
             <div>
               <span class="eyebrow">ACTIVIDADES GUARDADAS</span>
               <h2>Mis actividades</h2>
-
               <p>
                 {{ activities.length }}
                 {{ activities.length === 1 ? 'actividad guardada' : 'actividades guardadas' }}
@@ -144,14 +140,11 @@
                   :src="getActivityPreviewUrl(activity)"
                   :alt="activity.title"
                 />
-
                 <div v-else class="activity-image-placeholder">
                   <q-icon name="image" />
                 </div>
-
                 <div class="activity-round-count">
                   <q-icon name="collections" />
-
                   <span>
                     {{ activity.rounds.length }}
                     {{ activity.rounds.length === 1 ? 'imagen' : 'imágenes' }}
@@ -170,18 +163,12 @@
                     <q-menu dark>
                       <q-list dense style="min-width: 180px">
                         <q-item clickable v-close-popup @click="editActivity(activity)">
-                          <q-item-section avatar>
-                            <q-icon name="edit" />
-                          </q-item-section>
-
+                          <q-item-section avatar><q-icon name="edit" /></q-item-section>
                           <q-item-section>Editar</q-item-section>
                         </q-item>
 
                         <q-item clickable v-close-popup @click="duplicateActivity(activity)">
-                          <q-item-section avatar>
-                            <q-icon name="content_copy" />
-                          </q-item-section>
-
+                          <q-item-section avatar><q-icon name="content_copy" /></q-item-section>
                           <q-item-section>Duplicar actividad</q-item-section>
                         </q-item>
 
@@ -193,10 +180,7 @@
                           class="delete-menu-item"
                           @click="deleteActivity(activity)"
                         >
-                          <q-item-section avatar>
-                            <q-icon name="delete_outline" />
-                          </q-item-section>
-
+                          <q-item-section avatar><q-icon name="delete_outline" /></q-item-section>
                           <q-item-section>Eliminar</q-item-section>
                         </q-item>
                       </q-list>
@@ -206,22 +190,16 @@
 
                 <div class="activity-info-row">
                   <div>
-                    <q-icon name="collections" />
-                    <span>{{ activity.rounds.length }} rondas</span>
+                    <q-icon name="collections" /><span>{{ activity.rounds.length }} rondas</span>
                   </div>
-
                   <div>
-                    <q-icon name="lightbulb" />
-                    <span>{{ countActivityHints(activity) }} pistas</span>
+                    <q-icon name="lightbulb" /><span
+                      >{{ countActivityHints(activity) }} pistas</span
+                    >
                   </div>
-
                   <div v-if="activity.rounds[0]">
                     <q-icon name="grid_view" />
-                    <span>
-                      {{ activity.rounds[0].rows }}
-                      ×
-                      {{ activity.rounds[0].columns }}
-                    </span>
+                    <span>{{ activity.rounds[0].rows }} × {{ activity.rounds[0].columns }}</span>
                   </div>
                 </div>
 
@@ -234,7 +212,6 @@
                     class="secondary-button"
                     @click="editActivity(activity)"
                   />
-
                   <q-btn
                     unelevated
                     no-caps
@@ -255,21 +232,16 @@
         <aside class="configuration-panel">
           <div class="panel-heading">
             <div>
-              <span class="eyebrow">
-                {{ editingId ? 'EDITANDO ACTIVIDAD' : 'NUEVA ACTIVIDAD' }}
-              </span>
-
-              <h2>
-                {{ editingId ? 'Editar Imagen escondida' : 'Configurar actividad' }}
-              </h2>
+              <span class="eyebrow">{{
+                editingId ? 'EDITANDO ACTIVIDAD' : 'NUEVA ACTIVIDAD'
+              }}</span>
+              <h2>{{ editingId ? 'Editar Imagen escondida' : 'Configurar actividad' }}</h2>
             </div>
-
             <q-icon name="tune" />
           </div>
 
           <div class="form-section">
             <label class="field-label">Nombre de la actividad</label>
-
             <q-input
               v-model="form.title"
               dense
@@ -284,10 +256,8 @@
             <div class="section-title-row">
               <div>
                 <label class="field-label">Imágenes de la actividad</label>
-
-                <span class="field-help"> Cada imagen funciona como una ronda independiente. </span>
+                <span class="field-help">Cada imagen funciona como una ronda independiente.</span>
               </div>
-
               <q-btn
                 unelevated
                 dense
@@ -314,20 +284,16 @@
                     :src="round.imageUrl"
                     :alt="round.answer || `Imagen ${index + 1}`"
                   />
-
                   <q-icon v-else name="image" />
                 </div>
-
                 <div class="round-copy">
                   <strong>Imagen {{ index + 1 }}</strong>
                   <span>{{ round.answer.trim() || 'Sin respuesta' }}</span>
-
                   <small>
                     {{ round.hints.length }}
                     {{ round.hints.length === 1 ? 'pista' : 'pistas' }}
                   </small>
                 </div>
-
                 <q-icon v-if="round.id === activeRoundId" name="chevron_right" />
               </button>
             </div>
@@ -339,12 +305,10 @@
                 <span class="eyebrow">CONFIGURACIÓN DE IMAGEN</span>
                 <h3>Imagen {{ activeRoundNumber }}</h3>
               </div>
-
               <div class="round-editor-actions">
                 <q-btn flat dense round icon="content_copy" @click="duplicateRound">
                   <q-tooltip>Duplicar imagen</q-tooltip>
                 </q-btn>
-
                 <q-btn
                   flat
                   dense
@@ -361,7 +325,6 @@
 
             <div class="form-section">
               <label class="field-label">Respuesta</label>
-
               <q-input
                 v-model="activeRound.answer"
                 dense
@@ -370,13 +333,11 @@
                 placeholder="Ej. Daniel en el foso de los leones"
                 class="app-input"
               />
-
-              <span class="field-help"> La respuesta solo será visible para el operador. </span>
+              <span class="field-help">La respuesta solo será visible para el operador.</span>
             </div>
 
             <div class="form-section">
               <label class="field-label">Referencia bíblica</label>
-
               <q-input
                 v-model="activeRound.bibleReference"
                 dense
@@ -391,10 +352,8 @@
               <div class="field-heading">
                 <div>
                   <label class="field-label">Imagen</label>
-
-                  <span class="field-help"> Selecciona la imagen que será descubierta. </span>
+                  <span class="field-help">Selecciona la imagen que será descubierta.</span>
                 </div>
-
                 <q-btn
                   v-if="activeRound.imageUrl"
                   flat
@@ -414,117 +373,25 @@
                   class="file-input"
                   @change="handleImageSelected"
                 />
-
                 <q-icon :name="activeRound.imageUrl ? 'swap_horiz' : 'add_photo_alternate'" />
-
                 <div>
-                  <strong>
-                    {{ activeRound.imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen' }}
-                  </strong>
-
-                  <span>
-                    {{ activeRound.imageName || 'JPG, PNG, WEBP u otra imagen compatible.' }}
-                  </span>
+                  <strong>{{
+                    activeRound.imageUrl ? 'Cambiar imagen' : 'Seleccionar imagen'
+                  }}</strong>
+                  <span>{{
+                    activeRound.imageName || 'JPG, PNG, WEBP u otra imagen compatible.'
+                  }}</span>
                 </div>
               </label>
-            </div>
-
-            <div class="form-section">
-              <div class="section-title-row">
-                <div>
-                  <label class="field-label">Cuadrícula</label>
-
-                  <span class="field-help"> Configura cuántas casillas cubrirán esta imagen. </span>
-                </div>
-
-                <q-badge class="grid-count"> {{ totalTiles }} casillas </q-badge>
-              </div>
-
-              <div class="grid-controls">
-                <div class="number-control">
-                  <span>Filas</span>
-
-                  <div class="number-control-buttons">
-                    <q-btn
-                      flat
-                      dense
-                      round
-                      icon="remove"
-                      :disable="activeRound.rows <= MIN_GRID_SIZE"
-                      @click="changeRows(-1)"
-                    />
-
-                    <strong>{{ activeRound.rows }}</strong>
-
-                    <q-btn
-                      flat
-                      dense
-                      round
-                      icon="add"
-                      :disable="activeRound.rows >= MAX_GRID_SIZE"
-                      @click="changeRows(1)"
-                    />
-                  </div>
-                </div>
-
-                <div class="number-control">
-                  <span>Columnas</span>
-
-                  <div class="number-control-buttons">
-                    <q-btn
-                      flat
-                      dense
-                      round
-                      icon="remove"
-                      :disable="activeRound.columns <= MIN_GRID_SIZE"
-                      @click="changeColumns(-1)"
-                    />
-
-                    <strong>{{ activeRound.columns }}</strong>
-
-                    <q-btn
-                      flat
-                      dense
-                      round
-                      icon="add"
-                      :disable="activeRound.columns >= MAX_GRID_SIZE"
-                      @click="changeColumns(1)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div class="grid-presets">
-                <q-btn
-                  v-for="preset in gridPresets"
-                  :key="preset"
-                  flat
-                  dense
-                  no-caps
-                  :label="`${preset} × ${preset}`"
-                  :class="[
-                    'preset-button',
-                    {
-                      active: activeRound.rows === preset && activeRound.columns === preset,
-                    },
-                  ]"
-                  @click="applyGridPreset(preset)"
-                />
-              </div>
             </div>
 
             <!-- PISTAS DE LA RONDA -->
             <div class="form-section hints-editor-section">
               <div class="section-title-row">
                 <div>
-                  <label class="field-label">
-                    <q-icon name="lightbulb" />
-                    Pistas
-                  </label>
-
-                  <span class="field-help"> Estas pistas podrán mostrarse durante el juego. </span>
+                  <label class="field-label"><q-icon name="lightbulb" /> Pistas</label>
+                  <span class="field-help">Estas pistas podrán mostrarse durante el juego.</span>
                 </div>
-
                 <q-btn
                   unelevated
                   dense
@@ -549,7 +416,6 @@
                 >
                   <div class="hint-editor-heading">
                     <strong>Pista {{ hintIndex + 1 }}</strong>
-
                     <q-btn
                       flat
                       dense
@@ -582,7 +448,6 @@
                       label="Costo"
                       class="hint-cost-select"
                     />
-
                     <q-input
                       v-if="hint.costMode === 'custom'"
                       v-model.number="hint.customCost"
@@ -598,6 +463,80 @@
                 </div>
               </div>
             </div>
+
+            <div class="form-section">
+              <div class="section-title-row">
+                <div>
+                  <label class="field-label">Cuadrícula</label>
+                  <span class="field-help">Configura cuántas casillas cubrirán esta imagen.</span>
+                </div>
+                <q-badge class="grid-count">{{ totalTiles }} casillas</q-badge>
+              </div>
+
+              <div class="grid-controls">
+                <div class="number-control">
+                  <span>Filas</span>
+                  <div class="number-control-buttons">
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="remove"
+                      :disable="activeRound.rows <= MIN_GRID_SIZE"
+                      @click="changeRows(-1)"
+                    />
+                    <strong>{{ activeRound.rows }}</strong>
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="add"
+                      :disable="activeRound.rows >= MAX_GRID_SIZE"
+                      @click="changeRows(1)"
+                    />
+                  </div>
+                </div>
+
+                <div class="number-control">
+                  <span>Columnas</span>
+                  <div class="number-control-buttons">
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="remove"
+                      :disable="activeRound.columns <= MIN_GRID_SIZE"
+                      @click="changeColumns(-1)"
+                    />
+                    <strong>{{ activeRound.columns }}</strong>
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="add"
+                      :disable="activeRound.columns >= MAX_GRID_SIZE"
+                      @click="changeColumns(1)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid-presets">
+                <q-btn
+                  v-for="preset in gridPresets"
+                  :key="preset"
+                  flat
+                  dense
+                  no-caps
+                  :label="`${preset} × ${preset}`"
+                  :class="[
+                    'preset-button',
+                    { active: activeRound.rows === preset && activeRound.columns === preset },
+                  ]"
+                  @click="applyGridPreset(preset)"
+                />
+              </div>
+            </div>
           </template>
         </aside>
 
@@ -606,20 +545,14 @@
           <div class="preview-heading">
             <div>
               <span class="eyebrow">PREVISUALIZACIÓN</span>
-
-              <h2>
-                {{ form.title.trim() || 'Imagen escondida' }}
-              </h2>
-
+              <h2>{{ form.title.trim() || 'Imagen escondida' }}</h2>
               <span v-if="activeRound" class="preview-round-label">
                 Imagen {{ activeRoundNumber }} de {{ rounds.length }}
               </span>
             </div>
-
             <div class="preview-status">
               <q-icon name="visibility" />
-
-              <span> {{ revealedCount }} / {{ totalTiles }} descubiertas </span>
+              <span>{{ revealedCount }} / {{ totalTiles }} descubiertas</span>
             </div>
           </div>
 
@@ -672,7 +605,6 @@
                 alt=""
                 class="hidden-image"
               />
-
               <div v-else class="image-placeholder">
                 <q-icon name="image" />
                 <strong>Selecciona una imagen</strong>
@@ -686,9 +618,7 @@
                 :class="{ revealed: tile.revealed }"
                 @click="toggleTile(tile.id)"
               >
-                <span v-if="!tile.revealed">
-                  {{ tile.id }}
-                </span>
+                <span v-if="!tile.revealed">{{ tile.id }}</span>
               </button>
             </div>
           </div>
@@ -696,14 +626,10 @@
           <div v-if="activeRound" class="preview-footer">
             <div class="operator-answer">
               <span>RESPUESTA DEL OPERADOR</span>
-
-              <strong>
-                {{ activeRound.answer.trim() || 'Sin respuesta definida' }}
-              </strong>
-
-              <small v-if="activeRound.bibleReference.trim()">
-                {{ activeRound.bibleReference }}
-              </small>
+              <strong>{{ activeRound.answer.trim() || 'Sin respuesta definida' }}</strong>
+              <small v-if="activeRound.bibleReference.trim()">{{
+                activeRound.bibleReference
+              }}</small>
             </div>
 
             <div class="preview-actions">
@@ -715,7 +641,6 @@
                 class="secondary-button"
                 @click="resetTiles"
               />
-
               <q-btn
                 flat
                 no-caps
@@ -725,7 +650,6 @@
                 :disable="allTilesRevealed"
                 @click="revealRandomTile"
               />
-
               <q-btn
                 flat
                 no-caps
@@ -743,20 +667,30 @@
       <section v-else-if="viewMode === 'setup'" class="game-setup-area">
         <div class="game-setup-card">
           <div class="setup-heading">
-            <div class="setup-icon">
-              <q-icon name="sports_esports" />
-            </div>
-
+            <div class="setup-icon"><q-icon name="sports_esports" /></div>
             <div>
               <span class="eyebrow">PREPARAR JUEGO</span>
               <h2>{{ setupActivity?.title }}</h2>
-              <p>Configura cómo se jugará esta ejecución.</p>
+              <p>
+                Configura la sesión. El juego no comenzará hasta que la primera imagen esté enviada
+                en vivo.
+              </p>
+            </div>
+          </div>
+
+          <div class="live-requirement-card">
+            <q-icon name="cast_connected" />
+            <div>
+              <strong>En vivo obligatorio</strong>
+              <span>
+                Al pulsar “Comenzar en vivo”, ICP Studio enviará primero el juego a las pantallas y
+                solo después abrirá los controles del operador.
+              </span>
             </div>
           </div>
 
           <div class="setup-section">
             <label class="field-label">Modo de juego</label>
-
             <div class="mode-selector">
               <button
                 type="button"
@@ -765,7 +699,6 @@
                 @click="sessionSetup.mode = 'free'"
               >
                 <q-icon name="person" />
-
                 <div>
                   <strong>Juego libre</strong>
                   <span>Sin equipos ni marcador.</span>
@@ -779,10 +712,9 @@
                 @click="sessionSetup.mode = 'teams'"
               >
                 <q-icon name="groups" />
-
                 <div>
                   <strong>Por equipos</strong>
-                  <span>Equipos, marcador, puntos y pistas.</span>
+                  <span>Equipos, marcador, puntos y pistas por grupo.</span>
                 </div>
               </button>
             </div>
@@ -793,7 +725,7 @@
               <div class="section-title-row">
                 <div>
                   <label class="field-label">Cantidad de equipos</label>
-                  <span class="field-help"> Puedes usar entre 2 y 8 equipos. </span>
+                  <span class="field-help">Puedes usar entre 2 y 8 equipos.</span>
                 </div>
 
                 <div class="team-count-control">
@@ -805,9 +737,7 @@
                     :disable="sessionSetup.teamCount <= MIN_TEAM_COUNT"
                     @click="changeTeamCount(-1)"
                   />
-
                   <strong>{{ sessionSetup.teamCount }}</strong>
-
                   <q-btn
                     flat
                     round
@@ -822,7 +752,6 @@
 
             <div class="setup-section">
               <label class="field-label">Nombres de los equipos</label>
-
               <div class="team-name-grid">
                 <q-input
                   v-for="(team, index) in sessionSetup.teams"
@@ -837,9 +766,27 @@
               </div>
             </div>
 
+            <div class="setup-section initial-score-section">
+              <div>
+                <label class="field-label">Puntos iniciales por equipo</label>
+                <span class="field-help">
+                  Este será el saldo inicial de cada grupo y podrá utilizarse para comprar pistas.
+                </span>
+              </div>
+              <q-input
+                v-model.number="sessionSetup.initialScore"
+                type="number"
+                min="0"
+                dense
+                outlined
+                dark
+                suffix="pts"
+                class="app-input initial-score-input"
+              />
+            </div>
+
             <div class="setup-section">
               <label class="field-label">Sistema de puntuación</label>
-
               <div class="score-mode-selector">
                 <button
                   type="button"
@@ -848,10 +795,9 @@
                   @click="sessionSetup.scoringMode = 'none'"
                 >
                   <q-icon name="block" />
-
                   <div>
-                    <strong>Sin puntuación</strong>
-                    <span>Solo registra el equipo que acertó.</span>
+                    <strong>Sin puntuación por acierto</strong>
+                    <span>No agrega puntos al responder correctamente.</span>
                   </div>
                 </button>
 
@@ -862,7 +808,6 @@
                   @click="sessionSetup.scoringMode = 'fixed'"
                 >
                   <q-icon name="stars" />
-
                   <div>
                     <strong>Fija</strong>
                     <span>Cada respuesta vale la misma cantidad.</span>
@@ -872,13 +817,10 @@
                 <button
                   type="button"
                   class="score-mode-card"
-                  :class="{
-                    active: sessionSetup.scoringMode === 'decreasing',
-                  }"
+                  :class="{ active: sessionSetup.scoringMode === 'decreasing' }"
                   @click="sessionSetup.scoringMode = 'decreasing'"
                 >
                   <q-icon name="trending_down" />
-
                   <div>
                     <strong>Decreciente</strong>
                     <span>Descubrir casillas reduce los puntos.</span>
@@ -894,7 +836,6 @@
                     sessionSetup.scoringMode === 'fixed' ? 'Puntos por acierto' : 'Puntos máximos'
                   }}
                 </label>
-
                 <q-input
                   v-model.number="sessionSetup.basePoints"
                   dense
@@ -909,8 +850,7 @@
 
               <template v-if="sessionSetup.scoringMode === 'decreasing'">
                 <div>
-                  <label class="field-label"> Descuento por casilla </label>
-
+                  <label class="field-label">Descuento por casilla</label>
                   <q-input
                     v-model.number="sessionSetup.deductionPerReveal"
                     dense
@@ -922,10 +862,8 @@
                     class="app-input"
                   />
                 </div>
-
                 <div>
-                  <label class="field-label"> Puntuación mínima </label>
-
+                  <label class="field-label">Puntuación mínima</label>
                   <q-input
                     v-model.number="sessionSetup.minimumPoints"
                     dense
@@ -944,15 +882,12 @@
           <!-- CONFIGURACIÓN DE PISTAS -->
           <div v-if="activityHasHints" class="setup-section hint-setup-section">
             <div class="hint-section-heading">
-              <div class="hint-section-icon">
-                <q-icon name="lightbulb" />
-              </div>
-
+              <div class="hint-section-icon"><q-icon name="lightbulb" /></div>
               <div>
                 <label class="field-label">Sistema de pistas</label>
-
                 <span class="field-help">
-                  Define cómo podrán utilizarse las pistas durante este juego.
+                  La compra pertenece al grupo seleccionado. Después de comprarla podrás mostrarla u
+                  ocultarla sin volver a cobrar.
                 </span>
               </div>
             </div>
@@ -988,7 +923,7 @@
               >
                 <q-icon name="paid" />
                 <strong>Con costo</strong>
-                <span>Las pistas descuentan puntos.</span>
+                <span>Las pistas descuentan puntos una sola vez por grupo.</span>
               </button>
 
               <button
@@ -1008,8 +943,7 @@
               class="hint-settings-grid"
             >
               <div v-if="sessionSetup.hintMode === 'mixed'">
-                <label class="field-label"> Pistas gratis por equipo </label>
-
+                <label class="field-label">Pistas gratis por equipo</label>
                 <q-input
                   v-model.number="sessionSetup.freeHintsPerTeam"
                   type="number"
@@ -1023,8 +957,7 @@
               </div>
 
               <div>
-                <label class="field-label"> Costo predeterminado </label>
-
+                <label class="field-label">Costo predeterminado</label>
                 <q-input
                   v-model.number="sessionSetup.hintDefaultCost"
                   type="number"
@@ -1049,13 +982,12 @@
 
           <div class="setup-summary">
             <div>
-              <q-icon name="collections" />
-              <span>{{ setupActivity?.rounds.length ?? 0 }} imágenes</span>
+              <q-icon name="collections" /><span
+                >{{ setupActivity?.rounds.length ?? 0 }} imágenes</span
+              >
             </div>
-
             <div>
               <q-icon :name="sessionSetup.mode === 'teams' ? 'groups' : 'person'" />
-
               <span>
                 {{
                   sessionSetup.mode === 'teams'
@@ -1064,10 +996,12 @@
                 }}
               </span>
             </div>
-
+            <div v-if="sessionSetup.mode === 'teams'">
+              <q-icon name="score" />
+              <span>{{ normalizedInitialScore }} pts iniciales</span>
+            </div>
             <div v-if="activityHasHints">
-              <q-icon name="lightbulb" />
-              <span>{{ setupHintLabel }}</span>
+              <q-icon name="lightbulb" /><span>{{ setupHintLabel }}</span>
             </div>
           </div>
         </div>
@@ -1078,14 +1012,22 @@
         <aside class="play-sidebar">
           <div class="play-sidebar-heading">
             <span class="eyebrow">MODO OPERADOR</span>
-
             <h2>{{ playingActivity?.title }}</h2>
+            <p>Imagen {{ playingRoundIndex + 1 }} de {{ playingActivity?.rounds.length ?? 0 }}</p>
+          </div>
 
-            <p>
-              Imagen {{ playingRoundIndex + 1 }}
-              de
-              {{ playingActivity?.rounds.length ?? 0 }}
-            </p>
+          <div class="live-state-panel" :class="{ live: isProjectionLive }">
+            <q-icon :name="isProjectionLive ? 'cast_connected' : 'cast_off'" />
+            <div>
+              <strong>{{ isProjectionLive ? 'Juego en vivo' : 'Juego bloqueado' }}</strong>
+              <span>
+                {{
+                  isProjectionLive
+                    ? 'Los controles están sincronizados con las pantallas.'
+                    : 'Los controles no pueden utilizarse fuera de En Vivo.'
+                }}
+              </span>
+            </div>
           </div>
 
           <div v-if="hasTeams" class="scoreboard">
@@ -1094,8 +1036,14 @@
                 <span class="eyebrow">MARCADOR</span>
                 <strong>Equipos</strong>
               </div>
-
-              <q-btn flat round dense icon="restart_alt" @click="resetFullGame">
+              <q-btn
+                flat
+                round
+                dense
+                icon="restart_alt"
+                :disable="!isProjectionLive"
+                @click="resetFullGame"
+              >
                 <q-tooltip>Reiniciar juego completo</q-tooltip>
               </q-btn>
             </div>
@@ -1109,29 +1057,18 @@
                 active: team.id === activeTeamId,
                 winner: roundWinner?.teamId === team.id,
               }"
-              @click="activeTeamId = team.id"
+              :disabled="!isProjectionLive"
+              @click="selectActiveTeam(team.id)"
             >
               <div class="score-team-main">
-                <span class="team-avatar">
-                  {{ teamInitials(team.name) }}
-                </span>
-
+                <span class="team-avatar">{{ teamInitials(team.name) }}</span>
                 <div>
                   <strong>{{ team.name }}</strong>
-
-                  <small v-if="team.id === activeTeamId"> Equipo seleccionado </small>
+                  <small v-if="team.id === activeTeamId">Equipo seleccionado</small>
                 </div>
               </div>
 
-              <span v-if="hasScoring" class="team-score">
-                {{ team.score }}
-              </span>
-
-              <q-icon
-                v-else-if="roundWinner?.teamId === team.id"
-                name="emoji_events"
-                class="team-winner-icon"
-              />
+              <span class="team-score">{{ team.score }}</span>
             </button>
           </div>
 
@@ -1145,21 +1082,17 @@
                 active: index === playingRoundIndex,
                 completed: Boolean(roundResults[round.id]),
               }"
+              :disabled="!isProjectionLive"
               @click="setPlayingRound(index)"
             >
               <span class="play-round-number">
                 <q-icon v-if="roundResults[round.id]" name="check" />
-
-                <template v-else>
-                  {{ index + 1 }}
-                </template>
+                <template v-else>{{ index + 1 }}</template>
               </span>
-
               <div>
                 <strong>Imagen {{ index + 1 }}</strong>
                 <small>{{ round.answer }}</small>
               </div>
-
               <q-icon v-if="index === playingRoundIndex" name="play_arrow" />
             </button>
           </div>
@@ -1169,10 +1102,8 @@
               <q-icon name="lock" />
               INFORMACIÓN DEL OPERADOR
             </div>
-
             <span>Respuesta</span>
             <strong>{{ playingRound.answer }}</strong>
-
             <template v-if="playingRound.bibleReference">
               <span>Referencia bíblica</span>
               <strong>{{ playingRound.bibleReference }}</strong>
@@ -1196,19 +1127,12 @@
                       : 'VALOR DE LA RONDA'
                   }}
                 </span>
-
                 <strong>{{ currentAwardPoints }}</strong>
               </div>
 
               <div class="operator-progress">
                 <q-icon name="grid_view" />
-
-                <strong>
-                  {{ playingRevealedCount }}
-                  /
-                  {{ playingTiles.length }}
-                </strong>
-
+                <strong>{{ playingRevealedCount }} / {{ playingTiles.length }}</strong>
                 <span>descubiertas</span>
               </div>
             </div>
@@ -1216,39 +1140,29 @@
 
           <div v-if="hasTeams" class="active-team-bar">
             <div>
-              <span class="active-team-label"> EQUIPO ACTUAL </span>
-
-              <strong>
-                {{ activeTeam?.name ?? 'Selecciona un equipo' }}
-              </strong>
-
-              <small v-if="hasScoring"> {{ activeTeam?.score ?? 0 }} puntos </small>
+              <span class="active-team-label">EQUIPO ACTUAL</span>
+              <strong>{{ activeTeam?.name ?? 'Selecciona un equipo' }}</strong>
+              <small>{{ activeTeam?.score ?? 0 }} puntos</small>
             </div>
 
             <div class="score-actions">
-              <template v-if="hasScoring">
-                <q-btn
-                  flat
-                  round
-                  dense
-                  icon="remove"
-                  :disable="!activeTeam"
-                  @click="adjustActiveTeamScore(-10)"
-                />
-
-                <span class="active-team-score">
-                  {{ activeTeam?.score ?? 0 }}
-                </span>
-
-                <q-btn
-                  flat
-                  round
-                  dense
-                  icon="add"
-                  :disable="!activeTeam"
-                  @click="adjustActiveTeamScore(10)"
-                />
-              </template>
+              <q-btn
+                flat
+                round
+                dense
+                icon="remove"
+                :disable="!isProjectionLive || !activeTeam"
+                @click="adjustActiveTeamScore(-10)"
+              />
+              <span class="active-team-score">{{ activeTeam?.score ?? 0 }}</span>
+              <q-btn
+                flat
+                round
+                dense
+                icon="add"
+                :disable="!isProjectionLive || !activeTeam"
+                @click="adjustActiveTeamScore(10)"
+              />
 
               <q-btn
                 v-if="!roundWinner"
@@ -1257,7 +1171,7 @@
                 icon="emoji_events"
                 :label="awardButtonLabel"
                 class="correct-answer-button"
-                :disable="!activeTeam"
+                :disable="!isProjectionLive || !activeTeam"
                 @click="awardCurrentRound"
               />
 
@@ -1268,6 +1182,7 @@
                 icon="undo"
                 label="Quitar resultado"
                 class="control-secondary"
+                :disable="!isProjectionLive"
                 @click="undoCurrentRoundAward"
               />
             </div>
@@ -1284,31 +1199,22 @@
               <div>
                 <span class="eyebrow">PISTAS</span>
                 <strong>Pistas de esta imagen</strong>
+                <small v-if="hasTeams">
+                  Compra para: {{ activeTeam?.name ?? 'selecciona un equipo' }}
+                </small>
               </div>
 
-              <div class="hint-heading-actions">
-                <q-btn
-                  v-if="currentPublicHint"
-                  flat
-                  dense
-                  no-caps
-                  icon="visibility_off"
-                  label="Ocultar de pantalla"
-                  class="control-secondary"
-                  @click="hidePublicHint"
-                />
-
-                <q-btn
-                  v-if="canUndoHint"
-                  flat
-                  dense
-                  no-caps
-                  icon="undo"
-                  label="Deshacer última"
-                  class="control-secondary"
-                  @click="undoLastHintUsage"
-                />
-              </div>
+              <q-btn
+                v-if="canUndoHint"
+                flat
+                dense
+                no-caps
+                icon="undo"
+                label="Deshacer última compra"
+                class="control-secondary"
+                :disable="!isProjectionLive"
+                @click="undoLastHintUsage"
+              />
             </div>
 
             <div class="operator-hint-list">
@@ -1317,31 +1223,31 @@
                 :key="hint.id"
                 class="operator-hint-card"
                 :class="{
-                  used: isHintUsed(hint.id),
-                  public: currentPublicHint === hint.text,
+                  used: isHintOwnedByActiveContext(hint.id),
+                  public: isHintPublic(hint),
                 }"
               >
                 <div class="operator-hint-number">
-                  <q-icon v-if="isHintUsed(hint.id)" name="check" />
-
-                  <span v-else>
-                    {{ index + 1 }}
-                  </span>
+                  <q-icon v-if="isHintOwnedByActiveContext(hint.id)" name="check" />
+                  <span v-else>{{ index + 1 }}</span>
                 </div>
 
                 <div class="operator-hint-copy">
                   <span>PISTA {{ index + 1 }}</span>
                   <strong>{{ hint.text }}</strong>
 
-                  <small v-if="isHintUsed(hint.id)"> Utilizada </small>
+                  <small v-if="isHintOwnedByActiveContext(hint.id)">
+                    {{ getOwnedHintLabel(hint) }}
+                  </small>
+                  <small v-else>{{ getHintCostLabel(hint) }}</small>
 
-                  <small v-else>
-                    {{ getHintCostLabel(hint) }}
+                  <small v-if="getOtherHintOwnersLabel(hint)" class="other-owners">
+                    {{ getOtherHintOwnersLabel(hint) }}
                   </small>
                 </div>
 
                 <q-btn
-                  v-if="!isHintUsed(hint.id)"
+                  v-if="!isHintOwnedByActiveContext(hint.id)"
                   unelevated
                   no-caps
                   icon="lightbulb"
@@ -1352,20 +1258,31 @@
                 />
 
                 <q-btn
+                  v-else-if="isHintPublic(hint)"
+                  flat
+                  no-caps
+                  icon="visibility_off"
+                  label="Ocultar"
+                  class="hint-hide-button"
+                  :disable="!isProjectionLive"
+                  @click="hideHint(hint)"
+                />
+
+                <q-btn
                   v-else
                   flat
                   no-caps
                   icon="visibility"
                   label="Mostrar"
                   class="control-secondary"
-                  @click="showUsedHint(hint)"
+                  :disable="!isProjectionLive"
+                  @click="showOwnedHint(hint)"
                 />
               </article>
             </div>
 
             <div v-if="currentPublicHint" class="current-public-hint">
               <q-icon name="cast" />
-
               <div>
                 <span>PISTA MOSTRADA EN PANTALLA</span>
                 <strong>{{ currentPublicHint }}</strong>
@@ -1376,18 +1293,16 @@
           <div class="operator-stage-shell">
             <div v-if="playingRound" class="operator-image-stage" :style="playingGridStyle">
               <img :src="playingImageUrl" :alt="playingRound.answer" class="hidden-image" />
-
               <button
                 v-for="tile in playingTiles"
                 :key="tile.id"
                 type="button"
                 class="cover-tile operator-cover-tile"
                 :class="{ revealed: tile.revealed }"
+                :disabled="!isProjectionLive"
                 @click="togglePlayingTile(tile.id)"
               >
-                <span v-if="!tile.revealed">
-                  {{ tile.id }}
-                </span>
+                <span v-if="!tile.revealed">{{ tile.id }}</span>
               </button>
             </div>
           </div>
@@ -1400,27 +1315,25 @@
                 icon="shuffle"
                 label="Descubrir aleatoria"
                 class="control-primary"
-                :disable="playingAllRevealed"
+                :disable="!isProjectionLive || playingAllRevealed"
                 @click="revealRandomPlayingTile"
               />
-
               <q-btn
                 flat
                 no-caps
                 icon="visibility"
                 label="Descubrir todas"
                 class="control-secondary"
-                :disable="playingAllRevealed"
+                :disable="!isProjectionLive || playingAllRevealed"
                 @click="revealAllPlayingTiles"
               />
-
               <q-btn
                 flat
                 no-caps
                 icon="restart_alt"
                 label="Cubrir todas"
                 class="control-secondary"
-                :disable="playingRevealedCount === 0"
+                :disable="!isProjectionLive || playingRevealedCount === 0"
                 @click="resetPlayingTiles"
               />
             </div>
@@ -1432,17 +1345,19 @@
                 icon="arrow_upward"
                 label="Anterior"
                 class="control-secondary"
-                :disable="playingRoundIndex <= 0"
+                :disable="!isProjectionLive || playingRoundIndex <= 0"
                 @click="movePlayingRound(-1)"
               />
-
               <q-btn
                 unelevated
                 no-caps
                 icon-right="arrow_downward"
                 label="Siguiente"
                 class="control-primary"
-                :disable="playingRoundIndex >= (playingActivity?.rounds.length ?? 1) - 1"
+                :disable="
+                  !isProjectionLive ||
+                  playingRoundIndex >= (playingActivity?.rounds.length ?? 1) - 1
+                "
                 @click="movePlayingRound(1)"
               />
             </div>
@@ -1465,7 +1380,6 @@ import {
   calculateRoundPoints,
   normalizeGameScoringConfig,
   removeRoundResultFromTeams,
-  resetGameTeamsScore,
   type GameRoundResult,
   type GameScoreMode,
   type GameSessionScoringConfig,
@@ -1477,7 +1391,6 @@ import {
   canUseGameHint,
   countGameHintsUsedByTeam,
   createGameHintUsage,
-  hasGameHintBeenUsedInRound,
   normalizeGameHint,
   normalizeGameHintConfig,
   resolveGameHintCost,
@@ -1492,7 +1405,6 @@ import {
 import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
 
 type ViewMode = 'library' | 'editor' | 'setup' | 'play';
-
 type StandaloneMode = 'free' | 'teams';
 
 interface HiddenImageTile {
@@ -1569,6 +1481,7 @@ interface StandaloneSessionSetup {
   mode: StandaloneMode;
   teamCount: number;
   teams: GameSetupTeam[];
+  initialScore: number;
 
   scoringMode: GameScoreMode;
   basePoints: number;
@@ -1589,65 +1502,44 @@ const MIN_GRID_SIZE = 2;
 const MAX_GRID_SIZE = 8;
 const MIN_TEAM_COUNT = 2;
 const MAX_TEAM_COUNT = 8;
+const FREE_PLAY_TEAM_ID = '__hidden-image-free-play__';
+const FREE_PLAY_TEAM_NAME = 'Juego libre';
 
 const router = useRouter();
 const $q = useQuasar();
 
 const viewMode = ref<ViewMode>('library');
-
 const isLoading = ref(true);
 const isSaving = ref(false);
 const isProjectionLive = ref(false);
 const isSendingProjection = ref(false);
-
 const editingId = ref<string | null>(null);
-
 const activeRoundId = ref('');
-
 const activities = ref<HiddenImageActivity[]>([]);
-
 const rounds = ref<HiddenImageRoundDraft[]>([]);
-
 const tiles = ref<HiddenImageTile[]>([]);
-
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const previewUrls = new Map<string, string>();
-
 const projectionDataUrls = new Map<string, string>();
-
 let projectionSequence = 0;
 
 const gridPresets = [2, 3, 4, 5, 6];
 
-const hintCostOptions: Array<{
-  label: string;
-  value: GameHintCostMode;
-}> = [
-  {
-    label: 'Costo predeterminado',
-    value: 'default',
-  },
-  {
-    label: 'Gratis',
-    value: 'free',
-  },
-  {
-    label: 'Costo personalizado',
-    value: 'custom',
-  },
+const hintCostOptions: Array<{ label: string; value: GameHintCostMode }> = [
+  { label: 'Costo predeterminado', value: 'default' },
+  { label: 'Gratis', value: 'free' },
+  { label: 'Costo personalizado', value: 'custom' },
 ];
 
-const form = reactive<HiddenImageForm>({
-  title: '',
-});
-
+const form = reactive<HiddenImageForm>({ title: '' });
 const setupActivity = ref<HiddenImageActivity | null>(null);
 
 const sessionSetup = reactive<StandaloneSessionSetup>({
   mode: 'free',
   teamCount: 2,
   teams: [],
+  initialScore: 100,
 
   scoringMode: 'fixed',
   basePoints: 100,
@@ -1661,18 +1553,13 @@ const sessionSetup = reactive<StandaloneSessionSetup>({
 });
 
 const playingActivity = ref<HiddenImageActivity | null>(null);
-
 const playingRoundIndex = ref(0);
-
 const playingTiles = ref<HiddenImageTile[]>([]);
-
 const playingImageUrl = ref('');
-
 const sessionMode = ref<StandaloneMode>('free');
-
 const sessionTeams = ref<GameSessionTeam[]>([]);
-
 const activeTeamId = ref('');
+const sessionInitialScore = ref(0);
 
 const sessionScoring = ref<GameSessionScoringConfig>({
   mode: 'none',
@@ -1689,11 +1576,8 @@ const sessionHintConfig = ref<GameHintConfig>({
 });
 
 const roundResults = reactive<Record<string, GameRoundResult>>({});
-
 const roundRevealCounts = reactive<Record<string, number>>({});
-
 const hintUsages = ref<GameHintUsage[]>([]);
-
 const publicHintByRound = reactive<Record<string, string>>({});
 
 const activeRoundIndex = computed(() =>
@@ -1702,12 +1586,7 @@ const activeRoundIndex = computed(() =>
 
 const activeRound = computed<HiddenImageRoundDraft | null>(() => {
   const index = activeRoundIndex.value;
-
-  if (index < 0) {
-    return null;
-  }
-
-  return rounds.value[index] ?? null;
+  return index < 0 ? null : (rounds.value[index] ?? null);
 });
 
 const activeRoundNumber = computed(() =>
@@ -1715,28 +1594,23 @@ const activeRoundNumber = computed(() =>
 );
 
 const totalTiles = computed(() => {
-  if (!activeRound.value) {
-    return 0;
-  }
-
+  if (!activeRound.value) return 0;
   return activeRound.value.rows * activeRound.value.columns;
 });
 
 const revealedCount = computed(() => tiles.value.filter((tile) => tile.revealed).length);
-
 const allTilesRevealed = computed(
   () => tiles.value.length > 0 && revealedCount.value === tiles.value.length,
 );
 
 const gridStyle = computed(() => ({
   '--hidden-image-rows': String(activeRound.value?.rows ?? 4),
-
   '--hidden-image-columns': String(activeRound.value?.columns ?? 4),
 }));
 
-const playingRound = computed<HiddenImageStoredRound | null>(() => {
-  return playingActivity.value?.rounds[playingRoundIndex.value] ?? null;
-});
+const playingRound = computed<HiddenImageStoredRound | null>(
+  () => playingActivity.value?.rounds[playingRoundIndex.value] ?? null,
+);
 
 const playingRevealedCount = computed(
   () => playingTiles.value.filter((tile) => tile.revealed).length,
@@ -1748,7 +1622,6 @@ const playingAllRevealed = computed(
 
 const playingGridStyle = computed(() => ({
   '--hidden-image-rows': String(playingRound.value?.rows ?? 4),
-
   '--hidden-image-columns': String(playingRound.value?.columns ?? 4),
 }));
 
@@ -1758,28 +1631,20 @@ const hasTeams = computed(
 
 const hasScoring = computed(() => hasTeams.value && sessionScoring.value.mode !== 'none');
 
-const activeTeam = computed<GameSessionTeam | null>(() => {
-  return sessionTeams.value.find((team) => team.id === activeTeamId.value) ?? null;
-});
+const activeTeam = computed<GameSessionTeam | null>(
+  () => sessionTeams.value.find((team) => team.id === activeTeamId.value) ?? null,
+);
 
 const roundWinner = computed<GameRoundResult | null>(() => {
   const roundId = playingRound.value?.id;
-
-  if (!roundId) {
-    return null;
-  }
-
-  return roundResults[roundId] ?? null;
+  return roundId ? (roundResults[roundId] ?? null) : null;
 });
 
 const normalizedSetupScoring = computed(() =>
   normalizeGameScoringConfig({
     mode: sessionSetup.scoringMode,
-
     basePoints: Number(sessionSetup.basePoints),
-
     deductionPerReveal: Number(sessionSetup.deductionPerReveal),
-
     minimumPoints: Number(sessionSetup.minimumPoints),
   }),
 );
@@ -1787,81 +1652,63 @@ const normalizedSetupScoring = computed(() =>
 const normalizedSetupHints = computed(() =>
   normalizeGameHintConfig({
     mode: sessionSetup.hintMode,
-
     freeHintsPerTeam: Number(sessionSetup.freeHintsPerTeam),
-
     defaultCost: Number(sessionSetup.hintDefaultCost),
-
     allowNegativeScore: sessionSetup.allowNegativeScore,
   }),
 );
 
+const normalizedInitialScore = computed(() =>
+  Math.max(0, Math.round(Number(sessionSetup.initialScore) || 0)),
+);
+
 const scoringRevealedCount = computed(() => {
   const roundId = playingRound.value?.id;
-
-  if (!roundId) {
-    return 0;
-  }
-
-  return roundRevealCounts[roundId] ?? 0;
+  return roundId ? (roundRevealCounts[roundId] ?? 0) : 0;
 });
 
 const currentAwardPoints = computed(() =>
   calculateRoundPoints({
     scoring: sessionScoring.value,
-
     revealedCount: scoringRevealedCount.value,
   }),
 );
 
-const activityHasHints = computed(() => {
-  return Boolean(setupActivity.value?.rounds.some((round) => round.hints.length > 0));
-});
+const activityHasHints = computed(() =>
+  Boolean(setupActivity.value?.rounds.some((round) => round.hints.length > 0)),
+);
 
 const currentPublicHint = computed(() => {
   const roundId = playingRound.value?.id;
-
-  if (!roundId) {
-    return '';
-  }
-
-  return publicHintByRound[roundId] ?? '';
+  return roundId ? (publicHintByRound[roundId] ?? '') : '';
 });
 
 const canUndoHint = computed(() => {
   const roundId = playingRound.value?.id;
+  const ownerId = getActiveHintOwnerId();
 
-  if (!roundId) {
-    return false;
-  }
+  if (!roundId || !ownerId) return false;
 
-  return hintUsages.value.some((usage) => usage.roundId === roundId);
+  return hintUsages.value.some((usage) => usage.roundId === roundId && usage.teamId === ownerId);
 });
 
 const setupHintLabel = computed(() => {
   switch (sessionSetup.hintMode) {
     case 'disabled':
       return 'Pistas desactivadas';
-
     case 'free':
       return 'Pistas gratis';
-
     case 'paid':
       return `Pistas a ${normalizedSetupHints.value.defaultCost} pts`;
-
     case 'mixed':
       return `${normalizedSetupHints.value.freeHintsPerTeam} gratis por equipo`;
-
     default:
       return 'Pistas';
   }
 });
 
 const awardButtonLabel = computed(() => {
-  if (!hasScoring.value) {
-    return 'Marcar acierto';
-  }
-
+  if (!hasScoring.value) return 'Marcar acierto';
   return `Acierto +${currentAwardPoints.value}`;
 });
 
@@ -1869,8 +1716,7 @@ function createId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-
-  return `hidden-image-` + `${Date.now()}-` + Math.random().toString(36).slice(2);
+  return `hidden-image-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function createIndexedDbError(message: string, error: DOMException | null): Error {
@@ -1892,38 +1738,26 @@ function createEmptyRound(): HiddenImageRoundDraft {
 }
 
 function createDefaultSetupTeams(count: number): GameSetupTeam[] {
-  return Array.from(
-    {
-      length: count,
-    },
-    (_, index) => ({
-      id: createId(),
-      name: `Equipo ${index + 1}`,
-    }),
-  );
+  return Array.from({ length: count }, (_, index) => ({
+    id: createId(),
+    name: `Equipo ${index + 1}`,
+  }));
 }
 
 function resetSessionSetup(): void {
   sessionSetup.mode = 'free';
-
   sessionSetup.teamCount = 2;
-
   sessionSetup.teams = createDefaultSetupTeams(2);
+  sessionSetup.initialScore = 100;
 
   sessionSetup.scoringMode = 'fixed';
-
   sessionSetup.basePoints = 100;
-
   sessionSetup.deductionPerReveal = 5;
-
   sessionSetup.minimumPoints = 20;
 
   sessionSetup.hintMode = 'free';
-
   sessionSetup.freeHintsPerTeam = 1;
-
   sessionSetup.hintDefaultCost = 10;
-
   sessionSetup.allowNegativeScore = false;
 }
 
@@ -1932,19 +1766,14 @@ function clampGridValue(value: number): number {
 }
 
 function normalizeStoredHints(hints?: GameHint[]): GameHint[] {
-  if (!Array.isArray(hints)) {
-    return [];
-  }
+  if (!Array.isArray(hints)) return [];
 
   return hints
     .map((hint) =>
       normalizeGameHint({
         id: hint.id || createId(),
-
         text: hint.text || '',
-
         costMode: hint.costMode || 'default',
-
         customCost: Number(hint.customCost) || 0,
       }),
     )
@@ -1957,37 +1786,23 @@ function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageA
   if (Array.isArray(rawActivity.rounds) && rawActivity.rounds.length > 0) {
     return {
       id: rawActivity.id,
-
       title: rawActivity.title || 'Imagen escondida',
-
       rounds: rawActivity.rounds
         .filter(
-          (
-            round,
-          ): round is LegacyHiddenImageRound & {
-            imageBlob: Blob;
-          } => round.imageBlob instanceof Blob,
+          (round): round is LegacyHiddenImageRound & { imageBlob: Blob } =>
+            round.imageBlob instanceof Blob,
         )
         .map((round) => ({
           id: round.id || createId(),
-
           answer: round.answer || '',
-
           bibleReference: round.bibleReference || '',
-
           rows: clampGridValue(round.rows || 4),
-
           columns: clampGridValue(round.columns || 4),
-
           imageName: round.imageName || 'imagen',
-
           imageBlob: round.imageBlob,
-
           hints: normalizeStoredHints(round.hints),
         })),
-
       createdAt: rawActivity.createdAt || now,
-
       updatedAt: rawActivity.updatedAt || now,
     };
   }
@@ -1995,44 +1810,29 @@ function normalizeActivity(rawActivity: LegacyHiddenImageActivity): HiddenImageA
   if (rawActivity.imageBlob instanceof Blob) {
     return {
       id: rawActivity.id,
-
       title: rawActivity.title || 'Imagen escondida',
-
       rounds: [
         {
           id: createId(),
-
           answer: rawActivity.answer || '',
-
           bibleReference: rawActivity.bibleReference || '',
-
           rows: clampGridValue(rawActivity.rows || 4),
-
           columns: clampGridValue(rawActivity.columns || 4),
-
           imageName: rawActivity.imageName || 'imagen',
-
           imageBlob: rawActivity.imageBlob,
-
           hints: [],
         },
       ],
-
       createdAt: rawActivity.createdAt || now,
-
       updatedAt: rawActivity.updatedAt || now,
     };
   }
 
   return {
     id: rawActivity.id,
-
     title: rawActivity.title || 'Imagen escondida',
-
     rounds: [],
-
     createdAt: rawActivity.createdAt || now,
-
     updatedAt: rawActivity.updatedAt || now,
   };
 }
@@ -2043,16 +1843,12 @@ function openDatabase(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = () => {
       const database = request.result;
-
       if (!database.objectStoreNames.contains(STORE_NAME)) {
-        database.createObjectStore(STORE_NAME, {
-          keyPath: 'id',
-        });
+        database.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
     };
 
     request.onsuccess = () => resolve(request.result);
-
     request.onerror = () =>
       reject(createIndexedDbError('No se pudo abrir la base de datos', request.error));
   });
@@ -2066,11 +1862,9 @@ async function loadActivities(): Promise<void> {
 
     const records = await new Promise<LegacyHiddenImageActivity[]>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readonly');
-
       const request = transaction.objectStore(STORE_NAME).getAll();
 
       request.onsuccess = () => resolve(request.result as LegacyHiddenImageActivity[]);
-
       request.onerror = () =>
         reject(createIndexedDbError('No se pudieron leer las actividades', request.error));
     });
@@ -2081,11 +1875,9 @@ async function loadActivities(): Promise<void> {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     rebuildPreviewUrls();
-
     database.close();
   } catch (error) {
     console.error(error);
-
     $q.notify({
       type: 'negative',
       icon: 'error',
@@ -2103,14 +1895,11 @@ async function persistActivity(activity: HiddenImageActivity): Promise<void> {
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-
       transaction.objectStore(STORE_NAME).put(activity);
 
       transaction.oncomplete = () => resolve();
-
       transaction.onerror = () =>
         reject(createIndexedDbError('No se pudo guardar la actividad', transaction.error));
-
       transaction.onabort = () =>
         reject(createIndexedDbError('Se canceló el guardado', transaction.error));
     });
@@ -2125,11 +1914,9 @@ async function removePersistedActivity(id: string): Promise<void> {
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-
       transaction.objectStore(STORE_NAME).delete(id);
 
       transaction.oncomplete = () => resolve();
-
       transaction.onerror = () =>
         reject(createIndexedDbError('No se pudo eliminar la actividad', transaction.error));
     });
@@ -2159,149 +1946,95 @@ function goBack(): void {
 
 function createActivity(): void {
   editingId.value = null;
-
   resetEditor();
 
   const round = createEmptyRound();
-
   rounds.value = [round];
-
   activeRoundId.value = round.id;
-
   rebuildTiles();
-
   viewMode.value = 'editor';
 }
 
 function cancelActivity(): void {
   viewMode.value = 'library';
-
   editingId.value = null;
-
   resetEditor();
 }
 
 function resetEditor(): void {
   form.title = '';
-
   revokeRoundUrls();
-
   rounds.value = [];
-
   activeRoundId.value = '';
-
   tiles.value = [];
-
   resetFileInput();
 }
 
 function addRound(): void {
   const round = createEmptyRound();
-
   rounds.value.push(round);
-
   activeRoundId.value = round.id;
-
   rebuildTiles();
   resetFileInput();
 }
 
 function selectRound(roundId: string): void {
-  if (activeRoundId.value === roundId) {
-    return;
-  }
+  if (activeRoundId.value === roundId) return;
 
   activeRoundId.value = roundId;
-
   rebuildTiles();
   resetFileInput();
 }
 
 function duplicateRound(): void {
   const source = activeRound.value;
-
-  if (!source) {
-    return;
-  }
+  if (!source) return;
 
   const duplicate: HiddenImageRoundDraft = {
     id: createId(),
-
     answer: source.answer,
-
     bibleReference: source.bibleReference,
-
     rows: source.rows,
-
     columns: source.columns,
-
     imageName: source.imageName,
-
     imageBlob: source.imageBlob,
-
     imageUrl: source.imageBlob ? URL.createObjectURL(source.imageBlob) : '',
-
-    hints: source.hints.map((hint) => ({
-      ...hint,
-      id: createId(),
-    })),
+    hints: source.hints.map((hint) => ({ ...hint, id: createId() })),
   };
 
   rounds.value.splice(activeRoundIndex.value + 1, 0, duplicate);
-
   activeRoundId.value = duplicate.id;
-
   rebuildTiles();
 }
 
 function deleteRound(): void {
-  if (rounds.value.length <= 1) {
-    return;
-  }
+  if (rounds.value.length <= 1) return;
 
   const index = activeRoundIndex.value;
-
-  if (index < 0) {
-    return;
-  }
+  if (index < 0) return;
 
   const round = rounds.value[index];
-
-  if (round?.imageUrl) {
-    URL.revokeObjectURL(round.imageUrl);
-  }
+  if (round?.imageUrl) URL.revokeObjectURL(round.imageUrl);
 
   rounds.value.splice(index, 1);
-
   const next = rounds.value[Math.min(index, rounds.value.length - 1)];
-
   activeRoundId.value = next?.id ?? '';
-
   rebuildTiles();
 }
 
 function goToPreviousRound(): void {
   const round = rounds.value[activeRoundIndex.value - 1];
-
-  if (round) {
-    selectRound(round.id);
-  }
+  if (round) selectRound(round.id);
 }
 
 function goToNextRound(): void {
   const round = rounds.value[activeRoundIndex.value + 1];
-
-  if (round) {
-    selectRound(round.id);
-  }
+  if (round) selectRound(round.id);
 }
 
 function addHint(): void {
   const round = activeRound.value;
-
-  if (!round) {
-    return;
-  }
+  if (!round) return;
 
   round.hints.push({
     id: createId(),
@@ -2313,87 +2046,54 @@ function addHint(): void {
 
 function deleteHint(hintId: string): void {
   const round = activeRound.value;
-
-  if (!round) {
-    return;
-  }
-
+  if (!round) return;
   round.hints = round.hints.filter((hint) => hint.id !== hintId);
 }
 
 function handleImageSelected(event: Event): void {
   const round = activeRound.value;
-
-  if (!round) {
-    return;
-  }
+  if (!round) return;
 
   const target = event.target as HTMLInputElement;
-
   const file = target.files?.[0];
-
-  if (!file) {
-    return;
-  }
+  if (!file) return;
 
   if (!file.type.startsWith('image/')) {
     notifyWarning('Selecciona un archivo de imagen válido.');
-
     target.value = '';
-
     return;
   }
 
-  if (round.imageUrl) {
-    URL.revokeObjectURL(round.imageUrl);
-  }
+  if (round.imageUrl) URL.revokeObjectURL(round.imageUrl);
 
   round.imageBlob = file;
-
   round.imageName = file.name;
-
   round.imageUrl = URL.createObjectURL(file);
-
   resetTiles();
 }
 
 function removeRoundImage(): void {
   const round = activeRound.value;
+  if (!round) return;
 
-  if (!round) {
-    return;
-  }
-
-  if (round.imageUrl) {
-    URL.revokeObjectURL(round.imageUrl);
-  }
+  if (round.imageUrl) URL.revokeObjectURL(round.imageUrl);
 
   round.imageBlob = null;
-
   round.imageName = '';
-
   round.imageUrl = '';
-
   resetFileInput();
   resetTiles();
 }
 
 function resetFileInput(): void {
-  if (fileInput.value) {
-    fileInput.value.value = '';
-  }
+  if (fileInput.value) fileInput.value.value = '';
 }
 
 function createTiles(count: number): HiddenImageTile[] {
-  return Array.from(
-    {
-      length: count,
-    },
-    (_, index) => ({
-      id: index + 1,
-      revealed: false,
-    }),
-  );
+  return Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    revealed: false,
+  }));
 }
 
 function rebuildTiles(): void {
@@ -2409,10 +2109,7 @@ function rebuildTiles(): void {
 
 function toggleTile(tileId: number): void {
   const tile = tiles.value.find((item) => item.id === tileId);
-
-  if (tile) {
-    tile.revealed = !tile.revealed;
-  }
+  if (tile) tile.revealed = !tile.revealed;
 }
 
 function resetTiles(): void {
@@ -2429,12 +2126,8 @@ function revealAllTiles(): void {
 
 function revealRandomFromTiles(target: HiddenImageTile[]): void {
   const hidden = target.filter((tile) => !tile.revealed);
-
   const tile = hidden[Math.floor(Math.random() * hidden.length)];
-
-  if (tile) {
-    tile.revealed = true;
-  }
+  if (tile) tile.revealed = true;
 }
 
 function revealRandomTile(): void {
@@ -2442,77 +2135,53 @@ function revealRandomTile(): void {
 }
 
 function changeRows(change: number): void {
-  if (!activeRound.value) {
-    return;
-  }
-
+  if (!activeRound.value) return;
   activeRound.value.rows = clampGridValue(activeRound.value.rows + change);
-
   rebuildTiles();
 }
 
 function changeColumns(change: number): void {
-  if (!activeRound.value) {
-    return;
-  }
-
+  if (!activeRound.value) return;
   activeRound.value.columns = clampGridValue(activeRound.value.columns + change);
-
   rebuildTiles();
 }
 
 function applyGridPreset(size: number): void {
-  if (!activeRound.value) {
-    return;
-  }
+  if (!activeRound.value) return;
 
   const value = clampGridValue(size);
-
   activeRound.value.rows = value;
-
   activeRound.value.columns = value;
-
   rebuildTiles();
 }
 
 function validateActivity(): boolean {
   if (!form.title.trim()) {
     notifyWarning('Escribe un nombre para la actividad.');
-
     return false;
   }
 
   for (let index = 0; index < rounds.value.length; index += 1) {
     const round = rounds.value[index];
-
-    if (!round) {
-      continue;
-    }
+    if (!round) continue;
 
     if (!round.imageBlob) {
       activeRoundId.value = round.id;
-
       notifyWarning(`Selecciona una imagen para la ronda ${index + 1}.`);
-
       return false;
     }
 
     if (!round.answer.trim()) {
       activeRoundId.value = round.id;
-
       notifyWarning(`Escribe la respuesta de la ronda ${index + 1}.`);
-
       return false;
     }
 
     for (let hintIndex = 0; hintIndex < round.hints.length; hintIndex += 1) {
       const hint = round.hints[hintIndex];
-
       if (!hint?.text.trim()) {
         activeRoundId.value = round.id;
-
         notifyWarning(`Escribe el texto de la pista ${hintIndex + 1} de la ronda ${index + 1}.`);
-
         return false;
       }
     }
@@ -2522,85 +2191,61 @@ function validateActivity(): boolean {
 }
 
 async function saveActivity(): Promise<void> {
-  if (!validateActivity()) {
-    return;
-  }
+  if (!validateActivity()) return;
 
   isSaving.value = true;
 
   try {
     const now = new Date().toISOString();
-
     const existing = editingId.value
       ? activities.value.find((activity) => activity.id === editingId.value)
       : null;
 
     const storedRounds: HiddenImageStoredRound[] = rounds.value.map((round) => {
-      if (!round.imageBlob) {
-        throw new Error('La ronda no contiene imagen.');
-      }
+      if (!round.imageBlob) throw new Error('La ronda no contiene imagen.');
 
       return {
         id: round.id,
-
         answer: round.answer.trim(),
-
         bibleReference: round.bibleReference.trim(),
-
         rows: round.rows,
-
         columns: round.columns,
-
         imageName: round.imageName || 'imagen',
-
         imageBlob: round.imageBlob,
-
         hints: round.hints.map((hint) => normalizeGameHint(hint)),
       };
     });
 
     const activity: HiddenImageActivity = {
       id: editingId.value ?? createId(),
-
       title: form.title.trim(),
-
       rounds: storedRounds,
-
       createdAt: existing?.createdAt ?? now,
-
       updatedAt: now,
     };
 
     await persistActivity(activity);
-
     await loadActivities();
 
     viewMode.value = 'library';
-
     editingId.value = null;
-
     resetEditor();
 
     $q.notify({
       type: 'positive',
       icon: 'check_circle',
-
       message: existing
         ? 'Actividad actualizada correctamente.'
         : 'Actividad guardada correctamente.',
-
       position: 'top',
       timeout: 1800,
     });
   } catch (error) {
     console.error(error);
-
     $q.notify({
       type: 'negative',
       icon: 'error',
-
       message: 'No se pudo guardar la actividad.',
-
       position: 'top',
     });
   } finally {
@@ -2610,58 +2255,40 @@ async function saveActivity(): Promise<void> {
 
 function editActivity(activity: HiddenImageActivity): void {
   resetEditor();
-
   editingId.value = activity.id;
-
   form.title = activity.title;
 
   rounds.value = activity.rounds.map((round) => ({
     id: round.id,
-
     answer: round.answer,
-
     bibleReference: round.bibleReference,
-
     rows: round.rows,
-
     columns: round.columns,
-
     imageName: round.imageName,
-
     imageBlob: round.imageBlob,
-
     imageUrl: URL.createObjectURL(round.imageBlob),
-
-    hints: round.hints.map((hint) => ({
-      ...hint,
-    })),
+    hints: round.hints.map((hint) => ({ ...hint })),
   }));
 
-  if (rounds.value.length === 0) {
-    rounds.value = [createEmptyRound()];
-  }
+  if (rounds.value.length === 0) rounds.value = [createEmptyRound()];
 
   activeRoundId.value = rounds.value[0]?.id ?? '';
-
   rebuildTiles();
-
   viewMode.value = 'editor';
 }
 
 function openActivity(activity: HiddenImageActivity): void {
   setupActivity.value = activity;
-
   resetSessionSetup();
   resetGameSession();
-
   viewMode.value = 'setup';
 }
 
 function cancelGameSetup(): void {
+  if (isSendingProjection.value) return;
+
   setupActivity.value = null;
-
   resetSessionSetup();
-
   viewMode.value = 'library';
 }
 
@@ -2671,18 +2298,14 @@ function changeTeamCount(change: number): void {
     Math.max(MIN_TEAM_COUNT, sessionSetup.teamCount + change),
   );
 
-  if (nextCount === sessionSetup.teamCount) {
-    return;
-  }
+  if (nextCount === sessionSetup.teamCount) return;
 
   sessionSetup.teamCount = nextCount;
 
   while (sessionSetup.teams.length < nextCount) {
     const index = sessionSetup.teams.length;
-
     sessionSetup.teams.push({
       id: createId(),
-
       name: `Equipo ${index + 1}`,
     });
   }
@@ -2693,15 +2316,20 @@ function changeTeamCount(change: number): void {
 }
 
 function validateSessionSetup(): boolean {
-  if (!setupActivity.value) {
-    return false;
-  }
+  if (!setupActivity.value) return false;
 
   if (sessionSetup.mode === 'teams') {
+    if (
+      !Number.isFinite(Number(sessionSetup.initialScore)) ||
+      Number(sessionSetup.initialScore) < 0
+    ) {
+      notifyWarning('Los puntos iniciales deben ser un número igual o mayor que 0.');
+      return false;
+    }
+
     for (let index = 0; index < sessionSetup.teams.length; index += 1) {
       if (!sessionSetup.teams[index]?.name.trim()) {
         notifyWarning(`Escribe el nombre del equipo ${index + 1}.`);
-
         return false;
       }
     }
@@ -2710,73 +2338,88 @@ function validateSessionSetup(): boolean {
   return true;
 }
 
-function startStandaloneGame(): void {
+async function startStandaloneGame(): Promise<void> {
   const activity = setupActivity.value;
 
-  if (!activity || !validateSessionSetup()) {
-    return;
-  }
+  if (!activity || !validateSessionSetup() || isSendingProjection.value) return;
 
   resetGameSession();
+  isSendingProjection.value = true;
 
-  playingActivity.value = activity;
+  try {
+    playingActivity.value = activity;
+    playingRoundIndex.value = 0;
+    sessionMode.value = sessionSetup.mode;
 
-  playingRoundIndex.value = 0;
+    if (sessionSetup.mode === 'teams') {
+      sessionInitialScore.value = normalizedInitialScore.value;
 
-  sessionMode.value = sessionSetup.mode;
+      sessionTeams.value = sessionSetup.teams.map((team, index) => ({
+        id: team.id,
+        name: team.name.trim() || `Equipo ${index + 1}`,
+        score: sessionInitialScore.value,
+      }));
 
-  if (sessionSetup.mode === 'teams') {
-    sessionTeams.value = sessionSetup.teams.map((team, index) => ({
-      id: team.id,
+      activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+      sessionScoring.value = normalizedSetupScoring.value;
+    } else {
+      sessionInitialScore.value = 0;
+      sessionTeams.value = [];
+      activeTeamId.value = '';
+      sessionScoring.value = {
+        mode: 'none',
+        basePoints: 0,
+        deductionPerReveal: 0,
+        minimumPoints: 0,
+      };
+    }
 
-      name: team.name.trim() || `Equipo ${index + 1}`,
+    sessionHintConfig.value = normalizedSetupHints.value;
+    projectionDataUrls.clear();
+    projectionSequence += 1;
+    preparePlayingRound();
 
-      score: 0,
-    }));
+    const sent = await sendPlayingStateToProjection(false, true);
 
-    activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+    if (!sent) {
+      resetGameSession();
+      setupActivity.value = activity;
+      viewMode.value = 'setup';
 
-    sessionScoring.value = normalizedSetupScoring.value;
-  } else {
-    sessionTeams.value = [];
+      $q.notify({
+        type: 'negative',
+        icon: 'cast_off',
+        message: 'El juego no comenzó porque no se pudo enviar a las pantallas.',
+        position: 'top',
+      });
+      return;
+    }
 
-    activeTeamId.value = '';
+    setupActivity.value = null;
+    viewMode.value = 'play';
 
-    sessionScoring.value = {
-      mode: 'none',
-      basePoints: 0,
-      deductionPerReveal: 0,
-      minimumPoints: 0,
-    };
+    $q.notify({
+      type: 'positive',
+      icon: 'cast_connected',
+      message: 'Juego iniciado en vivo.',
+      position: 'top',
+      timeout: 1800,
+    });
+  } finally {
+    isSendingProjection.value = false;
   }
-
-  sessionHintConfig.value = normalizedSetupHints.value;
-
-  projectionDataUrls.clear();
-
-  projectionSequence += 1;
-
-  preparePlayingRound();
-
-  setupActivity.value = null;
-
-  viewMode.value = 'play';
 }
 
 function resetGameSession(): void {
   cleanupPlayingImageUrl();
 
   playingActivity.value = null;
-
   playingRoundIndex.value = 0;
-
   playingTiles.value = [];
-
   sessionMode.value = 'free';
-
   sessionTeams.value = [];
-
   activeTeamId.value = '';
+  sessionInitialScore.value = 0;
 
   sessionScoring.value = {
     mode: 'none',
@@ -2792,115 +2435,98 @@ function resetGameSession(): void {
     allowNegativeScore: false,
   };
 
-  Object.keys(roundResults).forEach((key) => {
-    delete roundResults[key];
-  });
-
-  Object.keys(roundRevealCounts).forEach((key) => {
-    delete roundRevealCounts[key];
-  });
-
-  Object.keys(publicHintByRound).forEach((key) => {
-    delete publicHintByRound[key];
-  });
+  Object.keys(roundResults).forEach((key) => delete roundResults[key]);
+  Object.keys(roundRevealCounts).forEach((key) => delete roundRevealCounts[key]);
+  Object.keys(publicHintByRound).forEach((key) => delete publicHintByRound[key]);
 
   hintUsages.value = [];
-
   isProjectionLive.value = false;
-
-  isSendingProjection.value = false;
-
   projectionDataUrls.clear();
-
   projectionSequence += 1;
 }
 
 function closePlayMode(): void {
   if (isProjectionLive.value) {
-    window.icpStudio?.projection.setState({
-      mode: 'blank',
-    });
+    void window.icpStudio?.projection.setState({ mode: 'blank' });
   }
 
   resetGameSession();
-
   viewMode.value = 'library';
+}
+
+function ensureGameIsLive(): boolean {
+  if (viewMode.value === 'play' && isProjectionLive.value) return true;
+
+  notifyWarning('El juego debe estar en vivo para utilizar este control.');
+  return false;
 }
 
 function preparePlayingRound(): void {
   cleanupPlayingImageUrl();
 
   const round = playingRound.value;
-
   if (!round) {
     playingTiles.value = [];
     return;
   }
 
   playingImageUrl.value = URL.createObjectURL(round.imageBlob);
-
   playingTiles.value = createTiles(round.rows * round.columns);
 }
 
+function selectActiveTeam(teamId: string): void {
+  if (!ensureGameIsLive()) return;
+  if (!sessionTeams.value.some((team) => team.id === teamId)) return;
+  activeTeamId.value = teamId;
+}
+
 function setPlayingRound(index: number): void {
-  if (!playingActivity.value?.rounds[index]) {
-    return;
-  }
+  if (!ensureGameIsLive()) return;
+  if (!playingActivity.value?.rounds[index]) return;
 
   playingRoundIndex.value = index;
-
   preparePlayingRound();
-
   syncProjectionIfLive();
 }
 
 function movePlayingRound(direction: -1 | 1): void {
-  const activity = playingActivity.value;
+  if (!ensureGameIsLive()) return;
 
-  if (!activity) {
-    return;
-  }
+  const activity = playingActivity.value;
+  if (!activity) return;
 
   const next = Math.min(
     activity.rounds.length - 1,
-
     Math.max(0, playingRoundIndex.value + direction),
   );
 
-  if (next !== playingRoundIndex.value) {
-    setPlayingRound(next);
-  }
+  if (next !== playingRoundIndex.value) setPlayingRound(next);
 }
 
 function updateCurrentRoundRevealCount(): void {
   const roundId = playingRound.value?.id;
-
-  if (!roundId) {
-    return;
-  }
+  if (!roundId) return;
 
   roundRevealCounts[roundId] = Math.max(
     roundRevealCounts[roundId] ?? 0,
-
     playingRevealedCount.value,
   );
 }
 
 function togglePlayingTile(tileId: number): void {
-  const tile = playingTiles.value.find((item) => item.id === tileId);
+  if (!ensureGameIsLive()) return;
 
-  if (!tile) {
-    return;
-  }
+  const tile = playingTiles.value.find((item) => item.id === tileId);
+  if (!tile) return;
 
   tile.revealed = !tile.revealed;
-
   updateCurrentRoundRevealCount();
-
   syncProjectionIfLive();
 }
 
 function resetPlayingTiles(): void {
+  if (!ensureGameIsLive()) return;
+
   playingTiles.value.forEach((tile) => {
     tile.revealed = false;
   });
@@ -2909,185 +2535,222 @@ function resetPlayingTiles(): void {
 }
 
 function revealAllPlayingTiles(): void {
+  if (!ensureGameIsLive()) return;
+
   playingTiles.value.forEach((tile) => {
     tile.revealed = true;
   });
 
   updateCurrentRoundRevealCount();
-
   syncProjectionIfLive();
 }
 
 function revealRandomPlayingTile(): void {
+  if (!ensureGameIsLive()) return;
+
   revealRandomFromTiles(playingTiles.value);
-
   updateCurrentRoundRevealCount();
-
   syncProjectionIfLive();
 }
 
 function adjustActiveTeamScore(amount: number): void {
-  const team = activeTeam.value;
+  if (!ensureGameIsLive()) return;
 
-  if (!team) {
-    return;
-  }
+  const team = activeTeam.value;
+  if (!team) return;
 
   sessionTeams.value = adjustGameTeamScore(sessionTeams.value, team.id, amount);
 }
 
 function awardCurrentRound(): void {
-  const round = playingRound.value;
+  if (!ensureGameIsLive()) return;
 
+  const round = playingRound.value;
   const team = activeTeam.value;
 
-  if (!round || !team || roundResults[round.id]) {
-    return;
-  }
+  if (!round || !team || roundResults[round.id]) return;
 
   const result = awardGameRound({
     roundId: round.id,
-
     team,
-
     scoring: sessionScoring.value,
-
     revealedCount: scoringRevealedCount.value,
   });
 
   sessionTeams.value = applyRoundResultToTeams(sessionTeams.value, result);
-
   roundResults[round.id] = result;
-
   revealAllPlayingTiles();
 
   $q.notify({
     type: 'positive',
     icon: 'emoji_events',
-
     message:
       result.points > 0
         ? `${team.name} ganó ${result.points} puntos.`
         : `${team.name} acertó la ronda.`,
-
     position: 'top',
   });
 }
 
 function undoCurrentRoundAward(): void {
-  const round = playingRound.value;
+  if (!ensureGameIsLive()) return;
 
-  if (!round) {
-    return;
-  }
+  const round = playingRound.value;
+  if (!round) return;
 
   const result = roundResults[round.id];
-
-  if (!result) {
-    return;
-  }
+  if (!result) return;
 
   sessionTeams.value = removeRoundResultFromTeams(sessionTeams.value, result);
-
   delete roundResults[round.id];
 }
 
-function isHintUsed(hintId: string): boolean {
+function getActiveHintOwnerId(): string {
+  if (!hasTeams.value) return FREE_PLAY_TEAM_ID;
+  return activeTeam.value?.id ?? '';
+}
+
+function getActiveHintOwnerName(): string {
+  if (!hasTeams.value) return FREE_PLAY_TEAM_NAME;
+  return activeTeam.value?.name ?? '';
+}
+
+function getHintUsageForOwner(hintId: string, ownerId: string): GameHintUsage | null {
   const roundId = playingRound.value?.id;
+  if (!roundId || !ownerId) return null;
 
-  if (!roundId) {
-    return false;
-  }
+  return (
+    hintUsages.value.find(
+      (usage) => usage.roundId === roundId && usage.hintId === hintId && usage.teamId === ownerId,
+    ) ?? null
+  );
+}
 
-  return hasGameHintBeenUsedInRound(hintUsages.value, roundId, hintId);
+function isHintOwnedByActiveContext(hintId: string): boolean {
+  return Boolean(getHintUsageForOwner(hintId, getActiveHintOwnerId()));
+}
+
+function isHintPublic(hint: GameHint): boolean {
+  return currentPublicHint.value === hint.text;
 }
 
 function getHintAvailability(hint: GameHint) {
+  const ownerId = getActiveHintOwnerId();
   const team = activeTeam.value;
 
   return canUseGameHint({
     hint,
-
     config: sessionHintConfig.value,
-
-    usedHintsByTeam: team ? countGameHintsUsedByTeam(hintUsages.value, team.id) : 0,
-
-    teamScore: team?.score ?? 0,
+    usedHintsByTeam: countGameHintsUsedByTeam(hintUsages.value, ownerId),
+    teamScore: hasTeams.value ? (team?.score ?? 0) : 0,
   });
 }
 
 function canUseHintNow(hint: GameHint): boolean {
-  if (isHintUsed(hint.id)) {
-    return false;
-  }
+  if (!isProjectionLive.value || viewMode.value !== 'play') return false;
+  if (isHintOwnedByActiveContext(hint.id)) return false;
+  if (sessionHintConfig.value.mode === 'disabled') return false;
+  if (hasTeams.value && !activeTeam.value) return false;
 
-  if (sessionHintConfig.value.mode === 'disabled') {
-    return false;
-  }
-
-  if (!hasTeams.value) {
-    return true;
-  }
-
-  if (!activeTeam.value) {
-    return false;
-  }
-
+  if (!hasTeams.value) return true;
   return getHintAvailability(hint).allowed;
 }
 
 function getHintCostLabel(hint: GameHint): string {
-  if (sessionHintConfig.value.mode === 'free' || !hasTeams.value) {
-    return 'Gratis';
-  }
+  if (sessionHintConfig.value.mode === 'free' || !hasTeams.value) return 'Gratis';
 
-  const team = activeTeam.value;
-
+  const ownerId = getActiveHintOwnerId();
   const resolved = resolveGameHintCost({
     hint,
-
     config: sessionHintConfig.value,
-
-    usedHintsByTeam: team ? countGameHintsUsedByTeam(hintUsages.value, team.id) : 0,
+    usedHintsByTeam: countGameHintsUsedByTeam(hintUsages.value, ownerId),
   });
 
   return resolved.cost === 0 ? 'Gratis' : `Costo: ${resolved.cost} puntos`;
 }
 
 function getHintActionLabel(hint: GameHint): string {
-  return getHintCostLabel(hint) === 'Gratis' ? 'Mostrar' : 'Comprar';
+  return getHintCostLabel(hint) === 'Gratis' ? 'Usar' : 'Comprar';
+}
+
+function getOwnedHintLabel(hint: GameHint): string {
+  const usage = getHintUsageForOwner(hint.id, getActiveHintOwnerId());
+  if (!usage) return 'Disponible';
+
+  if (usage.cost > 0) {
+    return `Comprada por ${usage.teamName} · -${usage.cost} pts`;
+  }
+
+  return `Disponible para ${usage.teamName} · Gratis`;
+}
+
+function getOtherHintOwnersLabel(hint: GameHint): string {
+  if (!hasTeams.value) return '';
+
+  const roundId = playingRound.value?.id;
+  const activeOwnerId = getActiveHintOwnerId();
+
+  if (!roundId) return '';
+
+  const owners = hintUsages.value
+    .filter(
+      (usage) =>
+        usage.roundId === roundId && usage.hintId === hint.id && usage.teamId !== activeOwnerId,
+    )
+    .map((usage) => usage.teamName);
+
+  const uniqueOwners = [...new Set(owners)];
+  return uniqueOwners.length > 0 ? `También adquirida por: ${uniqueOwners.join(', ')}` : '';
+}
+
+function createUsageForCurrentContext(
+  hint: GameHint,
+  cost: number,
+  wasFree: boolean,
+): GameHintUsage | null {
+  const round = playingRound.value;
+  const ownerId = getActiveHintOwnerId();
+  const ownerName = getActiveHintOwnerName();
+
+  if (!round || !ownerId || !ownerName) return null;
+
+  return createGameHintUsage({
+    id: createId(),
+    hint,
+    roundId: round.id,
+    teamId: ownerId,
+    teamName: ownerName,
+    cost,
+    wasFree,
+  });
 }
 
 function useHint(hint: GameHint): void {
-  const round = playingRound.value;
+  if (!ensureGameIsLive()) return;
 
-  if (!round || isHintUsed(hint.id)) {
-    return;
-  }
+  const round = playingRound.value;
+  if (!round || isHintOwnedByActiveContext(hint.id)) return;
 
   if (!hasTeams.value) {
+    const usage = createUsageForCurrentContext(hint, 0, true);
+    if (!usage) return;
+
+    hintUsages.value.push(usage);
     publicHintByRound[round.id] = hint.text;
-
     syncProjectionIfLive();
-
     return;
   }
 
   const team = activeTeam.value;
-
   if (!team) {
     notifyWarning('Selecciona el equipo que está solicitando la pista.');
-
     return;
   }
 
   const availability = canUseGameHint({
     hint,
-
     config: sessionHintConfig.value,
-
     usedHintsByTeam: countGameHintsUsedByTeam(hintUsages.value, team.id),
-
     teamScore: team.score,
   });
 
@@ -3095,7 +2758,6 @@ function useHint(hint: GameHint): void {
     if (availability.reason === 'insufficient-score') {
       notifyWarning(`${team.name} no tiene puntos suficientes para comprar esta pista.`);
     }
-
     return;
   }
 
@@ -3104,164 +2766,120 @@ function useHint(hint: GameHint): void {
       currentTeam.id === team.id
         ? {
             ...currentTeam,
-
             score: applyGameHintCost(currentTeam.score, availability.cost),
           }
         : currentTeam,
     );
   }
 
-  const usage = createGameHintUsage({
-    id: createId(),
+  const usage = createUsageForCurrentContext(hint, availability.cost, availability.wasFree);
 
-    hint,
-
-    roundId: round.id,
-
-    teamId: team.id,
-
-    teamName: team.name,
-
-    cost: availability.cost,
-
-    wasFree: availability.wasFree,
-  });
+  if (!usage) return;
 
   hintUsages.value.push(usage);
-
   publicHintByRound[round.id] = hint.text;
-
   syncProjectionIfLive();
 
   $q.notify({
     type: availability.cost > 0 ? 'warning' : 'info',
-
     icon: 'lightbulb',
-
     message:
       availability.cost > 0
         ? `${team.name} compró una pista por ${availability.cost} puntos.`
         : `${team.name} utilizó una pista gratis.`,
-
     position: 'top',
     timeout: 1800,
   });
 }
 
-function showUsedHint(hint: GameHint): void {
-  const roundId = playingRound.value?.id;
+function showOwnedHint(hint: GameHint): void {
+  if (!ensureGameIsLive()) return;
 
-  if (!roundId) {
-    return;
-  }
+  const roundId = playingRound.value?.id;
+  if (!roundId || !isHintOwnedByActiveContext(hint.id)) return;
 
   publicHintByRound[roundId] = hint.text;
-
   syncProjectionIfLive();
 }
 
-function hidePublicHint(): void {
-  const roundId = playingRound.value?.id;
+function hideHint(hint: GameHint): void {
+  if (!ensureGameIsLive()) return;
 
-  if (!roundId) {
-    return;
-  }
+  const roundId = playingRound.value?.id;
+  if (!roundId || !isHintOwnedByActiveContext(hint.id)) return;
+  if (publicHintByRound[roundId] !== hint.text) return;
 
   publicHintByRound[roundId] = '';
-
   syncProjectionIfLive();
 }
 
 function undoLastHintUsage(): void {
-  const roundId = playingRound.value?.id;
+  if (!ensureGameIsLive()) return;
 
-  if (!roundId) {
-    return;
-  }
+  const roundId = playingRound.value?.id;
+  const ownerId = getActiveHintOwnerId();
+
+  if (!roundId || !ownerId) return;
 
   const found = [...hintUsages.value]
-    .map((usage, usageIndex) => ({
-      usage,
-      usageIndex,
-    }))
+    .map((usage, usageIndex) => ({ usage, usageIndex }))
     .reverse()
-    .find(({ usage }) => usage.roundId === roundId);
+    .find(({ usage }) => usage.roundId === roundId && usage.teamId === ownerId);
 
-  if (!found) {
-    return;
-  }
+  if (!found) return;
 
   const usage = hintUsages.value[found.usageIndex];
+  if (!usage) return;
 
-  if (!usage) {
-    return;
-  }
-
-  if (usage.cost > 0) {
+  if (usage.cost > 0 && hasTeams.value) {
     sessionTeams.value = sessionTeams.value.map((team) =>
       team.id === usage.teamId
-        ? {
-            ...team,
-
-            score: restoreGameHintCost(team.score, usage.cost),
-          }
+        ? { ...team, score: restoreGameHintCost(team.score, usage.cost) }
         : team,
     );
   }
 
   hintUsages.value.splice(found.usageIndex, 1);
 
-  publicHintByRound[roundId] = '';
+  if (publicHintByRound[roundId] === usage.text) {
+    publicHintByRound[roundId] = '';
+  }
 
   syncProjectionIfLive();
 
   $q.notify({
     type: 'info',
     icon: 'undo',
-
-    message: 'Uso de pista deshecho.',
-
+    message: 'Compra/uso de pista deshecho.',
     position: 'top',
   });
 }
 
 function resetFullGame(): void {
+  if (!ensureGameIsLive()) return;
+
   const confirmed = window.confirm('¿Reiniciar marcador, resultados, casillas y pistas?');
+  if (!confirmed) return;
 
-  if (!confirmed) {
-    return;
-  }
+  sessionTeams.value = sessionTeams.value.map((team) => ({
+    ...team,
+    score: sessionInitialScore.value,
+  }));
 
-  sessionTeams.value = resetGameTeamsScore(sessionTeams.value);
-
-  Object.keys(roundResults).forEach((key) => {
-    delete roundResults[key];
-  });
-
-  Object.keys(roundRevealCounts).forEach((key) => {
-    delete roundRevealCounts[key];
-  });
-
-  Object.keys(publicHintByRound).forEach((key) => {
-    delete publicHintByRound[key];
-  });
+  Object.keys(roundResults).forEach((key) => delete roundResults[key]);
+  Object.keys(roundRevealCounts).forEach((key) => delete roundRevealCounts[key]);
+  Object.keys(publicHintByRound).forEach((key) => delete publicHintByRound[key]);
 
   hintUsages.value = [];
-
   playingRoundIndex.value = 0;
-
   activeTeamId.value = sessionTeams.value[0]?.id ?? '';
-
   preparePlayingRound();
-
   syncProjectionIfLive();
 
   $q.notify({
     type: 'info',
     icon: 'restart_alt',
-
     message: 'Juego reiniciado.',
-
     position: 'top',
   });
 }
@@ -3269,13 +2887,8 @@ function resetFullGame(): void {
 function teamInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
 
-  if (parts.length === 0) {
-    return '?';
-  }
-
-  if (parts.length === 1) {
-    return parts[0]?.slice(0, 2).toUpperCase() ?? '?';
-  }
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]?.slice(0, 2).toUpperCase() ?? '?';
 
   return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
 }
@@ -3285,78 +2898,63 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     const reader = new FileReader();
 
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('No se pudo convertir la imagen.'));
-      }
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('No se pudo convertir la imagen.'));
     };
 
     reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
-
     reader.readAsDataURL(blob);
   });
 }
 
 async function getProjectionDataUrl(round: HiddenImageStoredRound): Promise<string> {
   const cached = projectionDataUrls.get(round.id);
-
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
 
   const dataUrl = await blobToDataUrl(round.imageBlob);
-
   projectionDataUrls.set(round.id, dataUrl);
-
   return dataUrl;
 }
 
 function syncProjectionIfLive(): void {
-  if (!isProjectionLive.value) {
-    return;
-  }
-
+  if (!isProjectionLive.value) return;
   void sendPlayingStateToProjection(false);
 }
 
-async function sendPlayingStateToProjection(showNotification = true): Promise<void> {
+async function sendPlayingStateToProjection(
+  showNotification = true,
+  allowBeforePlay = false,
+): Promise<boolean> {
   const activity = playingActivity.value;
-
   const round = playingRound.value;
 
-  if (!activity || !round) {
-    return;
-  }
+  if (!activity || !round) return false;
 
   if (!window.icpStudio?.projection) {
-    $q.notify({
-      type: 'negative',
-      icon: 'error',
-
-      message: 'La salida de proyección no está disponible.',
-
-      position: 'top',
-    });
-
-    return;
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        icon: 'error',
+        message: 'La salida de proyección no está disponible.',
+        position: 'top',
+      });
+    }
+    return false;
   }
 
   const currentSequence = ++projectionSequence;
 
-  if (showNotification) {
-    isSendingProjection.value = true;
-  }
+  if (showNotification) isSendingProjection.value = true;
 
   try {
     const imageDataUrl = await getProjectionDataUrl(round);
 
     if (
       currentSequence !== projectionSequence ||
-      viewMode.value !== 'play' ||
+      (!allowBeforePlay && viewMode.value !== 'play') ||
       playingRound.value?.id !== round.id
     ) {
-      return;
+      return false;
     }
 
     const revealedTileIds = playingTiles.value
@@ -3365,33 +2963,21 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
 
     const url = createHiddenImageProjectionUrl({
       activityId: activity.id,
-
       roundId: round.id,
-
       title: activity.title,
-
       roundIndex: playingRoundIndex.value,
-
       roundCount: activity.rounds.length,
-
       rows: round.rows,
-
       columns: round.columns,
-
       imageDataUrl,
-
       revealedTileIds,
-
       activeHint: publicHintByRound[round.id] ?? '',
     });
 
-    window.icpStudio.projection.setState({
+    await window.icpStudio.projection.setState({
       mode: 'media',
-
       mediaType: 'image',
-
       url,
-
       name: activity.title,
     });
 
@@ -3401,12 +2987,12 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
       $q.notify({
         type: 'positive',
         icon: 'cast',
-
-        message: 'Imagen escondida enviada en vivo.',
-
+        message: 'Imagen escondida actualizada en vivo.',
         position: 'top',
       });
     }
+
+    return true;
   } catch (error) {
     console.error(error);
 
@@ -3414,12 +3000,12 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
       $q.notify({
         type: 'negative',
         icon: 'error',
-
         message: 'No se pudo enviar la actividad a las pantallas.',
-
         position: 'top',
       });
     }
+
+    return false;
   } finally {
     if (showNotification && currentSequence === projectionSequence) {
       isSendingProjection.value = false;
@@ -3428,11 +3014,10 @@ async function sendPlayingStateToProjection(showNotification = true): Promise<vo
 }
 
 function cleanupPlayingImageUrl(): void {
-  if (playingImageUrl.value) {
-    URL.revokeObjectURL(playingImageUrl.value);
+  if (!playingImageUrl.value) return;
 
-    playingImageUrl.value = '';
-  }
+  URL.revokeObjectURL(playingImageUrl.value);
+  playingImageUrl.value = '';
 }
 
 async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
@@ -3441,45 +3026,30 @@ async function duplicateActivity(activity: HiddenImageActivity): Promise<void> {
 
     const duplicate: HiddenImageActivity = {
       id: createId(),
-
       title: `${activity.title} - copia`,
-
       rounds: activity.rounds.map((round) => ({
         ...round,
-
         id: createId(),
-
-        hints: round.hints.map((hint) => ({
-          ...hint,
-
-          id: createId(),
-        })),
+        hints: round.hints.map((hint) => ({ ...hint, id: createId() })),
       })),
-
       createdAt: now,
       updatedAt: now,
     };
 
     await persistActivity(duplicate);
-
     await loadActivities();
 
     $q.notify({
       type: 'positive',
       icon: 'content_copy',
-
       message: 'Actividad duplicada.',
-
       position: 'top',
     });
   } catch (error) {
     console.error(error);
-
     $q.notify({
       type: 'negative',
-
       message: 'No se pudo duplicar la actividad.',
-
       position: 'top',
     });
   }
@@ -3490,42 +3060,30 @@ async function deleteActivity(activity: HiddenImageActivity): Promise<void> {
     `¿Eliminar "${activity.title}"?\n\nEsta acción no se puede deshacer.`,
   );
 
-  if (!confirmed) {
-    return;
-  }
+  if (!confirmed) return;
 
   try {
     await removePersistedActivity(activity.id);
-
     await loadActivities();
 
     $q.notify({
       type: 'positive',
       icon: 'delete',
-
       message: 'Actividad eliminada.',
-
       position: 'top',
     });
   } catch (error) {
     console.error(error);
-
     $q.notify({
       type: 'negative',
-
       message: 'No se pudo eliminar la actividad.',
-
       position: 'top',
     });
   }
 }
 
 function countActivityHints(activity: HiddenImageActivity): number {
-  return activity.rounds.reduce(
-    (total, round) => total + round.hints.length,
-
-    0,
-  );
+  return activity.rounds.reduce((total, round) => total + round.hints.length, 0);
 }
 
 function notifyWarning(message: string): void {
@@ -3542,14 +3100,7 @@ function rebuildPreviewUrls(): void {
 
   activities.value.forEach((activity) => {
     const firstRound = activity.rounds[0];
-
-    if (firstRound) {
-      previewUrls.set(
-        activity.id,
-
-        URL.createObjectURL(firstRound.imageBlob),
-      );
-    }
+    if (firstRound) previewUrls.set(activity.id, URL.createObjectURL(firstRound.imageBlob));
   });
 }
 
@@ -3559,15 +3110,12 @@ function getActivityPreviewUrl(activity: HiddenImageActivity): string {
 
 function revokePreviewUrls(): void {
   previewUrls.forEach((url) => URL.revokeObjectURL(url));
-
   previewUrls.clear();
 }
 
 function revokeRoundUrls(): void {
   rounds.value.forEach((round) => {
-    if (round.imageUrl) {
-      URL.revokeObjectURL(round.imageUrl);
-    }
+    if (round.imageUrl) URL.revokeObjectURL(round.imageUrl);
   });
 }
 
@@ -3581,25 +3129,18 @@ function formatDate(isoDate: string): string {
 
 onMounted(() => {
   resetSessionSetup();
-
   void loadActivities();
 });
 
 onBeforeUnmount(() => {
   if (isProjectionLive.value) {
-    window.icpStudio?.projection.setState({
-      mode: 'blank',
-    });
+    void window.icpStudio?.projection.setState({ mode: 'blank' });
   }
 
   projectionSequence += 1;
-
   projectionDataUrls.clear();
-
   cleanupPlayingImageUrl();
-
   revokeRoundUrls();
-
   revokePreviewUrls();
 });
 </script>
@@ -4108,6 +3649,10 @@ onBeforeUnmount(() => {
 
 .hints-editor-section {
   margin-top: 4px;
+  padding: 16px;
+  background: rgb(250 204 21 / 4%);
+  border: 1px solid rgb(250 204 21 / 20%);
+  border-radius: 11px;
 }
 
 .empty-hints {
@@ -4264,7 +3809,7 @@ onBeforeUnmount(() => {
     transform 200ms ease;
 }
 
-.cover-tile:hover:not(.revealed) {
+.cover-tile:hover:not(.revealed):not(:disabled) {
   background: linear-gradient(145deg, #243b53, #14283a);
 }
 
@@ -4345,6 +3890,47 @@ onBeforeUnmount(() => {
   font-size: 28px;
 }
 
+.live-requirement-card,
+.live-state-panel {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.live-requirement-card {
+  color: #93c5fd;
+  background: rgb(37 99 235 / 8%);
+  border: 1px solid rgb(59 130 246 / 28%);
+}
+
+.live-requirement-card .q-icon,
+.live-state-panel .q-icon {
+  flex: 0 0 auto;
+  font-size: 23px;
+}
+
+.live-requirement-card > div,
+.live-state-panel > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.live-requirement-card strong,
+.live-state-panel strong {
+  color: #dbeafe;
+  font-size: 10px;
+}
+
+.live-requirement-card span,
+.live-state-panel span {
+  margin-top: 3px;
+  color: #7890aa;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
 .setup-section {
   padding: 18px 0;
   border-top: 1px solid #203044;
@@ -4387,7 +3973,8 @@ onBeforeUnmount(() => {
   font-size: 27px;
 }
 
-.mode-card div {
+.mode-card div,
+.score-mode-card div {
   display: flex;
   flex-direction: column;
 }
@@ -4419,6 +4006,18 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.initial-score-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.initial-score-input {
+  width: 180px;
+  flex: 0 0 auto;
+}
+
 .score-mode-selector {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4431,11 +4030,6 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 10px;
   padding: 13px;
-}
-
-.score-mode-card div {
-  display: flex;
-  flex-direction: column;
 }
 
 .score-mode-card .q-icon {
@@ -4533,6 +4127,23 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #203044;
 }
 
+.live-state-panel {
+  margin-top: 12px;
+  color: #f87171;
+  background: rgb(239 68 68 / 7%);
+  border: 1px solid rgb(239 68 68 / 22%);
+}
+
+.live-state-panel.live {
+  color: #4ade80;
+  background: rgb(34 197 94 / 7%);
+  border-color: rgb(34 197 94 / 24%);
+}
+
+.live-state-panel.live strong {
+  color: #bbf7d0;
+}
+
 .scoreboard {
   margin-top: 14px;
   padding-bottom: 14px;
@@ -4609,10 +4220,6 @@ onBeforeUnmount(() => {
   color: #fff;
   font-size: 18px;
   font-weight: 800;
-}
-
-.team-winner-icon {
-  color: #facc15;
 }
 
 .play-round-number {
@@ -4769,14 +4376,15 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 
-.hint-heading-actions {
-  display: flex;
-  gap: 6px;
+.operator-hints-heading small {
+  margin-top: 3px;
+  color: #8b7d47;
+  font-size: 8px;
 }
 
 .operator-hint-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 8px;
 }
 
@@ -4837,12 +4445,24 @@ onBeforeUnmount(() => {
   font-size: 8px;
 }
 
+.operator-hint-copy .other-owners {
+  color: #60a5fa;
+}
+
 .hint-use-button {
   flex: 0 0 auto;
   color: #111827;
   background: #facc15;
   font-size: 8px;
   font-weight: 700;
+}
+
+.hint-hide-button {
+  flex: 0 0 auto;
+  color: #fecaca;
+  background: rgb(239 68 68 / 9%);
+  border: 1px solid rgb(239 68 68 / 26%);
+  font-size: 8px;
 }
 
 .current-public-hint {
@@ -4884,6 +4504,13 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
+.score-team:disabled,
+.play-round-item:disabled,
+.operator-cover-tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 @media (max-width: 1100px) {
   .creator-area {
     grid-template-columns: 350px minmax(0, 1fr);
@@ -4918,11 +4545,16 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .initial-score-section,
   .preview-footer,
   .active-team-bar,
   .operator-controls {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .initial-score-input {
+    width: 100%;
   }
 
   .page-header {
