@@ -77,13 +77,83 @@
       </div>
     </div>
 
-    <MelodyEditor
-      :root-note="rootNote"
-      :scale-mode="scaleMode"
-      :progression="progression"
-      :phrases="phrases"
-      @update:phrases="phrases = $event"
-    />
+    <section class="melody-mode-section">
+      <header class="melody-mode-heading">
+        <div>
+          <span> CAPTURA DE MELODÍA </span>
+
+          <h3>¿Cómo quieres construir la voz principal?</h3>
+
+          <p>
+            Puedes escribir las notas manualmente o cantar la canción para que ICP Studio detecte
+            automáticamente el movimiento de la melodía.
+          </p>
+        </div>
+
+        <div class="melody-mode-buttons">
+          <button
+            type="button"
+            :class="{
+              active: melodyMode === 'manual',
+            }"
+            @click="melodyMode = 'manual'"
+          >
+            <q-icon name="edit_note" />
+
+            <span>
+              <strong>Manual</strong>
+              <small>Escribir las notas</small>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            :class="{
+              active: melodyMode === 'capture',
+            }"
+            @click="melodyMode = 'capture'"
+          >
+            <q-icon name="mic" />
+
+            <span>
+              <strong>Cantar y analizar</strong>
+              <small>Grabar y detectar</small>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <SongCapturePanel v-if="melodyMode === 'capture'" @use-capture="useCapturedMelody" />
+
+      <MelodyEditor
+        v-else
+        :root-note="rootNote"
+        :scale-mode="scaleMode"
+        :progression="progression"
+        :phrases="phrases"
+        @update:phrases="phrases = $event"
+      />
+    </section>
+
+    <section v-if="melodyMode === 'capture' && phrases.length" class="captured-editor-section">
+      <div class="captured-editor-heading">
+        <div>
+          <span> MELODÍA IMPORTADA </span>
+
+          <strong> Revisa o corrige las notas detectadas </strong>
+        </div>
+
+        <q-btn
+          flat
+          dense
+          no-caps
+          icon="edit"
+          label="Abrir editor manual"
+          class="open-editor-button"
+          @click="melodyMode = 'manual'"
+        />
+      </div>
+    </section>
 
     <MelodyHarmonyArrangement
       :root-note="rootNote"
@@ -105,14 +175,19 @@ import ChordProgressionEditor from './harmony/ChordProgressionEditor.vue';
 import MelodyEditor from './harmony/MelodyEditor.vue';
 import MelodyHarmonyArrangement from './harmony/MelodyHarmonyArrangement.vue';
 import VoiceArrangement from './harmony/VoiceArrangement.vue';
+import SongCapturePanel from './harmony/song-capture/SongCapturePanel.vue';
 
 import { notes } from '../shared/music';
 
 import type { ChordStep, MelodyPhrase, ScaleMode } from '../shared/harmony';
 
+type MelodyMode = 'manual' | 'capture';
+
 const rootNote = ref(0);
 
 const scaleMode = ref<ScaleMode>('major');
+
+const melodyMode = ref<MelodyMode>('manual');
 
 const progression = ref<ChordStep[]>([
   {
@@ -147,6 +222,26 @@ const keyLabel = computed(() => {
 
   return `${note.label} ${scaleMode.value === 'major' ? 'mayor' : 'menor'}`;
 });
+
+function useCapturedMelody(value: {
+  phrase: MelodyPhrase;
+  rootNote: number;
+  scaleMode: ScaleMode;
+}): void {
+  rootNote.value = value.rootNote;
+
+  scaleMode.value = value.scaleMode;
+
+  const firstProgressionId = progression.value[0]?.id ?? null;
+
+  const importedPhrase: MelodyPhrase = {
+    ...value.phrase,
+
+    chordStepId: firstProgressionId,
+  };
+
+  phrases.value = [...phrases.value, importedPhrase];
+}
 </script>
 
 <style scoped>
@@ -316,9 +411,149 @@ const keyLabel = computed(() => {
   height: 100%;
 }
 
+.melody-mode-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.melody-mode-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #0a141f;
+  border: 1px solid #223348;
+  border-radius: 12px;
+}
+
+.melody-mode-heading > div:first-child {
+  min-width: 0;
+}
+
+.melody-mode-heading > div:first-child > span {
+  color: #34d399;
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+}
+
+.melody-mode-heading h3 {
+  margin: 2px 0;
+  color: #e3ebf4;
+  font-size: 13px;
+}
+
+.melody-mode-heading p {
+  max-width: 640px;
+  margin: 0;
+  color: #6a7e94;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.melody-mode-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.melody-mode-buttons button {
+  display: flex;
+  min-width: 142px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #8092a7;
+  background: #101e2d;
+  border: 1px solid #293d53;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.melody-mode-buttons button > .q-icon {
+  font-size: 18px;
+}
+
+.melody-mode-buttons button > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.melody-mode-buttons strong {
+  font-size: 8px;
+}
+
+.melody-mode-buttons small {
+  color: #60748a;
+  font-size: 6px;
+}
+
+.melody-mode-buttons button.active {
+  color: #d6f4e8;
+  background: rgb(52 211 153 / 8%);
+  border-color: rgb(52 211 153 / 32%);
+}
+
+.melody-mode-buttons button.active small {
+  color: #6d9f8d;
+}
+
+.captured-editor-section {
+  padding: 10px 12px;
+  background: rgb(52 211 153 / 4%);
+  border: 1px solid rgb(52 211 153 / 13%);
+  border-radius: 10px;
+}
+
+.captured-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.captured-editor-heading > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.captured-editor-heading span {
+  color: #699b89;
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.captured-editor-heading strong {
+  color: #a8cfc0;
+  font-size: 8px;
+}
+
+.open-editor-button {
+  color: #80b9a5;
+  font-size: 8px;
+}
+
 @media (max-width: 1100px) {
   .advanced-top-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 800px) {
+  .melody-mode-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .melody-mode-buttons {
+    width: 100%;
+  }
+
+  .melody-mode-buttons button {
+    flex: 1;
   }
 }
 
@@ -331,6 +566,10 @@ const keyLabel = computed(() => {
   .key-summary {
     align-self: flex-start;
     text-align: left;
+  }
+
+  .melody-mode-buttons {
+    flex-direction: column;
   }
 }
 </style>
