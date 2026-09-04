@@ -52,8 +52,6 @@
             <strong>{{ mode.label }}</strong>
             <small>{{ mode.description }}</small>
           </span>
-
-          <q-icon name="chevron_right" class="mode-arrow" />
         </button>
       </div>
 
@@ -134,7 +132,6 @@ function useDetectedReference(value: { note: number; octave: number }): void {
 
 .header-copy {
   display: flex;
-  min-width: 0;
   align-items: center;
   gap: 16px;
 }
@@ -166,8 +163,6 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   margin: 3px 0 4px;
   color: #f4f7fb;
   font-size: 23px;
-  font-weight: 720;
-  line-height: 1.15;
 }
 
 .music-header p {
@@ -175,11 +170,9 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   margin: 0;
   color: #8493a8;
   font-size: 12px;
-  line-height: 1.55;
 }
 
 .back-button {
-  flex: 0 0 auto;
   color: #9baabd;
   border: 1px solid #29394c;
   border-radius: 11px;
@@ -187,7 +180,7 @@ function useDetectedReference(value: { note: number; octave: number }): void {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
 }
 
@@ -204,22 +197,16 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   border-radius: 14px;
   cursor: pointer;
   text-align: left;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    transform 150ms ease;
 }
 
 .mode-card:hover {
   background: #112033;
   border-color: #38506b;
-  transform: translateY(-2px);
 }
 
 .mode-card.active {
   background: #151b2b;
   border-color: rgb(244 114 182 / 55%);
-  box-shadow: inset 0 0 0 1px rgb(244 114 182 / 8%);
 }
 
 .mode-icon {
@@ -233,49 +220,29 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   border-radius: 11px;
 }
 
-.mode-icon .q-icon {
-  font-size: 21px;
-}
-
 .mode-info {
   display: flex;
   min-width: 0;
-  flex: 1;
   flex-direction: column;
   gap: 3px;
 }
 
 .mode-info strong {
-  overflow: hidden;
   font-size: 11px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mode-info small {
-  display: -webkit-box;
-  overflow: hidden;
   color: #6f8095;
   font-size: 9px;
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.mode-arrow {
-  flex: 0 0 auto;
-  color: #4b5c71;
-  font-size: 17px;
 }
 
 @media (max-width: 1250px) {
   .mode-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 700px) {
   .music-header {
     align-items: stretch;
     flex-direction: column;
@@ -286,15 +253,11 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   }
 
   .mode-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 560px) {
-  .music-shell {
-    padding: 14px;
-  }
-
+@media (max-width: 480px) {
   .mode-grid {
     grid-template-columns: 1fr;
   }
