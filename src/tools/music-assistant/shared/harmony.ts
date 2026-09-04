@@ -4,6 +4,8 @@ export type ScaleMode = 'major' | 'minor';
 
 export type MelodyNoteDuration = 0.5 | 1 | 2 | 4;
 
+export type MelodyVoiceId = 'principal' | 'second' | 'tenor' | 'baritone' | 'bass';
+
 export interface HarmonySetupState {
   rootNote: number;
   scaleMode: ScaleMode;
@@ -47,6 +49,31 @@ export interface ArrangedChord {
   chordLabel: string;
   chordNotes: number[];
   voices: HarmonyVoice[];
+}
+
+export interface MelodyHarmonyVoiceNote {
+  voiceId: MelodyVoiceId;
+  label: string;
+  shortLabel: string;
+  color: string;
+  noteIndex: number;
+  octave: number;
+  midi: number;
+  frequency: number;
+}
+
+export interface HarmonizedMelodyNote {
+  sourceNote: MelodyNote;
+  chordLabel: string;
+  voices: MelodyHarmonyVoiceNote[];
+}
+
+export interface HarmonizedMelodyPhrase {
+  phraseId: string;
+  title: string;
+  lyrics: string;
+  chordLabel: string;
+  notes: HarmonizedMelodyNote[];
 }
 
 const majorScaleIntervals = [0, 2, 4, 5, 7, 9, 11];
@@ -171,6 +198,194 @@ export function arrangeProgression(
       chordNotes,
 
       voices: createVoicesForChord(chordNotes),
+    };
+  });
+}
+
+interface VoiceProfile {
+  id: Exclude<MelodyVoiceId, 'principal'>;
+  label: string;
+  shortLabel: string;
+  color: string;
+  minMidi: number;
+  maxMidi: number;
+  offsetFromPrincipal: number;
+}
+
+const voiceProfiles: VoiceProfile[] = [
+  {
+    id: 'second',
+    label: 'Segunda voz',
+    shortLabel: '2ª',
+    color: '#60a5fa',
+    minMidi: 55,
+    maxMidi: 81,
+    offsetFromPrincipal: 4,
+  },
+  {
+    id: 'tenor',
+    label: 'Tenor',
+    shortLabel: 'T',
+    color: '#a78bfa',
+    minMidi: 48,
+    maxMidi: 74,
+    offsetFromPrincipal: -5,
+  },
+  {
+    id: 'baritone',
+    label: 'Barítono',
+    shortLabel: 'Brt',
+    color: '#34d399',
+    minMidi: 43,
+    maxMidi: 67,
+    offsetFromPrincipal: -10,
+  },
+  {
+    id: 'bass',
+    label: 'Bajo',
+    shortLabel: 'B',
+    color: '#fbbf24',
+    minMidi: 35,
+    maxMidi: 57,
+    offsetFromPrincipal: -18,
+  },
+];
+
+function midiToVoiceNote(
+  voiceId: MelodyVoiceId,
+  label: string,
+  shortLabel: string,
+  color: string,
+  midi: number,
+): MelodyHarmonyVoiceNote {
+  const noteIndex = normalizeNote(midi);
+
+  const octave = Math.floor(midi / 12) - 1;
+
+  return {
+    voiceId,
+    label,
+    shortLabel,
+    color,
+    noteIndex,
+    octave,
+    midi,
+    frequency: midiToFrequency(midi),
+  };
+}
+
+function chordMidiCandidates(chordNotes: number[], minMidi: number, maxMidi: number): number[] {
+  const candidates: number[] = [];
+
+  for (let midi = minMidi; midi <= maxMidi; midi += 1) {
+    if (chordNotes.includes(normalizeNote(midi))) {
+      candidates.push(midi);
+    }
+  }
+
+  return candidates;
+}
+
+function chooseVoiceMidi(
+  chordNotes: number[],
+  profile: VoiceProfile,
+  principalMidi: number,
+  previousMidi: number | undefined,
+): number {
+  const candidates = chordMidiCandidates(chordNotes, profile.minMidi, profile.maxMidi);
+
+  if (!candidates.length) {
+    return Math.min(
+      profile.maxMidi,
+      Math.max(profile.minMidi, principalMidi + profile.offsetFromPrincipal),
+    );
+  }
+
+  const target = principalMidi + profile.offsetFromPrincipal;
+
+  let best = candidates[0] ?? target;
+
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  candidates.forEach((candidate) => {
+    let score = Math.abs(candidate - target);
+
+    if (previousMidi !== undefined) {
+      score += Math.abs(candidate - previousMidi) * 0.75;
+    }
+
+    if (profile.id !== 'second' && candidate > principalMidi) {
+      score += 8;
+    }
+
+    if (profile.id === 'second' && candidate < principalMidi - 5) {
+      score += 5;
+    }
+
+    if (candidate === principalMidi) {
+      score += 6;
+    }
+
+    if (score < bestScore) {
+      bestScore = score;
+
+      best = candidate;
+    }
+  });
+
+  return best;
+}
+
+export function harmonizeMelodyPhrases(
+  rootNote: number,
+  scaleMode: ScaleMode,
+  progression: ChordStep[],
+  phrases: MelodyPhrase[],
+): HarmonizedMelodyPhrase[] {
+  const previousVoiceMidi: Partial<Record<MelodyVoiceId, number>> = {};
+
+  return phrases.map((phrase) => {
+    const chordStep = progression.find((step) => step.id === phrase.chordStepId) ?? progression[0];
+
+    const degree = chordStep?.degree ?? 1;
+
+    const chordNotes = getChordTones(rootNote, scaleMode, degree);
+
+    const chordLabel = getChordLabel(rootNote, scaleMode, degree);
+
+    const arrangedNotes = phrase.notes.map((melodyNote): HarmonizedMelodyNote => {
+      const principalMidi = (melodyNote.octave + 1) * 12 + normalizeNote(melodyNote.noteIndex);
+
+      const principal = midiToVoiceNote('principal', 'Principal', 'P', '#f472b6', principalMidi);
+
+      const otherVoices = voiceProfiles.map((profile) => {
+        const midi = chooseVoiceMidi(
+          chordNotes,
+          profile,
+          principalMidi,
+          previousVoiceMidi[profile.id],
+        );
+
+        previousVoiceMidi[profile.id] = midi;
+
+        return midiToVoiceNote(profile.id, profile.label, profile.shortLabel, profile.color, midi);
+      });
+
+      previousVoiceMidi.principal = principalMidi;
+
+      return {
+        sourceNote: melodyNote,
+        chordLabel,
+        voices: [principal, ...otherVoices],
+      };
+    });
+
+    return {
+      phraseId: phrase.id,
+      title: phrase.title,
+      lyrics: phrase.lyrics,
+      chordLabel,
+      notes: arrangedNotes,
     };
   });
 }

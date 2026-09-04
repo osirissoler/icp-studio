@@ -28,70 +28,71 @@
       @update:scale-mode="scaleMode = $event"
     />
 
-    <section class="advanced-section">
-      <header class="advanced-heading">
-        <div class="advanced-icon">
-          <q-icon name="account_tree" />
+    <div class="advanced-heading">
+      <div class="advanced-icon">
+        <q-icon name="account_tree" />
+      </div>
+
+      <div>
+        <span class="advanced-kicker"> ARMONIZACIÓN AVANZADA </span>
+
+        <h3>Construye la canción</h3>
+
+        <p>
+          Prepara la tonalidad, la progresión, la melodía principal y después genera una propuesta
+          de movimiento para todas las voces.
+        </p>
+      </div>
+    </div>
+
+    <div class="advanced-top-grid">
+      <div class="setup-column">
+        <div class="card-title">
+          <q-icon name="music_note" />
+
+          <div>
+            <span> CONSTRUIR LA CANCIÓN </span>
+
+            <strong> Base armónica </strong>
+
+            <small> Define la tonalidad desde la que trabajará todo el arreglo. </small>
+          </div>
         </div>
 
-        <div>
-          <span class="advanced-kicker"> ARMONIZACIÓN AVANZADA </span>
-
-          <h3>Construye la canción</h3>
-
-          <p>
-            La misma tonalidad elegida arriba se utiliza para construir la progresión, la melodía
-            principal y el movimiento de las distintas voces.
-          </p>
-        </div>
-      </header>
-
-      <div class="advanced-workflow">
         <HarmonySetup
           :root-note="rootNote"
           :scale-mode="scaleMode"
           @update:root-note="rootNote = $event"
           @update:scale-mode="scaleMode = $event"
         />
+      </div>
 
+      <div class="progression-column">
         <ChordProgressionEditor
           :root-note="rootNote"
           :scale-mode="scaleMode"
           :progression="progression"
           @update:progression="progression = $event"
         />
-
-        <MelodyEditor
-          :root-note="rootNote"
-          :scale-mode="scaleMode"
-          :progression="progression"
-          :phrases="phrases"
-          @update:phrases="phrases = $event"
-        />
-
-        <VoiceArrangement
-          :root-note="rootNote"
-          :scale-mode="scaleMode"
-          :progression="progression"
-        />
       </div>
-    </section>
+    </div>
 
-    <section class="next-stage">
-      <div class="next-icon">
-        <q-icon name="groups" />
-      </div>
+    <MelodyEditor
+      :root-note="rootNote"
+      :scale-mode="scaleMode"
+      :progression="progression"
+      :phrases="phrases"
+      @update:phrases="phrases = $event"
+    />
 
-      <div>
-        <strong> Próxima etapa: armonización de la melodía </strong>
+    <MelodyHarmonyArrangement
+      :root-note="rootNote"
+      :scale-mode="scaleMode"
+      :progression="progression"
+      :phrases="phrases"
+    />
 
-        <p>
-          Ahora que ICP Studio puede guardar la melodía principal, el próximo paso será utilizar
-          cada nota y su acorde para calcular movimientos reales de Segunda voz, Tenor, Barítono y
-          Bajo.
-        </p>
-      </div>
-    </section>
+    <VoiceArrangement :root-note="rootNote" :scale-mode="scaleMode" :progression="progression" />
   </section>
 </template>
 
@@ -102,6 +103,7 @@ import QuickHarmonyReference from './harmony/QuickHarmonyReference.vue';
 import HarmonySetup from './harmony/HarmonySetup.vue';
 import ChordProgressionEditor from './harmony/ChordProgressionEditor.vue';
 import MelodyEditor from './harmony/MelodyEditor.vue';
+import MelodyHarmonyArrangement from './harmony/MelodyHarmonyArrangement.vue';
 import VoiceArrangement from './harmony/VoiceArrangement.vue';
 
 import { notes } from '../shared/music';
@@ -204,19 +206,11 @@ const keyLabel = computed(() => {
   font-size: 11px;
 }
 
-.advanced-section {
-  padding: 18px;
-  background: linear-gradient(180deg, rgb(96 165 250 / 4%), transparent 170px), #0a141f;
-  border: 1px solid #223348;
-  border-radius: 16px;
-}
-
 .advanced-heading {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #1c2b3d;
+  padding: 4px 2px;
 }
 
 .advanced-icon {
@@ -255,43 +249,77 @@ const keyLabel = computed(() => {
   line-height: 1.45;
 }
 
-.advanced-workflow {
+.advanced-top-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(320px, 0.85fr)
+    minmax(480px, 1.15fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.setup-column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 8px;
+  padding: 11px;
+  background: linear-gradient(180deg, rgb(96 165 250 / 4%), transparent 140px), #0a141f;
+  border: 1px solid #223348;
+  border-radius: 15px;
 }
 
-.next-stage {
+.progression-column {
+  min-width: 0;
+}
+
+.card-title {
   display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  background: rgb(167 139 250 / 4%);
-  border: 1px solid rgb(167 139 250 / 13%);
-  border-radius: 11px;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 3px 4px;
 }
 
-.next-icon {
-  display: grid;
-  width: 31px;
-  height: 31px;
-  flex: 0 0 auto;
-  place-items: center;
-  color: #a78bfa;
-  background: rgb(167 139 250 / 8%);
-  border-radius: 8px;
+.card-title > .q-icon {
+  color: #60a5fa;
+  font-size: 19px;
 }
 
-.next-stage strong {
-  color: #b9afd8;
-  font-size: 9px;
+.card-title div {
+  display: flex;
+  flex-direction: column;
 }
 
-.next-stage p {
-  margin: 2px 0 0;
-  color: #746c8b;
-  font-size: 8px;
-  line-height: 1.45;
+.card-title span {
+  color: #60a5fa;
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+}
+
+.card-title strong {
+  color: #dbe6f1;
+  font-size: 10px;
+}
+
+.card-title small {
+  color: #63788f;
+  font-size: 7px;
+}
+
+.setup-column :deep(.setup-card) {
+  flex: 1;
+  padding: 14px;
+  border-color: #25384d;
+}
+
+.progression-column :deep(.progression-card) {
+  height: 100%;
+}
+
+@media (max-width: 1100px) {
+  .advanced-top-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 700px) {
