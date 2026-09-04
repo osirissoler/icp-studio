@@ -7,8 +7,8 @@
         <h3>Captura la canción con tu voz</h3>
 
         <p>
-          Canta normalmente. ICP Studio grabará el audio completo y seguirá los cambios de la
-          melodía mientras cantas.
+          Canta normalmente. ICP Studio grabará el audio completo, seguirá los cambios de la melodía
+          y conservará el momento exacto y la duración de cada nota.
         </p>
       </div>
 
@@ -105,7 +105,8 @@
 
             <div>
               <strong>Audio original</strong>
-              <span>Escucha exactamente lo que cantaste.</span>
+
+              <span> Escucha exactamente lo que cantaste. </span>
             </div>
           </div>
 
@@ -164,7 +165,7 @@
               {{ estimatedKeyLabel }}
             </strong>
 
-            <small> La estimación mejora a medida que cantas más notas. </small>
+            <small> La estimación mejora mientras se acumula información de la canción. </small>
           </div>
 
           <q-icon name="music_note" />
@@ -203,10 +204,7 @@
         <div>
           <span>MELODÍA DETECTADA</span>
 
-          <small>
-            ICP Studio une pequeñas fluctuaciones para evitar convertir el vibrato natural en notas
-            diferentes.
-          </small>
+          <small> Cada nota conserva el segundo de inicio, final y duración real. </small>
         </div>
 
         <q-btn
@@ -237,6 +235,12 @@
           </span>
 
           <small>
+            {{ formatTimelineTime(note.startedAt) }}
+            –
+            {{ formatTimelineTime(note.endedAt) }}
+          </small>
+
+          <small class="duration">
             {{ formatDuration(note.durationMs) }}
           </small>
         </article>
@@ -253,16 +257,25 @@
       </div>
     </section>
 
+    <CapturedHarmonyPreview
+      v-if="!isRecording && capturedNotes.length && estimatedKey"
+      :root-note="estimatedKey.rootNote"
+      :scale-mode="estimatedKey.scaleMode"
+      :progression="progression"
+      :captured-notes="capturedNotes"
+    />
+
     <section v-if="hasCapture" class="capture-result">
       <div class="result-copy">
         <q-icon name="auto_awesome" />
 
         <div>
-          <strong> Captura lista para utilizar </strong>
+          <strong> Interpretación analizada </strong>
 
           <p>
-            Puedes conservar la tonalidad estimada y convertir las notas detectadas en una frase de
-            la Melodía principal. Desde ahí el armonizador podrá calcular las demás voces.
+            Las voces ya se generan automáticamente arriba. Usa este botón solamente si también
+            quieres llevar la melodía detectada al editor manual para corregir o continuar el
+            arreglo.
           </p>
         </div>
       </div>
@@ -271,9 +284,9 @@
         unelevated
         no-caps
         icon="playlist_add_check"
-        label="Usar esta melodía"
+        label="Llevar al editor"
         class="use-button"
-        :disable="!capturedNotes.length"
+        :disable="!capturedNotes.length || !estimatedKey"
         @click="useCapturedMelody"
       />
     </section>
@@ -283,6 +296,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 
+import CapturedHarmonyPreview from './CapturedHarmonyPreview.vue';
+
 import {
   calculateInputLevel,
   detectPitch,
@@ -291,6 +306,7 @@ import {
 } from '../../../shared/music';
 
 import type {
+  ChordStep,
   MelodyNote,
   MelodyNoteDuration,
   MelodyPhrase,
@@ -311,6 +327,12 @@ interface KeyEstimate {
   scaleMode: ScaleMode;
   score: number;
 }
+
+const props = defineProps<{
+  rootNote: number;
+  scaleMode: ScaleMode;
+  progression: ChordStep[];
+}>();
 
 const emit = defineEmits<{
   'use-capture': [
@@ -352,7 +374,7 @@ let microphoneSource: MediaStreamAudioSourceNode | null = null;
 
 let analyserNode: AnalyserNode | null = null;
 
-let analyserBuffer: Float32Array | null = null;
+let analyserBuffer: Float32Array<ArrayBuffer> | null = null;
 
 let mediaRecorder: MediaRecorder | null = null;
 
@@ -655,16 +677,21 @@ function finalizeConfirmedNote(endedAt: number): void {
       previous.octave === octave &&
       confirmedStartedAt - previous.endedAt < 240
     ) {
-      previous.endedAt = endedAt;
+      previous.endedAt = endedAt - recordingStartedAt;
 
-      previous.durationMs += durationMs;
+      previous.durationMs = previous.endedAt - previous.startedAt;
     } else {
       capturedNotes.value.push({
         id: makeId(),
+
         noteIndex,
+
         octave,
+
         startedAt: confirmedStartedAt - recordingStartedAt,
+
         endedAt: endedAt - recordingStartedAt,
+
         durationMs,
       });
     }
@@ -714,7 +741,7 @@ function useCapturedMelody(): void {
   }
 
   const melodyNotes: MelodyNote[] = capturedNotes.value.map((note) => ({
-    id: makeId(),
+    id: note.id,
 
     noteIndex: note.noteIndex,
 
@@ -730,7 +757,7 @@ function useCapturedMelody(): void {
 
     lyrics: '',
 
-    chordStepId: null,
+    chordStepId: props.progression[0]?.id ?? null,
 
     notes: melodyNotes,
   };
@@ -763,16 +790,21 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
   let best: KeyEstimate | null = null;
 
   for (let root = 0; root < 12; root += 1) {
-    [
+    const modes = [
       {
         mode: 'major' as const,
+
         pattern: majorPattern,
       },
+
       {
         mode: 'minor' as const,
+
         pattern: minorPattern,
       },
-    ].forEach(({ mode, pattern }) => {
+    ];
+
+    modes.forEach(({ mode, pattern }) => {
       let score = 0;
 
       pitchWeights.forEach((weight, pitch) => {
@@ -792,7 +824,9 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
       if (!best || score > best.score) {
         best = {
           rootNote: root,
+
           scaleMode: mode,
+
           score,
         };
       }
@@ -900,11 +934,11 @@ function normalizeNote(value: number): number {
 }
 
 function formatDuration(durationMs: number): string {
-  if (durationMs < 1000) {
-    return `${Math.round(durationMs)} ms`;
-  }
+  return `${(durationMs / 1000).toFixed(2)} s`;
+}
 
-  return `${(durationMs / 1000).toFixed(1)} s`;
+function formatTimelineTime(milliseconds: number): string {
+  return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
 function formatTime(milliseconds: number): string {
@@ -959,7 +993,7 @@ onBeforeUnmount(() => {
 }
 
 .capture-heading p {
-  max-width: 620px;
+  max-width: 680px;
   margin: 0;
   color: #718399;
   font-size: 10px;
@@ -1336,8 +1370,8 @@ onBeforeUnmount(() => {
 
 .timeline-note {
   display: flex;
-  min-width: 66px;
-  min-height: 64px;
+  min-width: 88px;
+  min-height: 76px;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
@@ -1366,6 +1400,10 @@ onBeforeUnmount(() => {
   margin-top: 2px;
   color: #5d7289;
   font-size: 6px;
+}
+
+.timeline-note .duration {
+  color: #8b9caf;
 }
 
 .empty-timeline {
@@ -1427,7 +1465,7 @@ onBeforeUnmount(() => {
 }
 
 .result-copy p {
-  max-width: 600px;
+  max-width: 620px;
   margin: 2px 0 0;
   color: #658579;
   font-size: 7px;
