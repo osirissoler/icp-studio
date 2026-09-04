@@ -119,7 +119,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'asistente-musical',
-        component: () => import('../pages/MusicAssistantPage.vue'),
+        component: () => import('../tools/music-assistant/MusicAssistantPage.vue'),
         meta: {
           title: 'Asistente musical',
           description: 'Encuentra notas, tonos y referencias para ensayos de canto.',
