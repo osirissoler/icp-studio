@@ -13,8 +13,11 @@
       </div>
 
       <div class="key-summary">
-        <span>Tonalidad actual</span>
-        <strong>{{ keyLabel }}</strong>
+        <span> Tonalidad actual </span>
+
+        <strong>
+          {{ keyLabel }}
+        </strong>
       </div>
     </header>
 
@@ -37,8 +40,8 @@
           <h3>Construye la canción</h3>
 
           <p>
-            La misma tonalidad elegida arriba se utiliza para construir la progresión de acordes y
-            preparar el movimiento de las voces.
+            La misma tonalidad elegida arriba se utiliza para construir la progresión, la melodía
+            principal y el movimiento de las distintas voces.
           </p>
         </div>
       </header>
@@ -58,6 +61,14 @@
           @update:progression="progression = $event"
         />
 
+        <MelodyEditor
+          :root-note="rootNote"
+          :scale-mode="scaleMode"
+          :progression="progression"
+          :phrases="phrases"
+          @update:phrases="phrases = $event"
+        />
+
         <VoiceArrangement
           :root-note="rootNote"
           :scale-mode="scaleMode"
@@ -66,18 +77,18 @@
       </div>
     </section>
 
-    <section class="melody-stage">
-      <div class="melody-icon">
-        <q-icon name="timeline" />
+    <section class="next-stage">
+      <div class="next-icon">
+        <q-icon name="groups" />
       </div>
 
       <div>
-        <strong> Próxima etapa: melodía principal </strong>
+        <strong> Próxima etapa: armonización de la melodía </strong>
 
         <p>
-          Después añadiremos las frases y notas de la melodía principal. Así las referencias de
-          Principal, Segunda voz, Tenor, Barítono y Bajo podrán cambiar siguiendo realmente la
-          canción y no solamente permanecer fijas dentro de cada acorde.
+          Ahora que ICP Studio puede guardar la melodía principal, el próximo paso será utilizar
+          cada nota y su acorde para calcular movimientos reales de Segunda voz, Tenor, Barítono y
+          Bajo.
         </p>
       </div>
     </section>
@@ -90,11 +101,12 @@ import { computed, ref } from 'vue';
 import QuickHarmonyReference from './harmony/QuickHarmonyReference.vue';
 import HarmonySetup from './harmony/HarmonySetup.vue';
 import ChordProgressionEditor from './harmony/ChordProgressionEditor.vue';
+import MelodyEditor from './harmony/MelodyEditor.vue';
 import VoiceArrangement from './harmony/VoiceArrangement.vue';
 
 import { notes } from '../shared/music';
 
-import type { ChordStep, ScaleMode } from '../shared/harmony';
+import type { ChordStep, MelodyPhrase, ScaleMode } from '../shared/harmony';
 
 const rootNote = ref(0);
 
@@ -106,22 +118,27 @@ const progression = ref<ChordStep[]>([
     degree: 1,
     beats: 4,
   },
+
   {
     id: 'initial-4',
     degree: 4,
     beats: 4,
   },
+
   {
     id: 'initial-5',
     degree: 5,
     beats: 4,
   },
+
   {
     id: 'initial-1b',
     degree: 1,
     beats: 4,
   },
 ]);
+
+const phrases = ref<MelodyPhrase[]>([]);
 
 const keyLabel = computed(() => {
   const note = notes.find((item) => item.value === rootNote.value) ?? notes[0]!;
@@ -153,7 +170,7 @@ const keyLabel = computed(() => {
 }
 
 .harmony-heading h2 {
-  margin: 4px 0 4px;
+  margin: 4px 0;
   color: #f0f4f9;
   font-size: 19px;
 }
@@ -225,7 +242,7 @@ const keyLabel = computed(() => {
 }
 
 .advanced-heading h3 {
-  margin: 2px 0 2px;
+  margin: 2px 0;
   color: #e8eff7;
   font-size: 15px;
 }
@@ -245,34 +262,34 @@ const keyLabel = computed(() => {
   margin-top: 14px;
 }
 
-.melody-stage {
+.next-stage {
   display: flex;
   gap: 10px;
   padding: 12px 14px;
-  background: rgb(52 211 153 / 4%);
-  border: 1px solid rgb(52 211 153 / 13%);
+  background: rgb(167 139 250 / 4%);
+  border: 1px solid rgb(167 139 250 / 13%);
   border-radius: 11px;
 }
 
-.melody-icon {
+.next-icon {
   display: grid;
   width: 31px;
   height: 31px;
   flex: 0 0 auto;
   place-items: center;
-  color: #34d399;
-  background: rgb(52 211 153 / 8%);
+  color: #a78bfa;
+  background: rgb(167 139 250 / 8%);
   border-radius: 8px;
 }
 
-.melody-stage strong {
-  color: #a8cfc0;
+.next-stage strong {
+  color: #b9afd8;
   font-size: 9px;
 }
 
-.melody-stage p {
+.next-stage p {
   margin: 2px 0 0;
-  color: #68867c;
+  color: #746c8b;
   font-size: 8px;
   line-height: 1.45;
 }

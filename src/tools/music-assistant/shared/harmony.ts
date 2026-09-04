@@ -2,6 +2,8 @@ import { midiToFrequency, notes } from './music';
 
 export type ScaleMode = 'major' | 'minor';
 
+export type MelodyNoteDuration = 0.5 | 1 | 2 | 4;
+
 export interface HarmonySetupState {
   rootNote: number;
   scaleMode: ScaleMode;
@@ -11,6 +13,21 @@ export interface ChordStep {
   id: string;
   degree: number;
   beats: number;
+}
+
+export interface MelodyNote {
+  id: string;
+  noteIndex: number;
+  octave: number;
+  beats: MelodyNoteDuration;
+}
+
+export interface MelodyPhrase {
+  id: string;
+  title: string;
+  lyrics: string;
+  chordStepId: string | null;
+  notes: MelodyNote[];
 }
 
 export interface HarmonyVoice {
@@ -44,6 +61,12 @@ export function normalizeNote(note: number): number {
   return ((note % 12) + 12) % 12;
 }
 
+export function melodyNoteFrequency(noteIndex: number, octave: number): number {
+  const midi = (octave + 1) * 12 + normalizeNote(noteIndex);
+
+  return midiToFrequency(midi);
+}
+
 export function getScaleIntervals(scaleMode: ScaleMode): number[] {
   return scaleMode === 'major' ? majorScaleIntervals : minorScaleIntervals;
 }
@@ -54,6 +77,10 @@ export function getScaleNote(rootNote: number, scaleMode: ScaleMode, degree: num
   const safeDegree = Math.min(Math.max(degree, 1), 7) - 1;
 
   return normalizeNote(rootNote + (intervals[safeDegree] ?? 0));
+}
+
+export function getScaleNotes(rootNote: number, scaleMode: ScaleMode): number[] {
+  return getScaleIntervals(scaleMode).map((interval) => normalizeNote(rootNote + interval));
 }
 
 export function getDegreeQuality(scaleMode: ScaleMode, degree: number): string {
@@ -117,9 +144,13 @@ export function createVoicesForChord(chordNotes: number[]): HarmonyVoice[] {
 
   return [
     makeVoice('principal', 'Principal', 'P', 'record_voice_over', '#f472b6', root, 4),
+
     makeVoice('second', 'Segunda voz', '2ª', 'spatial_audio_off', '#60a5fa', third, 4),
+
     makeVoice('tenor', 'Tenor', 'T', 'graphic_eq', '#a78bfa', fifth, 4),
+
     makeVoice('baritone', 'Barítono', 'Brt', 'equalizer', '#34d399', third, 3),
+
     makeVoice('bass', 'Bajo', 'B', 'volume_down', '#fbbf24', root, 2),
   ];
 }
@@ -134,8 +165,11 @@ export function arrangeProgression(
 
     return {
       step,
+
       chordLabel: getChordLabel(rootNote, scaleMode, step.degree),
+
       chordNotes,
+
       voices: createVoicesForChord(chordNotes),
     };
   });
