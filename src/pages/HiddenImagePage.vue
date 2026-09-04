@@ -1403,6 +1403,7 @@ import {
 } from '../shared/game-hints';
 
 import { createHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
+import type { ActivityExecutionContext } from '../shared/activity-execution';
 
 type ViewMode = 'library' | 'editor' | 'setup' | 'play';
 type StandaloneMode = 'free' | 'teams';
@@ -1534,6 +1535,7 @@ const hintCostOptions: Array<{ label: string; value: GameHintCostMode }> = [
 
 const form = reactive<HiddenImageForm>({ title: '' });
 const setupActivity = ref<HiddenImageActivity | null>(null);
+const executionContext = ref<ActivityExecutionContext | null>(null);
 
 const sessionSetup = reactive<StandaloneSessionSetup>({
   mode: 'free',
@@ -2338,6 +2340,36 @@ function validateSessionSetup(): boolean {
   return true;
 }
 
+function createStandaloneExecutionContext(activity: HiddenImageActivity): ActivityExecutionContext {
+  const usesTeams = sessionSetup.mode === 'teams';
+
+  const teams: GameSessionTeam[] = usesTeams
+    ? sessionSetup.teams.map((team, index) => ({
+        id: team.id,
+        name: team.name.trim() || `Equipo ${index + 1}`,
+        score: normalizedInitialScore.value,
+      }))
+    : [];
+
+  const scoring: GameSessionScoringConfig = usesTeams
+    ? normalizedSetupScoring.value
+    : {
+        mode: 'none',
+        basePoints: 0,
+        deductionPerReveal: 0,
+        minimumPoints: 0,
+      };
+
+  return {
+    activityType: 'hidden-image',
+    executionMode: 'standalone',
+    sourceActivityId: activity.id,
+    teams,
+    scoring,
+    hints: normalizedSetupHints.value,
+  };
+}
+
 async function startStandaloneGame(): Promise<void> {
   const activity = setupActivity.value;
 
@@ -2347,34 +2379,18 @@ async function startStandaloneGame(): Promise<void> {
   isSendingProjection.value = true;
 
   try {
+    const context = createStandaloneExecutionContext(activity);
+    executionContext.value = context;
+
     playingActivity.value = activity;
     playingRoundIndex.value = 0;
-    sessionMode.value = sessionSetup.mode;
-
-    if (sessionSetup.mode === 'teams') {
-      sessionInitialScore.value = normalizedInitialScore.value;
-
-      sessionTeams.value = sessionSetup.teams.map((team, index) => ({
-        id: team.id,
-        name: team.name.trim() || `Equipo ${index + 1}`,
-        score: sessionInitialScore.value,
-      }));
-
-      activeTeamId.value = sessionTeams.value[0]?.id ?? '';
-      sessionScoring.value = normalizedSetupScoring.value;
-    } else {
-      sessionInitialScore.value = 0;
-      sessionTeams.value = [];
-      activeTeamId.value = '';
-      sessionScoring.value = {
-        mode: 'none',
-        basePoints: 0,
-        deductionPerReveal: 0,
-        minimumPoints: 0,
-      };
-    }
-
-    sessionHintConfig.value = normalizedSetupHints.value;
+    sessionMode.value = context.teams.length >= MIN_TEAM_COUNT ? 'teams' : 'free';
+    sessionTeams.value = context.teams.map((team) => ({ ...team }));
+    activeTeamId.value = sessionTeams.value[0]?.id ?? '';
+    sessionInitialScore.value =
+      sessionMode.value === 'teams' ? (sessionTeams.value[0]?.score ?? 0) : 0;
+    sessionScoring.value = { ...context.scoring };
+    sessionHintConfig.value = { ...context.hints };
     projectionDataUrls.clear();
     projectionSequence += 1;
     preparePlayingRound();
@@ -2413,6 +2429,7 @@ async function startStandaloneGame(): Promise<void> {
 function resetGameSession(): void {
   cleanupPlayingImageUrl();
 
+  executionContext.value = null;
   playingActivity.value = null;
   playingRoundIndex.value = 0;
   playingTiles.value = [];
