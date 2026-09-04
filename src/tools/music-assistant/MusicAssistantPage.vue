@@ -35,7 +35,9 @@
           :key="mode.id"
           type="button"
           class="mode-card"
-          :class="{ active: activeMode === mode.id }"
+          :class="{
+            active: activeMode === mode.id,
+          }"
           @click="activeMode = mode.id"
         >
           <span
@@ -49,8 +51,13 @@
           </span>
 
           <span class="mode-info">
-            <strong>{{ mode.label }}</strong>
-            <small>{{ mode.description }}</small>
+            <strong>
+              {{ mode.label }}
+            </strong>
+
+            <small>
+              {{ mode.description }}
+            </small>
           </span>
         </button>
       </div>
@@ -67,6 +74,8 @@
         @use-reference="useDetectedReference"
       />
 
+      <HarmonyPanel v-else-if="activeMode === 'harmony'" />
+
       <UpcomingModePanel v-else :mode="activeModeData" />
     </div>
   </q-page>
@@ -74,8 +83,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+
 import { useRouter } from 'vue-router';
 
+import HarmonyPanel from './components/HarmonyPanel.vue';
 import NoteReferencePanel from './components/NoteReferencePanel.vue';
 import PitchDetectorPanel from './components/PitchDetectorPanel.vue';
 import UpcomingModePanel from './components/UpcomingModePanel.vue';
@@ -87,6 +98,7 @@ const router = useRouter();
 const activeMode = ref<MusicalMode>('reference');
 
 const referenceNote = ref(0);
+
 const referenceOctave = ref(4);
 
 const activeModeData = computed(
@@ -99,12 +111,15 @@ function goBack(): void {
 
 function updateReference(value: { note: number; octave: number }): void {
   referenceNote.value = value.note;
+
   referenceOctave.value = value.octave;
 }
 
 function useDetectedReference(value: { note: number; octave: number }): void {
   referenceNote.value = value.note;
+
   referenceOctave.value = value.octave;
+
   activeMode.value = 'reference';
 }
 </script>
