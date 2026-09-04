@@ -57,7 +57,8 @@ const tools = [
     label: 'Asistente musical',
     icon: 'library_music',
     color: '#f472b6',
-    status: 'Próximamente',
+    to: '/asistente-musical',
+    status: 'En desarrollo',
   },
   {
     id: 'audio-recorder',
@@ -103,4 +104,3 @@ const tools = [
   },
 ];
 </script>
-ç
