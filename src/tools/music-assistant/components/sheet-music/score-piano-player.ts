@@ -2,6 +2,7 @@ import type { ScoreHarmonyRow, ScoreVoiceId } from './score-harmony-engine';
 
 export interface PianoPlaybackCallbacks {
   onNoteChange?: (index: number | null) => void;
+
   onFinish?: () => void;
 }
 
@@ -14,6 +15,8 @@ export class ScorePianoPlayer {
 
   private timers: ReturnType<typeof setTimeout>[] = [];
 
+  private playbackToken = 0;
+
   async playVoice(
     rows: ScoreHarmonyRow[],
     voiceId: ScoreVoiceId,
@@ -21,89 +24,123 @@ export class ScorePianoPlayer {
   ): Promise<void> {
     this.stop();
 
+    if (!rows.length) {
+      callbacks.onFinish?.();
+
+      return;
+    }
+
     const context = await this.prepareContext();
+
+    const token = ++this.playbackToken;
 
     const firstStart = rows[0]?.source.startMs ?? 0;
 
-    const baseStart = context.currentTime + 0.08;
-
-    let endMs = 0;
-
     rows.forEach((row, index) => {
-      const voice = row.voices.find((item) => item.voiceId === voiceId);
+      const relativeStart = Math.max(0, row.source.startMs - firstStart);
 
-      if (!voice) {
+      this.scheduleTimer(relativeStart, () => {
+        if (token !== this.playbackToken) {
+          return;
+        }
+
+        const voice = row.voices.find((item) => item.voiceId === voiceId);
+
+        if (!voice) {
+          return;
+        }
+
+        callbacks.onNoteChange?.(index);
+
+        this.createPianoTone(
+          context,
+          voice.frequency,
+          context.currentTime + 0.015,
+          Math.max(0.08, row.source.durationMs / 1000),
+          voiceId === 'principal' ? 0.16 : 0.135,
+        );
+      });
+    });
+
+    const endMs = this.calculateEndMs(rows, firstStart);
+
+    this.scheduleTimer(endMs + 180, () => {
+      if (token !== this.playbackToken) {
         return;
       }
 
-      const relativeStart = row.source.startMs - firstStart;
+      callbacks.onNoteChange?.(null);
 
-      this.createPianoTone(
-        context,
-        voice.frequency,
-        baseStart + relativeStart / 1000,
-        Math.max(0.08, row.source.durationMs / 1000),
-        voiceId === 'principal' ? 0.16 : 0.135,
-      );
+      callbacks.onFinish?.();
 
-      this.timers.push(
-        setTimeout(() => {
-          callbacks.onNoteChange?.(index);
-        }, relativeStart),
-      );
-
-      endMs = Math.max(endMs, relativeStart + row.source.durationMs);
+      this.stopNodesOnly();
     });
-
-    this.timers.push(
-      setTimeout(() => {
-        callbacks.onNoteChange?.(null);
-        callbacks.onFinish?.();
-        this.stopNodesOnly();
-      }, endMs + 180),
-    );
   }
 
   async playAll(rows: ScoreHarmonyRow[], callbacks: PianoPlaybackCallbacks = {}): Promise<void> {
     this.stop();
 
+    if (!rows.length) {
+      callbacks.onFinish?.();
+
+      return;
+    }
+
     const context = await this.prepareContext();
+
+    const token = ++this.playbackToken;
 
     const firstStart = rows[0]?.source.startMs ?? 0;
 
-    const baseStart = context.currentTime + 0.08;
-
-    let endMs = 0;
-
     rows.forEach((row, index) => {
-      const relativeStart = row.source.startMs - firstStart;
+      const relativeStart = Math.max(0, row.source.startMs - firstStart);
 
-      row.voices.forEach((voice) => {
-        this.createPianoTone(
-          context,
-          voice.frequency,
-          baseStart + relativeStart / 1000,
-          Math.max(0.08, row.source.durationMs / 1000),
-          voice.voiceId === 'principal' ? 0.09 : 0.045,
-        );
+      this.scheduleTimer(relativeStart, () => {
+        if (token !== this.playbackToken) {
+          return;
+        }
+
+        callbacks.onNoteChange?.(index);
+
+        const principal = row.voices.find((voice) => voice.voiceId === 'principal');
+
+        const harmonies = row.voices.filter((voice) => voice.voiceId !== 'principal');
+
+        if (principal) {
+          this.createPianoTone(
+            context,
+            principal.frequency,
+            context.currentTime + 0.015,
+            Math.max(0.08, row.source.durationMs / 1000),
+            0.13,
+          );
+        }
+
+        harmonies.forEach((voice) => {
+          this.createPianoTone(
+            context,
+            voice.frequency,
+            context.currentTime + 0.015,
+            Math.max(0.08, row.source.durationMs / 1000),
+            0.052,
+          );
+        });
       });
-
-      this.timers.push(
-        setTimeout(() => {
-          callbacks.onNoteChange?.(index);
-        }, relativeStart),
-      );
-
-      endMs = Math.max(endMs, relativeStart + row.source.durationMs);
     });
 
-    this.timers.push(
-      setTimeout(() => {
-        callbacks.onNoteChange?.(null);
-        callbacks.onFinish?.();
-        this.stopNodesOnly();
-      }, endMs + 180),
-    );
+    const endMs = this.calculateEndMs(rows, firstStart);
+
+    this.scheduleTimer(endMs + 220, () => {
+      if (token !== this.playbackToken) {
+        return;
+      }
+
+      callbacks.onNoteChange?.(null);
+
+      callbacks.onFinish?.();
+
+      this.stopNodesOnly();
+    });
   }
 
   async playSingle(frequency: number, durationSeconds = 0.8): Promise<void> {
@@ -111,19 +148,22 @@ export class ScorePianoPlayer {
 
     const context = await this.prepareContext();
 
+    const token = ++this.playbackToken;
+
     this.createPianoTone(context, frequency, context.currentTime + 0.03, durationSeconds, 0.17);
 
-    this.timers.push(
-      setTimeout(
-        () => {
-          this.stopNodesOnly();
-        },
-        durationSeconds * 1000 + 120,
-      ),
-    );
+    this.scheduleTimer(durationSeconds * 1000 + 120, () => {
+      if (token !== this.playbackToken) {
+        return;
+      }
+
+      this.stopNodesOnly();
+    });
   }
 
   stop(): void {
+    this.playbackToken += 1;
+
     this.timers.forEach((timer) => {
       clearTimeout(timer);
     });
@@ -155,6 +195,20 @@ export class ScorePianoPlayer {
     return this.context;
   }
 
+  private scheduleTimer(delayMs: number, callback: () => void): void {
+    const timer = setTimeout(callback, Math.max(0, Math.round(delayMs)));
+
+    this.timers.push(timer);
+  }
+
+  private calculateEndMs(rows: ScoreHarmonyRow[], firstStart: number): number {
+    return rows.reduce((maximum, row) => {
+      const relativeStart = Math.max(0, row.source.startMs - firstStart);
+
+      return Math.max(maximum, relativeStart + row.source.durationMs);
+    }, 0);
+  }
+
   private createPianoTone(
     context: AudioContext,
     frequency: number,
@@ -162,7 +216,13 @@ export class ScorePianoPlayer {
     durationSeconds: number,
     volume: number,
   ): void {
+    if (!Number.isFinite(frequency) || frequency <= 0) {
+      return;
+    }
+
     const duration = Math.max(0.08, durationSeconds);
+
+    const safeFrequency = Math.min(Math.max(frequency, 20), 16000);
 
     const end = start + duration;
 
@@ -174,12 +234,12 @@ export class ScorePianoPlayer {
       },
       {
         multiplier: 2,
-        volume: 0.24,
+        volume: 0.22,
         type: 'sine' as OscillatorType,
       },
       {
         multiplier: 3,
-        volume: 0.08,
+        volume: 0.07,
         type: 'sine' as OscillatorType,
       },
     ];
@@ -189,11 +249,13 @@ export class ScorePianoPlayer {
 
       const gain = context.createGain();
 
+      const partialFrequency = Math.min(safeFrequency * partial.multiplier, 18000);
+
       const peak = Math.max(0.0001, volume * partial.volume);
 
       oscillator.type = partial.type;
 
-      oscillator.frequency.setValueAtTime(frequency * partial.multiplier, start);
+      oscillator.frequency.setValueAtTime(partialFrequency, start);
 
       gain.gain.setValueAtTime(0.0001, start);
 
@@ -214,29 +276,77 @@ export class ScorePianoPlayer {
 
       oscillator.stop(end + 0.04);
 
+      oscillator.onended = () => {
+        this.removeOscillator(oscillator);
+
+        this.removeGain(gain);
+
+        try {
+          oscillator.disconnect();
+        } catch {
+          // Ya estaba desconectado.
+        }
+
+        try {
+          gain.disconnect();
+        } catch {
+          // Ya estaba desconectado.
+        }
+      };
+
       this.oscillators.push(oscillator);
 
       this.gains.push(gain);
     });
   }
 
+  private removeOscillator(oscillator: OscillatorNode): void {
+    const index = this.oscillators.indexOf(oscillator);
+
+    if (index >= 0) {
+      this.oscillators.splice(index, 1);
+    }
+  }
+
+  private removeGain(gain: GainNode): void {
+    const index = this.gains.indexOf(gain);
+
+    if (index >= 0) {
+      this.gains.splice(index, 1);
+    }
+  }
+
   private stopNodesOnly(): void {
-    this.oscillators.forEach((oscillator) => {
+    const oscillators = [...this.oscillators];
+
+    const gains = [...this.gains];
+
+    this.oscillators = [];
+
+    this.gains = [];
+
+    oscillators.forEach((oscillator) => {
       try {
+        oscillator.onended = null;
+
         oscillator.stop();
       } catch {
         // Puede haber terminado naturalmente.
       }
 
-      oscillator.disconnect();
+      try {
+        oscillator.disconnect();
+      } catch {
+        // Puede estar desconectado.
+      }
     });
 
-    this.gains.forEach((gain) => {
-      gain.disconnect();
+    gains.forEach((gain) => {
+      try {
+        gain.disconnect();
+      } catch {
+        // Puede estar desconectado.
+      }
     });
-
-    this.oscillators = [];
-
-    this.gains = [];
   }
 }

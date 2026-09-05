@@ -7,9 +7,8 @@
         <h2>Partitura a piano y armonías</h2>
 
         <p>
-          Importa una partitura MusicXML para convertir sus notas, silencios, compases y tiempos en
-          una línea musical reproducible. ICP Studio genera además referencias para Segunda arriba,
-          Segunda abajo, Tenor, Barítono y Bajo.
+          Importa MusicXML, PDF o imágenes. ICP Studio convierte la partitura a su modelo musical
+          interno y genera Principal, Segunda arriba, Segunda abajo, Tenor, Barítono y Bajo.
         </p>
       </div>
 
@@ -18,7 +17,7 @@
 
         <div>
           <span>ETAPA ACTUAL</span>
-          <strong>MusicXML funcional</strong>
+          <strong> MusicXML + OMR experimental </strong>
         </div>
       </div>
     </header>
@@ -30,12 +29,12 @@
         </div>
 
         <div class="import-copy">
-          <span>IMPORTAR PARTITURA</span>
+          <span> IMPORTAR PARTITURA </span>
 
-          <strong>MusicXML / XML</strong>
+          <strong> MusicXML / XML </strong>
 
           <small>
-            Lee estructura musical real: notas, compases, duraciones, silencios, tonalidad y tempo.
+            Lee directamente notas, compases, duraciones, silencios, tonalidad y tempo.
           </small>
         </div>
 
@@ -57,31 +56,7 @@
         />
       </div>
 
-      <div class="import-card future-import">
-        <div class="import-icon">
-          <q-icon name="picture_as_pdf" />
-        </div>
-
-        <div class="import-copy">
-          <span>SIGUIENTE ETAPA</span>
-
-          <strong>PDF / Imagen</strong>
-
-          <small>
-            Esta entrada utilizará reconocimiento óptico musical para convertir la imagen al mismo
-            modelo musical interno.
-          </small>
-        </div>
-
-        <q-btn
-          outline
-          no-caps
-          icon="document_scanner"
-          label="Próximamente"
-          disable
-          class="future-button"
-        />
-      </div>
+      <OpticalScoreImporter @score-detected="handleOpticalScoreDetected" />
     </section>
 
     <div v-if="parseError" class="error-message">
@@ -96,22 +71,30 @@
           <q-icon name="queue_music" />
 
           <div>
-            <span>PARTITURA CARGADA</span>
+            <span> PARTITURA CARGADA </span>
 
-            <strong>{{ score.title }}</strong>
+            <strong>
+              {{ score.title }}
+            </strong>
 
-            <small>{{ score.sourceFileName }}</small>
+            <small>
+              {{ score.sourceFileName }}
+            </small>
           </div>
         </div>
 
         <div class="summary-grid">
           <div>
             <span>Tonalidad</span>
-            <strong>{{ keyLabel }}</strong>
+
+            <strong>
+              {{ keyLabel }}
+            </strong>
           </div>
 
           <div>
             <span>Compás</span>
+
             <strong>
               {{ score.timeSignature.numerator }}/{{ score.timeSignature.denominator }}
             </strong>
@@ -119,31 +102,41 @@
 
           <div>
             <span>Tempo</span>
-            <strong>{{ score.tempo }} BPM</strong>
+
+            <strong> {{ score.tempo }} BPM </strong>
           </div>
 
           <div>
             <span>Compases</span>
-            <strong>{{ score.measures.length }}</strong>
+
+            <strong>
+              {{ score.measures.length }}
+            </strong>
           </div>
 
           <div>
             <span>Notas</span>
-            <strong>{{ timeline.length }}</strong>
+
+            <strong>
+              {{ timeline.length }}
+            </strong>
           </div>
 
           <div>
             <span>Duración</span>
-            <strong>{{ durationLabel }}</strong>
+
+            <strong>
+              {{ durationLabel }}
+            </strong>
           </div>
         </div>
       </section>
 
       <section class="tempo-card">
         <div>
-          <span>TEMPO DE REPRODUCCIÓN</span>
+          <span> TEMPO DE REPRODUCCIÓN </span>
 
-          <strong>{{ score.tempo }} BPM</strong>
+          <strong> {{ score.tempo }} BPM </strong>
 
           <small> Los tiempos se recalculan automáticamente cuando cambias el tempo. </small>
         </div>
@@ -182,11 +175,11 @@
       <section class="voice-section">
         <header>
           <div>
-            <span>REPRODUCCIÓN EN PIANO</span>
+            <span> REPRODUCCIÓN EN PIANO </span>
 
-            <strong>Principal y cinco líneas de armonía</strong>
+            <strong> Principal y cinco líneas de armonía </strong>
 
-            <small> Todas las líneas mantienen los tiempos originales de la partitura. </small>
+            <small> Todas mantienen los tiempos del modelo musical interpretado. </small>
           </div>
 
           <q-icon name="piano" />
@@ -207,8 +200,13 @@
             <q-icon :name="voice.icon" />
 
             <div>
-              <span>{{ voice.shortLabel }}</span>
-              <strong>{{ voice.label }}</strong>
+              <span>
+                {{ voice.shortLabel }}
+              </span>
+
+              <strong>
+                {{ voice.label }}
+              </strong>
             </div>
 
             <q-icon name="play_arrow" class="play-icon" />
@@ -241,13 +239,11 @@
       <section class="timeline-section">
         <header>
           <div>
-            <span>NOTAS Y ARMONÍAS INTERPRETADAS</span>
+            <span> NOTAS Y ARMONÍAS INTERPRETADAS </span>
 
-            <strong>Línea de tiempo musical</strong>
+            <strong> Línea de tiempo musical </strong>
 
-            <small>
-              Cada fila corresponde a una nota de la partitura y conserva su posición exacta.
-            </small>
+            <small> Cada fila representa una nota de la canción interpretada. </small>
           </div>
 
           <div v-if="isPlaying" class="playing-status">
@@ -280,11 +276,18 @@
                   active: activeNoteIndex === index,
                 }"
               >
-                <td>{{ row.source.measureNumber }}</td>
+                <td>
+                  {{ row.source.measureNumber }}
+                </td>
 
-                <td>{{ formatBeat(row.source.startBeat) }}</td>
+                <td>
+                  {{ formatBeat(row.source.startBeat) }}
+                </td>
 
-                <td>{{ formatBeat(row.source.durationBeats) }} t</td>
+                <td>
+                  {{ formatBeat(row.source.durationBeats) }}
+                  t
+                </td>
 
                 <td v-for="voice in voices" :key="voice.id">
                   <button type="button" class="note-cell" @click="playSingle(row, voice.id)">
@@ -302,28 +305,28 @@
           <q-icon name="description" />
           <span>1</span>
           <strong>Partitura</strong>
-          <small>MusicXML se transforma en un modelo musical interno.</small>
+          <small> MusicXML u OMR se convierten al mismo modelo musical. </small>
         </article>
 
         <article>
           <q-icon name="schedule" />
           <span>2</span>
           <strong>Tiempo</strong>
-          <small>Notas y silencios conservan beats y posición dentro del compás.</small>
+          <small> Cada nota conserva su duración y posición. </small>
         </article>
 
         <article>
           <q-icon name="account_tree" />
           <span>3</span>
           <strong>Armonización</strong>
-          <small>Se generan las cinco líneas adicionales desde la melodía principal.</small>
+          <small> Se generan las cinco líneas adicionales. </small>
         </article>
 
         <article>
           <q-icon name="piano" />
           <span>4</span>
           <strong>Piano</strong>
-          <small>Cada línea puede reproducirse individualmente o todas juntas.</small>
+          <small> Cada voz puede escucharse sola o en conjunto. </small>
         </article>
       </section>
     </template>
@@ -331,11 +334,9 @@
     <div v-else class="empty-state">
       <q-icon name="queue_music" />
 
-      <strong>Carga una partitura para comenzar</strong>
+      <strong> Carga una partitura para comenzar </strong>
 
-      <span>
-        Para esta primera etapa utiliza un archivo MusicXML o XML exportado desde un editor musical.
-      </span>
+      <span> Puedes utilizar MusicXML, PDF, PNG, JPG, JPEG o WEBP. </span>
     </div>
   </section>
 </template>
@@ -346,6 +347,8 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import { notes } from '../../shared/music';
 
 import { scoreDurationMs, scoreToTimeline, type ScoreDocument } from '../../shared/score';
+
+import OpticalScoreImporter from './optical-score/OpticalScoreImporter.vue';
 
 import { buildScoreHarmony, type ScoreHarmonyRow, type ScoreVoiceId } from './score-harmony-engine';
 
@@ -481,6 +484,14 @@ async function handleMusicXmlSelection(event: Event): Promise<void> {
     parseError.value =
       error instanceof Error ? error.message : 'No fue posible interpretar la partitura.';
   }
+}
+
+function handleOpticalScoreDetected(detectedScore: ScoreDocument): void {
+  stopPlayback();
+
+  parseError.value = '';
+
+  score.value = detectedScore;
 }
 
 function changeTempo(change: number): void {
@@ -643,7 +654,7 @@ onBeforeUnmount(() => {
 }
 
 .score-heading p {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0;
   color: #71859a;
   font-size: 10px;
@@ -654,7 +665,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 165px;
+  min-width: 195px;
   padding: 9px 11px;
   background: rgb(34 211 238 / 6%);
   border: 1px solid rgb(34 211 238 / 16%);
@@ -703,10 +714,6 @@ onBeforeUnmount(() => {
   border-color: rgb(34 211 238 / 22%);
 }
 
-.future-import {
-  opacity: 0.72;
-}
-
 .import-icon {
   display: grid;
   width: 42px;
@@ -743,14 +750,10 @@ onBeforeUnmount(() => {
   font-size: 7px;
 }
 
-.import-button {
+.import-button,
+.all-button {
   color: white;
   background: #16738a;
-  border-radius: 8px;
-}
-
-.future-button {
-  color: #70859a;
   border-radius: 8px;
 }
 
@@ -977,12 +980,6 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 7px;
   margin-top: 9px;
-}
-
-.all-button {
-  color: white;
-  background: #16738a;
-  border-radius: 8px;
 }
 
 .stop-button {
