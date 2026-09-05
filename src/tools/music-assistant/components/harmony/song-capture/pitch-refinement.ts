@@ -15,6 +15,7 @@ interface PitchFrame {
   midiFloat: number;
   confidence: number;
   cents: number;
+  rms: number;
 }
 
 interface PitchEstimate {
@@ -24,8 +25,12 @@ interface PitchEstimate {
 
 const analysisSampleRate = 16000;
 
+/*
+ * Ventana suficientemente larga para conservar estabilidad
+ * en voces graves, pero con un salto de solo 8 ms.
+ */
 const windowSize = 2048;
-const hopSize = 256;
+const hopSize = 128;
 
 const minimumFrequency = 65;
 const maximumFrequency = 1100;
@@ -33,11 +38,50 @@ const maximumFrequency = 1100;
 const yinThreshold = 0.12;
 const fallbackThreshold = 0.22;
 
-const minimumFrameConfidence = 0.68;
+const minimumFrameConfidence = 0.67;
 
-const minimumNoteDurationMs = 115;
-const maximumFrameGapMs = 80;
-const sameNoteMergeGapMs = 145;
+/*
+ * Con 128 muestras a 16 kHz obtenemos un frame cada 8 ms.
+ */
+const frameStepMs = (hopSize / analysisSampleRate) * 1000;
+
+/*
+ * Permitimos notas relativamente cortas, pero evitamos
+ * convertir pequeños errores/transitorios en notas reales.
+ */
+const minimumNoteDurationMs = 72;
+
+/*
+ * Un hueco mayor a esto se considera interrupción real
+ * de la trayectoria de tono.
+ */
+const maximumFrameGapMs = 48;
+
+/*
+ * Si vuelve la misma nota después de un hueco muy pequeño,
+ * puede tratarse de continuidad de la misma interpretación.
+ */
+const sameNoteMergeGapMs = 72;
+
+/*
+ * Un cambio de tono debe sostenerse un tiempo mínimo antes
+ * de convertirse en una nota nueva.
+ *
+ * 24 ms = aproximadamente 3 frames.
+ */
+const pitchChangeConfirmationMs = 24;
+
+/*
+ * Margen utilizado para considerar que una oscilación
+ * pertenece todavía a la misma nota y no a otra.
+ */
+const samePitchToleranceSemitones = 0.52;
+
+/*
+ * Radio temporal pequeño. El suavizado anterior usaba una
+ * zona mucho mayor y podía borrar cambios rápidos reales.
+ */
+const smoothingRadiusMs = 24;
 
 export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote[] {
   const mono = createMonoSignal(audioBuffer);
@@ -188,7 +232,12 @@ function analyzeFrames(signal: Float32Array, sampleRate: number, noiseFloor: num
     const cents = (midiFloat - midi) * 100;
 
     frames.push({
-      timeMs: (start / sampleRate) * 1000,
+      /*
+       * Se usa una pequeña compensación de medio hop.
+       * No usamos el centro completo de la ventana porque
+       * eso desplazaría demasiado tarde los ataques.
+       */
+      timeMs: ((start + hopSize / 2) / sampleRate) * 1000,
 
       midi,
 
@@ -197,6 +246,8 @@ function analyzeFrames(signal: Float32Array, sampleRate: number, noiseFloor: num
       confidence: estimate.confidence,
 
       cents,
+
+      rms,
     });
   }
 
@@ -270,6 +321,7 @@ function detectPitchYin(frame: Float32Array, sampleRate: number): PitchEstimate 
 
       if (value < bestValue) {
         bestValue = value;
+
         selectedLag = tau;
       }
     }
@@ -333,23 +385,32 @@ function correctOctaveErrors(frames: PitchFrame[]): PitchFrame[] {
   }));
 
   for (let index = 1; index < output.length; index += 1) {
-    const previous = output[index - 1];
-
     const current = output[index];
 
-    if (!previous || !current) {
+    if (!current) {
       continue;
     }
 
-    const timeGap = current.timeMs - previous.timeMs;
+    const recent = output
+      .slice(Math.max(0, index - 5), index)
+      .filter((frame) => current.timeMs - frame.timeMs <= 56);
 
-    if (timeGap > maximumFrameGapMs * 2) {
+    if (!recent.length) {
       continue;
     }
 
-    const difference = current.midi - previous.midi;
+    const referenceFloat = weightedMedianMidi(recent);
 
-    if (Math.abs(Math.abs(difference) - 12) <= 1 && current.confidence < 0.92) {
+    const difference = current.midiFloat - referenceFloat;
+
+    const octaveDistance = Math.abs(Math.abs(difference) - 12);
+
+    /*
+     * Un salto cercano a exactamente una octava, de corta
+     * duración y sin una confianza extraordinariamente alta,
+     * suele ser un error armónico del detector.
+     */
+    if (octaveDistance <= 0.85 && current.confidence < 0.94) {
       const correctedMidiFloat = current.midiFloat - Math.sign(difference) * 12;
 
       const correctedMidi = Math.round(correctedMidiFloat);
@@ -365,23 +426,49 @@ function correctOctaveErrors(frames: PitchFrame[]): PitchFrame[] {
   return output;
 }
 
+function weightedMedianMidi(frames: PitchFrame[]): number {
+  if (!frames.length) {
+    return 0;
+  }
+
+  const sorted = frames.slice().sort((left, right) => left.midiFloat - right.midiFloat);
+
+  const totalWeight = sorted.reduce((sum, frame) => sum + Math.max(0.01, frame.confidence), 0);
+
+  let accumulated = 0;
+
+  for (const frame of sorted) {
+    accumulated += Math.max(0.01, frame.confidence);
+
+    if (accumulated >= totalWeight / 2) {
+      return frame.midiFloat;
+    }
+  }
+
+  return sorted[sorted.length - 1]?.midiFloat ?? 0;
+}
+
 function smoothPitchTrack(frames: PitchFrame[]): PitchFrame[] {
   if (frames.length < 3) {
     return frames;
   }
 
   return frames.map((frame) => {
-    const nearby = frames.filter((candidate) => Math.abs(candidate.timeMs - frame.timeMs) <= 55);
+    const nearby = frames.filter(
+      (candidate) => Math.abs(candidate.timeMs - frame.timeMs) <= smoothingRadiusMs,
+    );
 
     if (nearby.length < 2) {
       return frame;
     }
 
-    const values = nearby.map((item) => item.midiFloat).sort((left, right) => left - right);
+    const median = weightedMedianMidi(nearby);
 
-    const median = values[Math.floor(values.length / 2)] ?? frame.midiFloat;
-
-    const compatible = nearby.filter((item) => Math.abs(item.midiFloat - median) <= 0.85);
+    /*
+     * No mezclamos notas diferentes durante el suavizado.
+     * Esto es esencial para no borrar un cambio rápido.
+     */
+    const compatible = nearby.filter((item) => Math.abs(item.midiFloat - median) <= 0.68);
 
     if (!compatible.length) {
       return frame;
@@ -440,11 +527,16 @@ function stabilizePitchContinuity(frames: PitchFrame[]): PitchFrame[] {
       continue;
     }
 
-    const surroundingAgreement = Math.abs(previous.midi - next.midi) <= 1;
+    const surroundingAgreement = Math.abs(previous.midiFloat - next.midiFloat) <= 0.55;
 
-    const currentDisagreement = Math.abs(current.midi - previous.midi) >= 2;
+    const currentDisagreement = Math.abs(current.midiFloat - previous.midiFloat) >= 1.15;
 
-    if (surroundingAgreement && currentDisagreement && current.confidence < 0.9) {
+    /*
+     * Solo eliminamos un frame aislado.
+     * Si el cambio persiste en varios frames se mantiene,
+     * porque probablemente es una nota real.
+     */
+    if (surroundingAgreement && currentDisagreement && current.confidence < 0.93) {
       const targetFloat = (previous.midiFloat + next.midiFloat) / 2;
 
       const targetMidi = Math.round(targetFloat);
@@ -465,18 +557,39 @@ function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
     return [];
   }
 
-  const frameStepMs = (hopSize / analysisSampleRate) * 1000;
-
   const notes: RefinedPitchNote[] = [];
 
   let group: PitchFrame[] = [];
 
   let groupMidi: number | null = null;
 
-  function finishGroup(): void {
+  let pendingChange: PitchFrame[] = [];
+
+  function resetPending(): void {
+    pendingChange = [];
+  }
+
+  function currentGroupPitch(): number {
+    if (!group.length) {
+      return groupMidi ?? 0;
+    }
+
+    const totalWeight = group.reduce((sum, frame) => sum + frame.confidence, 0);
+
+    if (totalWeight <= 0) {
+      return groupMidi ?? 0;
+    }
+
+    return group.reduce((sum, frame) => sum + frame.midiFloat * frame.confidence, 0) / totalWeight;
+  }
+
+  function finishGroup(forcedEndAt?: number): void {
     if (groupMidi === null || !group.length) {
       group = [];
+
       groupMidi = null;
+
+      resetPending();
 
       return;
     }
@@ -485,15 +598,20 @@ function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
 
     const last = group[group.length - 1]!;
 
-    const startedAt = Math.max(0, first.timeMs);
+    const startedAt = Math.max(0, first.timeMs - frameStepMs / 2);
 
-    const endedAt = last.timeMs + frameStepMs;
+    const naturalEnd = last.timeMs + frameStepMs / 2;
+
+    const endedAt = forcedEndAt !== undefined ? Math.max(startedAt, forcedEndAt) : naturalEnd;
 
     const durationMs = endedAt - startedAt;
 
     if (durationMs < minimumNoteDurationMs) {
       group = [];
+
       groupMidi = null;
+
+      resetPending();
 
       return;
     }
@@ -519,14 +637,21 @@ function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
       octave: Math.floor(roundedMidi / 12) - 1,
 
       startedAt,
+
       endedAt,
+
       durationMs,
+
       confidence,
+
       cents,
     });
 
     group = [];
+
     groupMidi = null;
+
+    resetPending();
   }
 
   for (const frame of frames) {
@@ -535,31 +660,130 @@ function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
 
       group = [frame];
 
+      resetPending();
+
       continue;
     }
 
-    const previous = group[group.length - 1];
+    const previousFrame = group[group.length - 1];
 
-    const gap = previous ? frame.timeMs - previous.timeMs : 0;
+    const gap = previousFrame ? frame.timeMs - previousFrame.timeMs : 0;
 
-    const samePitch = frame.midi === groupMidi;
+    if (gap > maximumFrameGapMs) {
+      finishGroup();
 
-    const vibratoNeighbor =
-      Math.abs(frame.midi - groupMidi) === 1 && Math.abs(frame.midiFloat - groupMidi) < 0.65;
+      groupMidi = frame.midi;
 
-    if (gap <= maximumFrameGapMs && (samePitch || vibratoNeighbor)) {
+      group = [frame];
+
+      continue;
+    }
+
+    const referencePitch = currentGroupPitch();
+
+    const distanceFromGroup = Math.abs(frame.midiFloat - referencePitch);
+
+    const samePitch = distanceFromGroup <= samePitchToleranceSemitones;
+
+    if (samePitch) {
+      /*
+       * Si estaba apareciendo un posible cambio, pero vuelve
+       * rápidamente a la nota original, se considera vibrato,
+       * transición vocal o lectura momentánea inestable.
+       */
+      if (pendingChange.length) {
+        const compatiblePending = pendingChange.filter(
+          (pending) => Math.abs(pending.midiFloat - referencePitch) <= 0.72,
+        );
+
+        group.push(...compatiblePending);
+
+        resetPending();
+      }
+
       group.push(frame);
 
       continue;
     }
 
-    finishGroup();
+    if (!pendingChange.length) {
+      pendingChange = [frame];
 
-    groupMidi = frame.midi;
+      continue;
+    }
 
-    group = [frame];
+    const pendingReference = weightedMedianMidi(pendingChange);
+
+    const agreesWithPending = Math.abs(frame.midiFloat - pendingReference) <= 0.7;
+
+    if (!agreesWithPending) {
+      /*
+       * El posible cambio no se mantuvo. Si el nuevo frame
+       * vuelve cerca de la nota principal se cancela.
+       */
+      if (Math.abs(frame.midiFloat - referencePitch) <= 0.72) {
+        resetPending();
+
+        group.push(frame);
+
+        continue;
+      }
+
+      /*
+       * Apareció otro candidato diferente. Empezamos a
+       * confirmar este nuevo valor.
+       */
+      pendingChange = [frame];
+
+      continue;
+    }
+
+    pendingChange.push(frame);
+
+    const firstPending = pendingChange[0];
+
+    const lastPending = pendingChange[pendingChange.length - 1];
+
+    if (!firstPending || !lastPending) {
+      continue;
+    }
+
+    const pendingDuration = lastPending.timeMs - firstPending.timeMs + frameStepMs;
+
+    if (pendingDuration < pitchChangeConfirmationMs) {
+      continue;
+    }
+
+    /*
+     * Cambio confirmado.
+     *
+     * La frontera se coloca entre el último frame perteneciente
+     * a la nota anterior y el primer frame del nuevo tono.
+     */
+    const lastCurrent = group[group.length - 1];
+
+    const boundary = lastCurrent
+      ? (lastCurrent.timeMs + firstPending.timeMs) / 2
+      : firstPending.timeMs - frameStepMs / 2;
+
+    const newGroup = pendingChange.slice();
+
+    finishGroup(boundary);
+
+    group = newGroup;
+
+    const newPitch = weightedMedianMidi(newGroup);
+
+    groupMidi = Math.round(newPitch);
+
+    resetPending();
   }
 
+  /*
+   * Si al final había un cambio todavía pendiente pero no
+   * llegó al tiempo de confirmación, no se convierte en una
+   * nota artificial.
+   */
   finishGroup();
 
   return notes;
@@ -617,7 +841,7 @@ function cleanupNotes(notes: RefinedPitchNote[]): RefinedPitchNote[] {
     const sameSurrounding =
       previous.noteIndex === next.noteIndex && previous.octave === next.octave;
 
-    const suspiciousMiddle = current.durationMs < 180 && current.confidence < 0.84;
+    const suspiciousMiddle = current.durationMs < 105 && current.confidence < 0.84;
 
     if (sameSurrounding && suspiciousMiddle) {
       const combinedDuration = previous.durationMs + current.durationMs + next.durationMs;
@@ -628,9 +852,13 @@ function cleanupNotes(notes: RefinedPitchNote[]): RefinedPitchNote[] {
           next.confidence * next.durationMs) /
         combinedDuration;
 
+      const surroundingDuration = previous.durationMs + next.durationMs;
+
       previous.cents =
-        (previous.cents * previous.durationMs + next.cents * next.durationMs) /
-        (previous.durationMs + next.durationMs);
+        surroundingDuration > 0
+          ? (previous.cents * previous.durationMs + next.cents * next.durationMs) /
+            surroundingDuration
+          : previous.cents;
 
       previous.endedAt = next.endedAt;
 
