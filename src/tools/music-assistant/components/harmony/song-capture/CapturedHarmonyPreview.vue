@@ -2,13 +2,13 @@
   <section class="harmony-preview">
     <header class="preview-heading">
       <div>
-        <span class="kicker">ARMONIZACIÓN AUTOMÁTICA</span>
+        <span class="kicker"> ARMONIZACIÓN AUTOMÁTICA </span>
 
-        <h3>Voces calculadas desde tu interpretación</h3>
+        <h3>Referencia musical desde tu interpretación</h3>
 
         <p>
-          Cada nota conserva el momento y la duración que tuvo mientras cantabas. ICP Studio genera
-          una propuesta para Principal, Segunda voz, Tenor, Barítono y Bajo.
+          Cada nota conserva el momento y la duración detectados mientras cantabas. Puedes escuchar
+          la tonalidad por separado o reproducir cada línea de armonía como referencia instrumental.
         </p>
       </div>
 
@@ -19,11 +19,43 @@
       </div>
     </header>
 
+    <section class="key-reference">
+      <div class="key-reference-copy">
+        <q-icon name="piano" />
+
+        <div>
+          <span>REFERENCIA DE TONALIDAD</span>
+
+          <strong>{{ keyLabel }}</strong>
+
+          <small> Escucha únicamente la tonalidad. No reproduce tu grabación ni las voces. </small>
+        </div>
+      </div>
+
+      <q-btn
+        unelevated
+        no-caps
+        icon="play_arrow"
+        :label="playbackMode === 'key' ? 'Reproduciendo tonalidad' : 'Escuchar tonalidad'"
+        class="key-play-button"
+        :disable="isPlaying"
+        @click="playKeyReference"
+      />
+    </section>
+
+    <div class="section-label">
+      <span>REFERENCIAS DE ARMONÍA</span>
+
+      <small>
+        Principal, Segunda, Tenor, Barítono y Bajo se reproducen como referencia instrumental.
+      </small>
+    </div>
+
     <div class="playback-actions">
       <q-btn
         unelevated
         no-caps
-        icon="record_voice_over"
+        icon="music_note"
         label="Principal"
         class="voice-button principal"
         :disable="isPlaying"
@@ -33,7 +65,7 @@
       <q-btn
         unelevated
         no-caps
-        icon="spatial_audio_off"
+        icon="music_note"
         label="Segunda"
         class="voice-button second"
         :disable="isPlaying"
@@ -43,7 +75,7 @@
       <q-btn
         unelevated
         no-caps
-        icon="graphic_eq"
+        icon="music_note"
         label="Tenor"
         class="voice-button tenor"
         :disable="isPlaying"
@@ -53,7 +85,7 @@
       <q-btn
         unelevated
         no-caps
-        icon="equalizer"
+        icon="music_note"
         label="Barítono"
         class="voice-button baritone"
         :disable="isPlaying"
@@ -63,7 +95,7 @@
       <q-btn
         unelevated
         no-caps
-        icon="volume_down"
+        icon="music_note"
         label="Bajo"
         class="voice-button bass"
         :disable="isPlaying"
@@ -73,7 +105,7 @@
       <q-btn
         unelevated
         no-caps
-        icon="groups"
+        icon="piano"
         label="Todas"
         class="all-button"
         :disable="isPlaying"
@@ -108,8 +140,8 @@
         <strong>Ensayo con tu grabación</strong>
 
         <span>
-          “Grabación + todas” reproduce tu audio original junto con Principal, Segunda, Tenor,
-          Barítono y Bajo usando la misma línea de tiempo.
+          “Grabación + todas” reproduce tu audio original junto con las referencias Principal,
+          Segunda, Tenor, Barítono y Bajo usando la misma línea de tiempo.
         </span>
       </div>
     </div>
@@ -122,7 +154,24 @@
       </span>
     </div>
 
-    <div class="table-wrapper">
+    <div class="table-heading">
+      <div>
+        <span>SECUENCIA DETECTADA</span>
+
+        <small>
+          {{ harmonyRows.length }}
+          {{ harmonyRows.length === 1 ? 'nota' : 'notas' }}
+        </small>
+      </div>
+
+      <div v-if="isPlaying && playbackMode !== 'key'" class="following-indicator">
+        <span class="following-dot"></span>
+
+        Siguiendo reproducción
+      </div>
+    </div>
+
+    <div ref="tableWrapper" class="table-wrapper">
       <table class="harmony-table">
         <thead>
           <tr>
@@ -141,12 +190,19 @@
           <tr
             v-for="(row, index) in harmonyRows"
             :key="row.id"
+            :ref="(element) => setRowElement(element, index)"
             :class="{
               playing: activeNoteIndex === index,
             }"
           >
             <td class="order-cell">
-              {{ index + 1 }}
+              <span v-if="activeNoteIndex === index" class="playing-marker">
+                <q-icon name="play_arrow" />
+              </span>
+
+              <span v-else>
+                {{ index + 1 }}
+              </span>
             </td>
 
             <td class="time-cell">
@@ -213,20 +269,29 @@
       </table>
     </div>
 
+    <div class="scroll-note">
+      <q-icon name="swap_vert" />
+
+      <span>
+        Cuando la secuencia sea larga, esta área tendrá su propio scroll. Durante la reproducción
+        ICP Studio seguirá automáticamente la nota activa.
+      </span>
+    </div>
+
     <div class="preview-note">
       <q-icon name="info" />
 
       <p>
-        Esta es una propuesta automática. Por ahora usa la tonalidad detectada y la progresión
-        armónica configurada. Más adelante añadiremos también detección automática de los cambios de
-        acorde durante la grabación para que la armonización siga todavía mejor la canción real.
+        Estas son referencias musicales automáticas. La generación de voces humanas usando el timbre
+        real de tu grabación será una función separada para no mezclarla con estas referencias
+        limpias.
       </p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue';
 
 import {
   harmonizeMelodyPhrases,
@@ -238,7 +303,7 @@ import {
   type ScaleMode,
 } from '../../../shared/harmony';
 
-import { notes } from '../../../shared/music';
+import { midiToFrequency, notes } from '../../../shared/music';
 
 interface CapturedNote {
   id: string;
@@ -253,6 +318,8 @@ interface HarmonyRow extends CapturedNote {
   voices: MelodyHarmonyVoiceNote[];
 }
 
+type PlaybackMode = 'key' | 'voice' | 'all' | 'recording' | 'single' | null;
+
 const props = defineProps<{
   rootNote: number;
   scaleMode: ScaleMode;
@@ -266,6 +333,12 @@ const isPlaying = ref(false);
 const activeNoteIndex = ref<number | null>(null);
 
 const playbackError = ref('');
+
+const playbackMode = ref<PlaybackMode>(null);
+
+const tableWrapper = ref<HTMLElement | null>(null);
+
+const rowElements = new Map<number, HTMLElement>();
 
 let audioContext: AudioContext | null = null;
 
@@ -329,6 +402,62 @@ const harmonyRows = computed<HarmonyRow[]>(() => {
   }));
 });
 
+watch(activeNoteIndex, (index) => {
+  if (index === null) {
+    return;
+  }
+
+  void nextTick(() => {
+    scrollToActiveRow(index);
+  });
+});
+
+function setRowElement(element: Element | ComponentPublicInstance | null, index: number): void {
+  if (element instanceof HTMLElement) {
+    rowElements.set(index, element);
+
+    return;
+  }
+
+  rowElements.delete(index);
+}
+
+function scrollToActiveRow(index: number): void {
+  const wrapper = tableWrapper.value;
+
+  const row = rowElements.get(index);
+
+  if (!wrapper || !row) {
+    return;
+  }
+
+  const wrapperRect = wrapper.getBoundingClientRect();
+
+  const rowRect = row.getBoundingClientRect();
+
+  const headerHeight = 34;
+
+  const visibleTop = wrapperRect.top + headerHeight;
+
+  const visibleBottom = wrapperRect.bottom;
+
+  const isAbove = rowRect.top < visibleTop;
+
+  const isBelow = rowRect.bottom > visibleBottom;
+
+  if (!isAbove && !isBelow) {
+    return;
+  }
+
+  const target = row.offsetTop - wrapper.clientHeight / 2 + row.clientHeight / 2;
+
+  wrapper.scrollTo({
+    top: Math.max(0, target),
+
+    behavior: 'smooth',
+  });
+}
+
 function voiceFor(row: HarmonyRow, voiceId: MelodyVoiceId): MelodyHarmonyVoiceNote | undefined {
   return row.voices.find((voice) => voice.voiceId === voiceId);
 }
@@ -372,33 +501,161 @@ function createScheduledTone(
 ): void {
   const oscillator = context.createOscillator();
 
+  const harmonic = context.createOscillator();
+
   const gain = context.createGain();
 
-  oscillator.type = 'sine';
+  const harmonicGain = context.createGain();
+
+  oscillator.type = 'triangle';
+
+  harmonic.type = 'sine';
 
   oscillator.frequency.setValueAtTime(frequency, absoluteStart);
+
+  harmonic.frequency.setValueAtTime(frequency * 2, absoluteStart);
 
   const end = absoluteStart + Math.max(durationSeconds, 0.08);
 
   gain.gain.setValueAtTime(0, absoluteStart);
 
-  gain.gain.linearRampToValueAtTime(volume, absoluteStart + 0.025);
+  gain.gain.linearRampToValueAtTime(volume, absoluteStart + 0.012);
 
-  gain.gain.setValueAtTime(volume, Math.max(absoluteStart + 0.03, end - 0.04));
+  gain.gain.exponentialRampToValueAtTime(
+    Math.max(0.0001, volume * 0.62),
+    Math.min(end, absoluteStart + 0.22),
+  );
+
+  gain.gain.setValueAtTime(
+    Math.max(0.0001, volume * 0.62),
+    Math.max(absoluteStart + 0.23, end - 0.05),
+  );
 
   gain.gain.linearRampToValueAtTime(0, end);
 
+  harmonicGain.gain.setValueAtTime(0, absoluteStart);
+
+  harmonicGain.gain.linearRampToValueAtTime(volume * 0.16, absoluteStart + 0.008);
+
+  harmonicGain.gain.exponentialRampToValueAtTime(0.0001, Math.min(end, absoluteStart + 0.18));
+
   oscillator.connect(gain);
+
+  harmonic.connect(harmonicGain);
 
   gain.connect(context.destination);
 
+  harmonicGain.connect(context.destination);
+
   oscillator.start(absoluteStart);
+
+  harmonic.start(absoluteStart);
 
   oscillator.stop(end + 0.03);
 
-  activeOscillators.push(oscillator);
+  harmonic.stop(end + 0.03);
 
-  activeGainNodes.push(gain);
+  activeOscillators.push(oscillator, harmonic);
+
+  activeGainNodes.push(gain, harmonicGain);
+}
+
+function createPianoReferenceTone(
+  context: AudioContext,
+  frequency: number,
+  absoluteStart: number,
+  durationSeconds: number,
+  volume: number,
+): void {
+  const partials = [
+    {
+      multiplier: 1,
+      volume: 1,
+    },
+    {
+      multiplier: 2,
+      volume: 0.28,
+    },
+    {
+      multiplier: 3,
+      volume: 0.1,
+    },
+  ];
+
+  const end = absoluteStart + Math.max(durationSeconds, 0.25);
+
+  partials.forEach((partial) => {
+    const oscillator = context.createOscillator();
+
+    const gain = context.createGain();
+
+    oscillator.type = partial.multiplier === 1 ? 'triangle' : 'sine';
+
+    oscillator.frequency.setValueAtTime(frequency * partial.multiplier, absoluteStart);
+
+    const peak = volume * partial.volume;
+
+    gain.gain.setValueAtTime(0, absoluteStart);
+
+    gain.gain.linearRampToValueAtTime(peak, absoluteStart + 0.008);
+
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, peak * 0.35),
+      Math.min(end, absoluteStart + 0.32),
+    );
+
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+    oscillator.connect(gain);
+
+    gain.connect(context.destination);
+
+    oscillator.start(absoluteStart);
+
+    oscillator.stop(end + 0.03);
+
+    activeOscillators.push(oscillator);
+
+    activeGainNodes.push(gain);
+  });
+}
+
+async function playKeyReference(): Promise<void> {
+  stopPlayback();
+
+  playbackError.value = '';
+
+  const context = await prepareAudio();
+
+  isPlaying.value = true;
+
+  playbackMode.value = 'key';
+
+  const rootMidi = 60 + props.rootNote;
+
+  const thirdOffset = props.scaleMode === 'major' ? 4 : 3;
+
+  const chordMidi = [rootMidi, rootMidi + thirdOffset, rootMidi + 7, rootMidi + 12];
+
+  const leadSeconds = 0.05;
+
+  const baseStart = context.currentTime + leadSeconds;
+
+  chordMidi.forEach((midi, index) => {
+    createPianoReferenceTone(
+      context,
+      midiToFrequency(midi),
+      baseStart + index * 0.025,
+      1.65,
+      index === 0 ? 0.15 : 0.11,
+    );
+  });
+
+  const finishTimer = setTimeout(() => {
+    stopPlayback();
+  }, 1900);
+
+  timers.push(finishTimer);
 }
 
 function scheduleActiveRows(leadMs: number, useAbsoluteTimeline: boolean): number {
@@ -439,6 +696,8 @@ async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
+  playbackMode.value = 'voice';
 
   const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
 
@@ -492,6 +751,8 @@ async function playAllVoices(): Promise<void> {
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
+  playbackMode.value = 'all';
 
   const leadSeconds = 0.06;
 
@@ -603,6 +864,8 @@ async function playRecordingWithAllVoices(): Promise<void> {
 
     isPlaying.value = true;
 
+    playbackMode.value = 'recording';
+
     scheduleRecordedAudio(context, recordedAudio, baseStart);
 
     let voicesDuration = 0;
@@ -663,6 +926,8 @@ async function playSingleNote(row: HarmonyRow, voiceId: MelodyVoiceId): Promise<
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
+  playbackMode.value = 'single';
 
   const rowIndex = harmonyRows.value.findIndex((item) => item.id === row.id);
 
@@ -729,6 +994,8 @@ function stopPlayback(): void {
 
   isPlaying.value = false;
 
+  playbackMode.value = null;
+
   activeNoteIndex.value = null;
 }
 
@@ -758,6 +1025,8 @@ function formatTimelineTime(milliseconds: number): string {
 
 onBeforeUnmount(() => {
   stopPlayback();
+
+  rowElements.clear();
 
   decodedAudioBuffer = null;
 
@@ -829,11 +1098,89 @@ onBeforeUnmount(() => {
   font-size: 9px;
 }
 
+.key-reference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  background: rgb(96 165 250 / 6%);
+  border: 1px solid rgb(96 165 250 / 18%);
+  border-radius: 10px;
+}
+
+.key-reference-copy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.key-reference-copy > .q-icon {
+  flex: 0 0 auto;
+  color: #93c5fd;
+  font-size: 25px;
+}
+
+.key-reference-copy > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.key-reference-copy span {
+  color: #647f9e;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.key-reference-copy strong {
+  margin-top: 1px;
+  color: #dbeafe;
+  font-size: 13px;
+}
+
+.key-reference-copy small {
+  margin-top: 2px;
+  color: #6f849c;
+  font-size: 7px;
+}
+
+.key-play-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  color: #eff6ff;
+  background: #275d8c;
+  border-radius: 8px;
+  font-size: 8px;
+}
+
+.section-label {
+  display: flex;
+  flex-direction: column;
+  margin-top: 13px;
+}
+
+.section-label span,
+.table-heading span {
+  color: #8598ad;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.section-label small,
+.table-heading small {
+  margin-top: 1px;
+  color: #5e7288;
+  font-size: 7px;
+}
+
 .playback-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 7px;
 }
 
 .voice-button,
@@ -931,11 +1278,45 @@ onBeforeUnmount(() => {
   font-size: 7px;
 }
 
+.table-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.table-heading > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.following-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #93c5fd;
+  font-size: 7px;
+}
+
+.following-dot {
+  width: 6px;
+  height: 6px;
+  background: #60a5fa;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgb(96 165 250 / 8%);
+}
+
 .table-wrapper {
-  margin-top: 11px;
-  overflow-x: auto;
+  position: relative;
+  max-height: 330px;
+  margin-top: 7px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #0c1723;
   border: 1px solid #22364b;
   border-radius: 10px;
+  scrollbar-gutter: stable;
 }
 
 .harmony-table {
@@ -943,6 +1324,12 @@ onBeforeUnmount(() => {
   min-width: 850px;
   border-collapse: collapse;
   background: #0c1723;
+}
+
+.harmony-table thead {
+  position: sticky;
+  z-index: 3;
+  top: 0;
 }
 
 .harmony-table th {
@@ -962,18 +1349,41 @@ onBeforeUnmount(() => {
   color: #93a4b7;
   border-bottom: 1px solid #172638;
   font-size: 7px;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .harmony-table tr:last-child td {
   border-bottom: 0;
 }
 
-.harmony-table tr.playing {
-  background: rgb(96 165 250 / 7%);
+.harmony-table tr.playing td {
+  color: #dbeafe;
+  background: rgb(96 165 250 / 13%);
+}
+
+.harmony-table tr.playing td:first-child {
+  box-shadow: inset 3px 0 0 #60a5fa;
 }
 
 .order-cell {
+  width: 35px;
   color: #52677d !important;
+}
+
+.playing-marker {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: #bfdbfe;
+  background: rgb(96 165 250 / 12%);
+  border-radius: 50%;
+}
+
+.playing-marker .q-icon {
+  font-size: 13px;
 }
 
 .time-cell,
@@ -1020,6 +1430,20 @@ onBeforeUnmount(() => {
   border-color: #41556c;
 }
 
+.scroll-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: #526a83;
+  font-size: 6px;
+}
+
+.scroll-note .q-icon {
+  color: #6687a8;
+  font-size: 13px;
+}
+
 .preview-note {
   display: flex;
   gap: 7px;
@@ -1043,7 +1467,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 700px) {
-  .preview-heading {
+  .preview-heading,
+  .key-reference {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1051,6 +1476,14 @@ onBeforeUnmount(() => {
   .key-chip {
     align-self: flex-start;
     text-align: left;
+  }
+
+  .key-play-button {
+    width: 100%;
+  }
+
+  .table-wrapper {
+    max-height: 280px;
   }
 }
 </style>

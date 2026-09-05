@@ -22,105 +22,166 @@ interface PitchEstimate {
   confidence: number;
 }
 
-const analysisSampleRate = 12000;
-const windowSize = 1024;
-const hopSize = 480;
+const analysisSampleRate = 16000;
+
+const windowSize = 2048;
+const hopSize = 256;
 
 const minimumFrequency = 65;
-const maximumFrequency = 1050;
+const maximumFrequency = 1100;
 
-const rmsThreshold = 0.012;
-const confidenceThreshold = 0.58;
+const yinThreshold = 0.12;
+const fallbackThreshold = 0.22;
+
+const minimumFrameConfidence = 0.68;
+
+const minimumNoteDurationMs = 115;
+const maximumFrameGapMs = 80;
+const sameNoteMergeGapMs = 145;
 
 export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote[] {
   const mono = createMonoSignal(audioBuffer);
 
-  const downsampled = downsampleSignal(mono, audioBuffer.sampleRate, analysisSampleRate);
+  const normalized = normalizeSignal(mono);
 
-  const frames = analyzeFrames(downsampled, analysisSampleRate);
+  const downsampled = resampleSignal(normalized, audioBuffer.sampleRate, analysisSampleRate);
+
+  const noiseFloor = estimateNoiseFloor(downsampled);
+
+  const frames = analyzeFrames(downsampled, analysisSampleRate, noiseFloor);
 
   if (!frames.length) {
     return [];
   }
 
-  const smoothed = smoothFrames(frames);
+  const octaveCorrected = correctOctaveErrors(frames);
 
-  return buildNotesFromFrames(smoothed);
+  const smoothed = smoothPitchTrack(octaveCorrected);
+
+  const continuityCorrected = stabilizePitchContinuity(smoothed);
+
+  const notes = buildNotesFromFrames(continuityCorrected);
+
+  return cleanupNotes(notes);
 }
 
 function createMonoSignal(audioBuffer: AudioBuffer): Float32Array {
-  const length = audioBuffer.length;
+  const output = new Float32Array(audioBuffer.length);
 
-  const output = new Float32Array(length);
+  const channelCount = Math.max(1, audioBuffer.numberOfChannels);
 
-  const channels = audioBuffer.numberOfChannels;
+  for (let channel = 0; channel < channelCount; channel += 1) {
+    const source = audioBuffer.getChannelData(channel);
 
-  for (let channel = 0; channel < channels; channel += 1) {
-    const data = audioBuffer.getChannelData(channel);
-
-    for (let index = 0; index < length; index += 1) {
-      output[index] = (output[index] ?? 0) + (data[index] ?? 0) / channels;
+    for (let index = 0; index < source.length; index += 1) {
+      output[index] = (output[index] ?? 0) + (source[index] ?? 0) / channelCount;
     }
   }
 
   return output;
 }
 
-function downsampleSignal(
-  input: Float32Array,
-  sourceRate: number,
-  targetRate: number,
-): Float32Array {
-  if (sourceRate <= targetRate) {
+function normalizeSignal(input: Float32Array): Float32Array {
+  let peak = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    peak = Math.max(peak, Math.abs(input[index] ?? 0));
+  }
+
+  if (peak <= 0.00001 || peak >= 0.92) {
+    return input.slice();
+  }
+
+  const gain = Math.min(4, 0.92 / peak);
+
+  const output = new Float32Array(input.length);
+
+  for (let index = 0; index < input.length; index += 1) {
+    output[index] = (input[index] ?? 0) * gain;
+  }
+
+  return output;
+}
+
+function resampleSignal(input: Float32Array, sourceRate: number, targetRate: number): Float32Array {
+  if (Math.abs(sourceRate - targetRate) < 1) {
     return input.slice();
   }
 
   const ratio = sourceRate / targetRate;
 
-  const outputLength = Math.floor(input.length / ratio);
+  const outputLength = Math.max(1, Math.floor(input.length / ratio));
 
   const output = new Float32Array(outputLength);
 
   for (let index = 0; index < outputLength; index += 1) {
-    const sourceStart = Math.floor(index * ratio);
+    const sourcePosition = index * ratio;
 
-    const sourceEnd = Math.min(input.length, Math.floor((index + 1) * ratio));
+    const leftIndex = Math.floor(sourcePosition);
 
-    let sum = 0;
+    const rightIndex = Math.min(leftIndex + 1, input.length - 1);
 
-    let count = 0;
+    const fraction = sourcePosition - leftIndex;
 
-    for (let sourceIndex = sourceStart; sourceIndex < sourceEnd; sourceIndex += 1) {
-      sum += input[sourceIndex] ?? 0;
+    const left = input[leftIndex] ?? 0;
 
-      count += 1;
-    }
+    const right = input[rightIndex] ?? left;
 
-    output[index] = count ? sum / count : 0;
+    output[index] = left + (right - left) * fraction;
   }
 
   return output;
 }
 
-function analyzeFrames(signal: Float32Array, sampleRate: number): PitchFrame[] {
+function estimateNoiseFloor(signal: Float32Array): number {
+  const blockSize = 512;
+
+  const levels: number[] = [];
+
+  for (let start = 0; start + blockSize <= signal.length; start += blockSize) {
+    levels.push(calculateRms(signal.subarray(start, start + blockSize)));
+  }
+
+  if (!levels.length) {
+    return 0.008;
+  }
+
+  levels.sort((left, right) => left - right);
+
+  const sampleCount = Math.max(1, Math.floor(levels.length * 0.2));
+
+  const quietest = levels.slice(0, sampleCount);
+
+  const average = quietest.reduce((sum, value) => sum + value, 0) / quietest.length;
+
+  return Math.max(0.003, Math.min(0.035, average));
+}
+
+function analyzeFrames(signal: Float32Array, sampleRate: number, noiseFloor: number): PitchFrame[] {
   const frames: PitchFrame[] = [];
+
+  const minimumRms = Math.max(0.006, noiseFloor * 2.2);
 
   for (let start = 0; start + windowSize <= signal.length; start += hopSize) {
     const frame = signal.subarray(start, start + windowSize);
 
     const rms = calculateRms(frame);
 
-    if (rms < rmsThreshold) {
+    if (rms < minimumRms) {
       continue;
     }
 
-    const estimate = detectPitchWithConfidence(frame, sampleRate);
+    const estimate = detectPitchYin(frame, sampleRate);
 
-    if (!estimate || estimate.confidence < confidenceThreshold) {
+    if (!estimate || estimate.confidence < minimumFrameConfidence) {
       continue;
     }
 
     const midiFloat = frequencyToMidiFloat(estimate.frequency);
+
+    if (!Number.isFinite(midiFloat)) {
+      continue;
+    }
 
     const midi = Math.round(midiFloat);
 
@@ -142,56 +203,87 @@ function analyzeFrames(signal: Float32Array, sampleRate: number): PitchFrame[] {
   return frames;
 }
 
-function detectPitchWithConfidence(frame: Float32Array, sampleRate: number): PitchEstimate | null {
+function detectPitchYin(frame: Float32Array, sampleRate: number): PitchEstimate | null {
   const minimumLag = Math.max(2, Math.floor(sampleRate / maximumFrequency));
 
-  const maximumLag = Math.min(frame.length - 2, Math.ceil(sampleRate / minimumFrequency));
+  const maximumLag = Math.min(
+    Math.floor(frame.length / 2),
+    Math.ceil(sampleRate / minimumFrequency),
+  );
 
-  let bestLag = -1;
-
-  let bestCorrelation = -1;
-
-  for (let lag = minimumLag; lag <= maximumLag; lag += 1) {
-    let numerator = 0;
-
-    let leftEnergy = 0;
-
-    let rightEnergy = 0;
-
-    const usableLength = frame.length - lag;
-
-    for (let index = 0; index < usableLength; index += 1) {
-      const left = frame[index] ?? 0;
-
-      const right = frame[index + lag] ?? 0;
-
-      numerator += left * right;
-
-      leftEnergy += left * left;
-
-      rightEnergy += right * right;
-    }
-
-    const denominator = Math.sqrt(leftEnergy * rightEnergy);
-
-    if (denominator <= 0) {
-      continue;
-    }
-
-    const correlation = numerator / denominator;
-
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-
-      bestLag = lag;
-    }
-  }
-
-  if (bestLag < 0 || bestCorrelation < confidenceThreshold) {
+  if (maximumLag <= minimumLag) {
     return null;
   }
 
-  const refinedLag = refineLag(frame, bestLag);
+  const difference = new Float32Array(maximumLag + 1);
+
+  for (let tau = 1; tau <= maximumLag; tau += 1) {
+    let sum = 0;
+
+    const usableLength = frame.length - tau;
+
+    for (let index = 0; index < usableLength; index += 1) {
+      const delta = (frame[index] ?? 0) - (frame[index + tau] ?? 0);
+
+      sum += delta * delta;
+    }
+
+    difference[tau] = sum;
+  }
+
+  const cmnd = new Float32Array(maximumLag + 1);
+
+  cmnd[0] = 1;
+
+  let runningSum = 0;
+
+  for (let tau = 1; tau <= maximumLag; tau += 1) {
+    runningSum += difference[tau] ?? 0;
+
+    cmnd[tau] = runningSum > 0 ? ((difference[tau] ?? 0) * tau) / runningSum : 1;
+  }
+
+  let selectedLag = -1;
+
+  for (let tau = minimumLag; tau <= maximumLag; tau += 1) {
+    const value = cmnd[tau] ?? 1;
+
+    if (value < yinThreshold) {
+      selectedLag = tau;
+
+      while (
+        selectedLag + 1 <= maximumLag &&
+        (cmnd[selectedLag + 1] ?? 1) < (cmnd[selectedLag] ?? 1)
+      ) {
+        selectedLag += 1;
+      }
+
+      break;
+    }
+  }
+
+  if (selectedLag < 0) {
+    let bestValue = Number.POSITIVE_INFINITY;
+
+    for (let tau = minimumLag; tau <= maximumLag; tau += 1) {
+      const value = cmnd[tau] ?? 1;
+
+      if (value < bestValue) {
+        bestValue = value;
+        selectedLag = tau;
+      }
+    }
+
+    if (selectedLag < 0 || bestValue > fallbackThreshold) {
+      return null;
+    }
+  }
+
+  const refinedLag = refineYinLag(cmnd, selectedLag);
+
+  if (refinedLag <= 0) {
+    return null;
+  }
 
   const frequency = sampleRate / refinedLag;
 
@@ -199,108 +291,173 @@ function detectPitchWithConfidence(frame: Float32Array, sampleRate: number): Pit
     return null;
   }
 
+  const selectedValue = cmnd[selectedLag] ?? 1;
+
+  const confidence = Math.max(0, Math.min(1, 1 - selectedValue));
+
   return {
     frequency,
-
-    confidence: Math.max(0, Math.min(1, bestCorrelation)),
+    confidence,
   };
 }
 
-function refineLag(frame: Float32Array, lag: number): number {
-  if (lag <= 1 || lag >= frame.length - 2) {
+function refineYinLag(cmnd: Float32Array, lag: number): number {
+  if (lag <= 1 || lag >= cmnd.length - 1) {
     return lag;
   }
 
-  const previous = correlationAtLag(frame, lag - 1);
+  const left = cmnd[lag - 1] ?? 1;
 
-  const current = correlationAtLag(frame, lag);
+  const center = cmnd[lag] ?? 1;
 
-  const next = correlationAtLag(frame, lag + 1);
+  const right = cmnd[lag + 1] ?? 1;
 
-  const denominator = previous - 2 * current + next;
+  const denominator = left - 2 * center + right;
 
-  if (Math.abs(denominator) < 0.000001) {
+  if (Math.abs(denominator) < 0.0000001) {
     return lag;
   }
 
-  const offset = (0.5 * (previous - next)) / denominator;
+  const offset = (0.5 * (left - right)) / denominator;
 
   return lag + Math.max(-0.5, Math.min(0.5, offset));
 }
 
-function correlationAtLag(frame: Float32Array, lag: number): number {
-  let numerator = 0;
-
-  let leftEnergy = 0;
-
-  let rightEnergy = 0;
-
-  const usableLength = frame.length - lag;
-
-  for (let index = 0; index < usableLength; index += 1) {
-    const left = frame[index] ?? 0;
-
-    const right = frame[index + lag] ?? 0;
-
-    numerator += left * right;
-
-    leftEnergy += left * left;
-
-    rightEnergy += right * right;
+function correctOctaveErrors(frames: PitchFrame[]): PitchFrame[] {
+  if (frames.length < 2) {
+    return frames;
   }
 
-  const denominator = Math.sqrt(leftEnergy * rightEnergy);
+  const output = frames.map((frame) => ({
+    ...frame,
+  }));
 
-  return denominator ? numerator / denominator : 0;
+  for (let index = 1; index < output.length; index += 1) {
+    const previous = output[index - 1];
+
+    const current = output[index];
+
+    if (!previous || !current) {
+      continue;
+    }
+
+    const timeGap = current.timeMs - previous.timeMs;
+
+    if (timeGap > maximumFrameGapMs * 2) {
+      continue;
+    }
+
+    const difference = current.midi - previous.midi;
+
+    if (Math.abs(Math.abs(difference) - 12) <= 1 && current.confidence < 0.92) {
+      const correctedMidiFloat = current.midiFloat - Math.sign(difference) * 12;
+
+      const correctedMidi = Math.round(correctedMidiFloat);
+
+      current.midiFloat = correctedMidiFloat;
+
+      current.midi = correctedMidi;
+
+      current.cents = (correctedMidiFloat - correctedMidi) * 100;
+    }
+  }
+
+  return output;
 }
 
-function smoothFrames(frames: PitchFrame[]): PitchFrame[] {
+function smoothPitchTrack(frames: PitchFrame[]): PitchFrame[] {
   if (frames.length < 3) {
     return frames;
   }
 
-  return frames.map((frame, index) => {
-    const neighborhood = frames.slice(Math.max(0, index - 2), Math.min(frames.length, index + 3));
+  return frames.map((frame) => {
+    const nearby = frames.filter((candidate) => Math.abs(candidate.timeMs - frame.timeMs) <= 55);
 
-    const nearby = neighborhood.filter((item) => Math.abs(item.timeMs - frame.timeMs) <= 120);
-
-    if (!nearby.length) {
+    if (nearby.length < 2) {
       return frame;
     }
 
-    const midiValues = nearby.map((item) => item.midi).sort((a, b) => a - b);
+    const values = nearby.map((item) => item.midiFloat).sort((left, right) => left - right);
 
-    const medianMidi = midiValues[Math.floor(midiValues.length / 2)] ?? frame.midi;
+    const median = values[Math.floor(values.length / 2)] ?? frame.midiFloat;
 
-    const compatible = nearby.filter((item) => Math.abs(item.midi - medianMidi) <= 1);
+    const compatible = nearby.filter((item) => Math.abs(item.midiFloat - median) <= 0.85);
 
-    const totalWeight = compatible.reduce((sum, item) => sum + item.confidence, 0);
-
-    if (totalWeight <= 0) {
-      return {
-        ...frame,
-
-        midi: medianMidi,
-      };
+    if (!compatible.length) {
+      return frame;
     }
 
-    const weightedMidiFloat =
-      compatible.reduce((sum, item) => sum + item.midiFloat * item.confidence, 0) / totalWeight;
+    const weightTotal = compatible.reduce((sum, item) => sum + item.confidence, 0);
 
-    const roundedMidi = Math.round(weightedMidiFloat);
+    if (weightTotal <= 0) {
+      return frame;
+    }
+
+    const weightedMidi =
+      compatible.reduce((sum, item) => sum + item.midiFloat * item.confidence, 0) / weightTotal;
+
+    const rounded = Math.round(weightedMidi);
 
     return {
       ...frame,
 
-      midi: roundedMidi,
+      midi: rounded,
 
-      midiFloat: weightedMidiFloat,
+      midiFloat: weightedMidi,
 
-      cents: (weightedMidiFloat - roundedMidi) * 100,
+      cents: (weightedMidi - rounded) * 100,
 
       confidence: compatible.reduce((sum, item) => sum + item.confidence, 0) / compatible.length,
     };
   });
+}
+
+function stabilizePitchContinuity(frames: PitchFrame[]): PitchFrame[] {
+  if (frames.length < 3) {
+    return frames;
+  }
+
+  const output = frames.map((frame) => ({
+    ...frame,
+  }));
+
+  for (let index = 1; index < output.length - 1; index += 1) {
+    const previous = output[index - 1];
+
+    const current = output[index];
+
+    const next = output[index + 1];
+
+    if (!previous || !current || !next) {
+      continue;
+    }
+
+    const nearbyInTime =
+      current.timeMs - previous.timeMs <= maximumFrameGapMs &&
+      next.timeMs - current.timeMs <= maximumFrameGapMs;
+
+    if (!nearbyInTime) {
+      continue;
+    }
+
+    const surroundingAgreement = Math.abs(previous.midi - next.midi) <= 1;
+
+    const currentDisagreement = Math.abs(current.midi - previous.midi) >= 2;
+
+    if (surroundingAgreement && currentDisagreement && current.confidence < 0.9) {
+      const targetFloat = (previous.midiFloat + next.midiFloat) / 2;
+
+      const targetMidi = Math.round(targetFloat);
+
+      current.midi = targetMidi;
+
+      current.midiFloat = targetFloat;
+
+      current.cents = (targetFloat - targetMidi) * 100;
+    }
+  }
+
+  return output;
 }
 
 function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
@@ -308,138 +465,136 @@ function buildNotesFromFrames(frames: PitchFrame[]): RefinedPitchNote[] {
     return [];
   }
 
-  const frameDurationMs = (hopSize / analysisSampleRate) * 1000;
+  const frameStepMs = (hopSize / analysisSampleRate) * 1000;
 
   const notes: RefinedPitchNote[] = [];
 
-  let currentFrames: PitchFrame[] = [];
+  let group: PitchFrame[] = [];
 
-  let currentMidi: number | null = null;
+  let groupMidi: number | null = null;
 
-  function finishCurrent(): void {
-    if (currentMidi === null || !currentFrames.length) {
-      currentFrames = [];
-
-      currentMidi = null;
+  function finishGroup(): void {
+    if (groupMidi === null || !group.length) {
+      group = [];
+      groupMidi = null;
 
       return;
     }
 
-    const first = currentFrames[0]!;
+    const first = group[0]!;
 
-    const last = currentFrames[currentFrames.length - 1]!;
+    const last = group[group.length - 1]!;
 
     const startedAt = Math.max(0, first.timeMs);
 
-    const endedAt = last.timeMs + frameDurationMs;
+    const endedAt = last.timeMs + frameStepMs;
 
     const durationMs = endedAt - startedAt;
 
-    if (durationMs >= 120) {
-      const confidence =
-        currentFrames.reduce((sum, frame) => sum + frame.confidence, 0) / currentFrames.length;
+    if (durationMs < minimumNoteDurationMs) {
+      group = [];
+      groupMidi = null;
 
-      const cents =
-        currentFrames.reduce((sum, frame) => sum + frame.cents, 0) / currentFrames.length;
-
-      const noteIndex = normalizeNote(currentMidi);
-
-      const octave = Math.floor(currentMidi / 12) - 1;
-
-      const previous = notes[notes.length - 1];
-
-      if (
-        previous &&
-        previous.noteIndex === noteIndex &&
-        previous.octave === octave &&
-        startedAt - previous.endedAt < 150
-      ) {
-        const oldDuration = previous.durationMs;
-
-        const newDuration = endedAt - previous.startedAt;
-
-        previous.confidence =
-          (previous.confidence * oldDuration + confidence * durationMs) /
-          (oldDuration + durationMs);
-
-        previous.cents =
-          (previous.cents * oldDuration + cents * durationMs) / (oldDuration + durationMs);
-
-        previous.endedAt = endedAt;
-
-        previous.durationMs = newDuration;
-      } else {
-        notes.push({
-          id: makeId(),
-
-          noteIndex,
-
-          octave,
-
-          startedAt,
-
-          endedAt,
-
-          durationMs,
-
-          confidence,
-
-          cents,
-        });
-      }
+      return;
     }
 
-    currentFrames = [];
+    const confidence = group.reduce((sum, frame) => sum + frame.confidence, 0) / group.length;
 
-    currentMidi = null;
+    const totalWeight = group.reduce((sum, frame) => sum + frame.confidence, 0);
+
+    const averageMidiFloat =
+      totalWeight > 0
+        ? group.reduce((sum, frame) => sum + frame.midiFloat * frame.confidence, 0) / totalWeight
+        : groupMidi;
+
+    const roundedMidi = Math.round(averageMidiFloat);
+
+    const cents = (averageMidiFloat - roundedMidi) * 100;
+
+    appendOrMergeNote(notes, {
+      id: makeId(),
+
+      noteIndex: normalizeNote(roundedMidi),
+
+      octave: Math.floor(roundedMidi / 12) - 1,
+
+      startedAt,
+      endedAt,
+      durationMs,
+      confidence,
+      cents,
+    });
+
+    group = [];
+    groupMidi = null;
   }
 
-  frames.forEach((frame) => {
-    if (currentMidi === null) {
-      currentMidi = frame.midi;
+  for (const frame of frames) {
+    if (groupMidi === null) {
+      groupMidi = frame.midi;
 
-      currentFrames = [frame];
+      group = [frame];
 
-      return;
+      continue;
     }
 
-    const previousFrame = currentFrames[currentFrames.length - 1];
+    const previous = group[group.length - 1];
 
-    const gap = previousFrame ? frame.timeMs - previousFrame.timeMs : 0;
+    const gap = previous ? frame.timeMs - previous.timeMs : 0;
 
-    const samePitch = frame.midi === currentMidi;
+    const samePitch = frame.midi === groupMidi;
 
-    const octaveError = Math.abs(frame.midi - currentMidi) === 12 && frame.confidence < 0.72;
+    const vibratoNeighbor =
+      Math.abs(frame.midi - groupMidi) === 1 && Math.abs(frame.midiFloat - groupMidi) < 0.65;
 
-    if (gap <= 130 && (samePitch || octaveError)) {
-      currentFrames.push(
-        octaveError
-          ? {
-              ...frame,
+    if (gap <= maximumFrameGapMs && (samePitch || vibratoNeighbor)) {
+      group.push(frame);
 
-              midi: currentMidi,
-
-              midiFloat: currentMidi + frame.cents / 100,
-            }
-          : frame,
-      );
-
-      return;
+      continue;
     }
 
-    finishCurrent();
+    finishGroup();
 
-    currentMidi = frame.midi;
+    groupMidi = frame.midi;
 
-    currentFrames = [frame];
-  });
+    group = [frame];
+  }
 
-  finishCurrent();
+  finishGroup();
 
-  return removeShortPitchGlitches(notes);
+  return notes;
 }
 
-function removeShortPitchGlitches(notes: RefinedPitchNote[]): RefinedPitchNote[] {
+function appendOrMergeNote(notes: RefinedPitchNote[], note: RefinedPitchNote): void {
+  const previous = notes[notes.length - 1];
+
+  if (
+    previous &&
+    previous.noteIndex === note.noteIndex &&
+    previous.octave === note.octave &&
+    note.startedAt - previous.endedAt <= sameNoteMergeGapMs
+  ) {
+    const previousDuration = previous.durationMs;
+
+    const totalDuration = previousDuration + note.durationMs;
+
+    previous.confidence =
+      (previous.confidence * previousDuration + note.confidence * note.durationMs) / totalDuration;
+
+    previous.cents =
+      (previous.cents * previousDuration + note.cents * note.durationMs) / totalDuration;
+
+    previous.endedAt = note.endedAt;
+
+    previous.durationMs = previous.endedAt - previous.startedAt;
+
+    return;
+  }
+
+  notes.push(note);
+}
+
+function cleanupNotes(notes: RefinedPitchNote[]): RefinedPitchNote[] {
   if (notes.length < 3) {
     return notes;
   }
@@ -459,15 +614,27 @@ function removeShortPitchGlitches(notes: RefinedPitchNote[]): RefinedPitchNote[]
       continue;
     }
 
-    const sameSurroundingPitch =
+    const sameSurrounding =
       previous.noteIndex === next.noteIndex && previous.octave === next.octave;
 
-    if (sameSurroundingPitch && current.durationMs < 190 && current.confidence < 0.72) {
+    const suspiciousMiddle = current.durationMs < 180 && current.confidence < 0.84;
+
+    if (sameSurrounding && suspiciousMiddle) {
+      const combinedDuration = previous.durationMs + current.durationMs + next.durationMs;
+
+      previous.confidence =
+        (previous.confidence * previous.durationMs +
+          current.confidence * current.durationMs +
+          next.confidence * next.durationMs) /
+        combinedDuration;
+
+      previous.cents =
+        (previous.cents * previous.durationMs + next.cents * next.durationMs) /
+        (previous.durationMs + next.durationMs);
+
       previous.endedAt = next.endedAt;
 
       previous.durationMs = previous.endedAt - previous.startedAt;
-
-      previous.confidence = Math.max(previous.confidence, next.confidence);
 
       result.splice(index, 2);
 
@@ -479,6 +646,10 @@ function removeShortPitchGlitches(notes: RefinedPitchNote[]): RefinedPitchNote[]
 }
 
 function calculateRms(frame: Float32Array): number {
+  if (!frame.length) {
+    return 0;
+  }
+
   let sum = 0;
 
   for (let index = 0; index < frame.length; index += 1) {

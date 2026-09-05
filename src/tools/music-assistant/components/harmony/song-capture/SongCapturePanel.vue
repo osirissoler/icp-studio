@@ -7,15 +7,15 @@
         <h3>Captura la canción con tu voz</h3>
 
         <p>
-          Canta normalmente. ICP Studio grabará el audio completo, seguirá los cambios de la melodía
-          y conservará el momento exacto y la duración de cada nota.
+          Mientras cantas verás una lectura rápida. Al detener la grabación, ICP Studio analizará
+          nuevamente el audio completo para obtener una melodía más precisa.
         </p>
       </div>
 
       <div
         class="recording-state"
         :class="{
-          active: isRecording,
+          active: isRecording || isRefining,
           error: microphoneError,
         }"
       >
@@ -34,7 +34,7 @@
           }"
         >
           <div class="record-circle">
-            <q-icon :name="isRecording ? 'mic' : 'mic_none'" />
+            <q-icon :name="isRefining ? 'auto_fix_high' : isRecording ? 'mic' : 'mic_none'" />
           </div>
 
           <div class="record-time">
@@ -43,11 +43,13 @@
 
           <div class="record-caption">
             {{
-              isRecording
-                ? 'Grabando interpretación'
-                : hasCapture
-                  ? 'Grabación terminada'
-                  : 'Preparado para grabar'
+              isRefining
+                ? 'Analizando grabación completa'
+                : isRecording
+                  ? 'Grabando interpretación'
+                  : hasCapture
+                    ? 'Grabación terminada'
+                    : 'Preparado para grabar'
             }}
           </div>
         </div>
@@ -76,7 +78,8 @@
             icon="fiber_manual_record"
             :label="hasCapture ? 'Grabar nuevamente' : 'Comenzar a grabar'"
             class="record-button"
-            :loading="isStarting"
+            :loading="isStarting || isRefining"
+            :disable="isRefining"
             @click="startRecording"
           />
 
@@ -99,6 +102,20 @@
           </span>
         </div>
 
+        <div
+          v-if="analysisMessage"
+          class="analysis-message"
+          :class="{
+            success: analysisSucceeded,
+          }"
+        >
+          <q-icon :name="analysisSucceeded ? 'verified' : 'auto_fix_high'" />
+
+          <span>
+            {{ analysisMessage }}
+          </span>
+        </div>
+
         <div v-if="audioUrl" class="audio-review">
           <div class="audio-title">
             <q-icon name="headphones" />
@@ -116,7 +133,9 @@
 
       <div class="analysis-panel">
         <div class="current-note-card">
-          <span class="analysis-label"> NOTA ACTUAL </span>
+          <span class="analysis-label">
+            {{ isRecording ? 'NOTA ACTUAL' : 'ANÁLISIS DE MELODÍA' }}
+          </span>
 
           <div v-if="hasCurrentPitch" class="current-note">
             <strong>
@@ -131,10 +150,16 @@
           </div>
 
           <div v-else class="current-note waiting">
-            <q-icon name="graphic_eq" />
+            <q-icon :name="isRefining ? 'auto_fix_high' : 'graphic_eq'" />
 
             <span>
-              {{ isRecording ? 'Escuchando...' : 'Sin señal' }}
+              {{
+                isRefining
+                  ? 'Analizando audio completo...'
+                  : isRecording
+                    ? 'Escuchando...'
+                    : 'Sin señal'
+              }}
             </span>
           </div>
 
@@ -165,7 +190,9 @@
               {{ estimatedKeyLabel }}
             </strong>
 
-            <small> La estimación mejora mientras se acumula información de la canción. </small>
+            <small>
+              Se recalcula usando la melodía confirmada después de analizar el audio completo.
+            </small>
           </div>
 
           <q-icon name="music_note" />
@@ -173,7 +200,7 @@
 
         <div class="statistics">
           <div>
-            <span>Notas detectadas</span>
+            <span>Notas confirmadas</span>
 
             <strong>
               {{ capturedNotes.length }}
@@ -189,10 +216,10 @@
           </div>
 
           <div>
-            <span>Cambios melódicos</span>
+            <span>Confianza media</span>
 
             <strong>
-              {{ melodicChanges }}
+              {{ averageConfidenceLabel }}
             </strong>
           </div>
         </div>
@@ -204,7 +231,9 @@
         <div>
           <span>MELODÍA DETECTADA</span>
 
-          <small> Cada nota conserva el segundo de inicio, final y duración real. </small>
+          <small>
+            El resultado final proviene del segundo análisis realizado sobre la grabación completa.
+          </small>
         </div>
 
         <q-btn
@@ -215,7 +244,7 @@
           icon="delete_outline"
           label="Limpiar"
           class="clear-button"
-          :disable="isRecording"
+          :disable="isRecording || isRefining"
           @click="clearCapture"
         />
       </header>
@@ -243,6 +272,10 @@
           <small class="duration">
             {{ formatDuration(note.durationMs) }}
           </small>
+
+          <small v-if="note.confidence !== undefined" class="confidence">
+            {{ Math.round(note.confidence * 100) }}%
+          </small>
         </article>
       </div>
 
@@ -258,7 +291,7 @@
     </section>
 
     <CapturedHarmonyPreview
-      v-if="!isRecording && capturedNotes.length && estimatedKey"
+      v-if="!isRecording && !isRefining && capturedNotes.length && estimatedKey"
       :root-note="estimatedKey.rootNote"
       :scale-mode="estimatedKey.scaleMode"
       :progression="progression"
@@ -274,9 +307,8 @@
           <strong> Interpretación analizada </strong>
 
           <p>
-            Las voces ya se generan automáticamente arriba. Usa este botón solamente si también
-            quieres llevar la melodía detectada al editor manual para corregir o continuar el
-            arreglo.
+            La referencia de voces permanece disponible arriba. Este análisis final se utiliza como
+            base para Principal, Segunda, Tenor, Barítono y Bajo.
           </p>
         </div>
       </div>
@@ -287,7 +319,7 @@
         icon="playlist_add_check"
         label="Llevar al editor"
         class="use-button"
-        :disable="!capturedNotes.length || !estimatedKey"
+        :disable="!capturedNotes.length || !estimatedKey || isRefining"
         @click="useCapturedMelody"
       />
     </section>
@@ -298,6 +330,8 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 
 import CapturedHarmonyPreview from './CapturedHarmonyPreview.vue';
+
+import { refineRecordedMelody, type RefinedPitchNote } from './pitch-refinement';
 
 import {
   calculateInputLevel,
@@ -321,6 +355,8 @@ interface CapturedPitchNote {
   startedAt: number;
   endedAt: number;
   durationMs: number;
+  confidence?: number;
+  cents?: number;
 }
 
 interface KeyEstimate {
@@ -349,7 +385,13 @@ const isStarting = ref(false);
 
 const isRecording = ref(false);
 
+const isRefining = ref(false);
+
 const microphoneError = ref('');
+
+const analysisMessage = ref('');
+
+const analysisSucceeded = ref(false);
 
 const recordingTimeMs = ref(0);
 
@@ -430,6 +472,10 @@ const recordingStatus = computed(() => {
     return 'Grabando';
   }
 
+  if (isRefining.value) {
+    return 'Analizando con alta precisión';
+  }
+
   if (hasCapture.value) {
     return 'Captura terminada';
   }
@@ -439,7 +485,25 @@ const recordingStatus = computed(() => {
 
 const formattedRecordingTime = computed(() => formatTime(recordingTimeMs.value));
 
-const melodicChanges = computed(() => Math.max(0, capturedNotes.value.length - 1));
+const averageConfidence = computed(() => {
+  const values = capturedNotes.value
+    .map((note) => note.confidence)
+    .filter((value): value is number => value !== undefined);
+
+  if (!values.length) {
+    return null;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+});
+
+const averageConfidenceLabel = computed(() => {
+  if (averageConfidence.value === null) {
+    return '--';
+  }
+
+  return `${Math.round(averageConfidence.value * 100)}%`;
+});
 
 const estimatedKey = computed<KeyEstimate | null>(() => estimateKey(capturedNotes.value));
 
@@ -455,6 +519,11 @@ const estimatedKeyLabel = computed(() => {
 
 async function startRecording(): Promise<void> {
   microphoneError.value = '';
+
+  analysisMessage.value = '';
+
+  analysisSucceeded.value = false;
+
   isStarting.value = true;
 
   try {
@@ -469,7 +538,9 @@ async function startRecording(): Promise<void> {
     microphoneStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         autoGainControl: false,
+
         echoCancellation: false,
+
         noiseSuppression: false,
       },
 
@@ -500,13 +571,16 @@ async function startRecording(): Promise<void> {
 
     mediaRecorder.addEventListener('dataavailable', handleRecordedData);
 
-    mediaRecorder.addEventListener('stop', buildRecordedAudio);
+    mediaRecorder.addEventListener('stop', () => {
+      void buildRecordedAudio();
+    });
 
     recordingStartedAt = performance.now();
 
     recordingTimeMs.value = 0;
 
     candidateMidi = null;
+
     confirmedMidi = null;
 
     mediaRecorder.start(250);
@@ -573,8 +647,11 @@ function stopRecording(): void {
   microphoneStream?.getTracks().forEach((track) => track.stop());
 
   microphoneSource = null;
+
   analyserNode = null;
+
   analyserBuffer = null;
+
   microphoneStream = null;
 
   inputLevel.value = 0;
@@ -699,6 +776,7 @@ function finalizeConfirmedNote(endedAt: number): void {
   }
 
   confirmedMidi = null;
+
   confirmedStartedAt = 0;
 }
 
@@ -708,7 +786,7 @@ function handleRecordedData(event: BlobEvent): void {
   }
 }
 
-function buildRecordedAudio(): void {
+async function buildRecordedAudio(): Promise<void> {
   if (!recordedChunks.length) {
     return;
   }
@@ -724,6 +802,83 @@ function buildRecordedAudio(): void {
   });
 
   audioUrl.value = URL.createObjectURL(blob);
+
+  await refineRecording(blob);
+}
+
+async function refineRecording(blob: Blob): Promise<void> {
+  isRefining.value = true;
+
+  analysisSucceeded.value = false;
+
+  analysisMessage.value =
+    'Analizando la grabación completa con detección de tono de alta precisión...';
+
+  let context: AudioContext | null = null;
+
+  try {
+    context = new AudioContext();
+
+    const arrayBuffer = await blob.arrayBuffer();
+
+    const decoded = await context.decodeAudioData(arrayBuffer);
+
+    const refined = refineRecordedMelody(decoded);
+
+    if (refined.length < 2) {
+      analysisMessage.value =
+        'El segundo análisis no encontró suficientes notas confiables. Se conserva la captura realizada en vivo.';
+
+      return;
+    }
+
+    capturedNotes.value = refined.map(mapRefinedNote);
+
+    analysisSucceeded.value = true;
+
+    analysisMessage.value = `Análisis terminado: ${refined.length} notas confirmadas con ${averageRefinedConfidence(refined)}% de confianza media.`;
+  } catch (error) {
+    analysisMessage.value =
+      error instanceof Error
+        ? `No fue posible completar el análisis preciso: ${error.message}`
+        : 'No fue posible completar el análisis preciso. Se conserva la captura en vivo.';
+  } finally {
+    isRefining.value = false;
+
+    if (context) {
+      void context.close();
+    }
+  }
+}
+
+function mapRefinedNote(note: RefinedPitchNote): CapturedPitchNote {
+  return {
+    id: note.id,
+
+    noteIndex: note.noteIndex,
+
+    octave: note.octave,
+
+    startedAt: note.startedAt,
+
+    endedAt: note.endedAt,
+
+    durationMs: note.durationMs,
+
+    confidence: note.confidence,
+
+    cents: note.cents,
+  };
+}
+
+function averageRefinedConfidence(refined: RefinedPitchNote[]): number {
+  if (!refined.length) {
+    return 0;
+  }
+
+  const average = refined.reduce((sum, note) => sum + note.confidence, 0) / refined.length;
+
+  return Math.round(average * 100);
 }
 
 function updateRecordingTime(): void {
@@ -780,8 +935,10 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
   const pitchWeights = Array<number>(12).fill(0);
 
   detected.forEach((note) => {
+    const confidence = note.confidence ?? 1;
+
     pitchWeights[note.noteIndex] =
-      (pitchWeights[note.noteIndex] ?? 0) + Math.max(note.durationMs, 100);
+      (pitchWeights[note.noteIndex] ?? 0) + Math.max(note.durationMs, 100) * confidence;
   });
 
   const majorPattern = [0, 2, 4, 5, 7, 9, 11];
@@ -854,7 +1011,7 @@ function durationToBeats(durationMs: number): MelodyNoteDuration {
 }
 
 function clearCapture(): void {
-  if (isRecording.value) {
+  if (isRecording.value || isRefining.value) {
     return;
   }
 
@@ -865,9 +1022,14 @@ function clearCapture(): void {
   inputLevel.value = 0;
 
   candidateMidi = null;
+
   confirmedMidi = null;
 
   recordedChunks = [];
+
+  analysisMessage.value = '';
+
+  analysisSucceeded.value = false;
 
   resetCurrentPitch();
 
@@ -912,9 +1074,13 @@ function stopResources(): void {
   microphoneStream?.getTracks().forEach((track) => track.stop());
 
   microphoneSource = null;
+
   analyserNode = null;
+
   analyserBuffer = null;
+
   microphoneStream = null;
+
   mediaRecorder = null;
 
   isRecording.value = false;
@@ -1143,16 +1309,33 @@ onBeforeUnmount(() => {
   background: #9f3346;
 }
 
-.error-box {
+.error-box,
+.analysis-message {
   display: flex;
+  align-items: center;
   gap: 7px;
   margin-top: 10px;
   padding: 9px;
+  border-radius: 8px;
+  font-size: 8px;
+}
+
+.error-box {
   color: #fecdd3;
   background: rgb(251 113 133 / 7%);
   border: 1px solid rgb(251 113 133 / 16%);
-  border-radius: 8px;
-  font-size: 8px;
+}
+
+.analysis-message {
+  color: #c4b5fd;
+  background: rgb(167 139 250 / 6%);
+  border: 1px solid rgb(167 139 250 / 17%);
+}
+
+.analysis-message.success {
+  color: #a7f3d0;
+  background: rgb(52 211 153 / 5%);
+  border-color: rgb(52 211 153 / 17%);
 }
 
 .audio-review {
@@ -1371,8 +1554,8 @@ onBeforeUnmount(() => {
 
 .timeline-note {
   display: flex;
-  min-width: 88px;
-  min-height: 76px;
+  min-width: 92px;
+  min-height: 82px;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
@@ -1405,6 +1588,10 @@ onBeforeUnmount(() => {
 
 .timeline-note .duration {
   color: #8b9caf;
+}
+
+.timeline-note .confidence {
+  color: #6ee7b7;
 }
 
 .empty-timeline {
