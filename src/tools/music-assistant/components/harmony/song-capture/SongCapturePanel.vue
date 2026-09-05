@@ -268,17 +268,17 @@
         </div>
 
         <div>
-          <q-icon name="music_note" />
+          <q-icon name="record_voice_over" />
           <span>3</span>
-          <strong>Notas definitivas</strong>
-          <small> Se segmentan notas, tiempos y duraciones. </small>
+          <strong>Estructura vocal</strong>
+          <small> Se detectan voz, silencios, ataques y releases. </small>
         </div>
 
         <div>
-          <q-icon name="key" />
+          <q-icon name="music_note" />
           <span>4</span>
-          <strong>Tonalidad</strong>
-          <small> Se estima desde el resultado completo. </small>
+          <strong>Notas definitivas</strong>
+          <small> Se construyen tiempos y duraciones finales. </small>
         </div>
       </div>
     </section>
@@ -373,8 +373,9 @@
           <strong> Interpretación analizada </strong>
 
           <p>
-            Las notas mostradas arriba ya no provienen del detector en vivo. Son el resultado del
-            análisis completo del archivo grabado.
+            La grabación completa ya fue procesada por el análisis vocal maestro. Las notas,
+            regiones vocales, silencios, ataques, releases, dinámica y trayectoria de pitch quedan
+            disponibles para los próximos motores de armonización y voz.
           </p>
         </div>
       </div>
@@ -398,10 +399,10 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import CapturedHarmonyPreview from './CapturedHarmonyPreview.vue';
 
 import {
-  analyzeRecordedMelody,
-  type RefinedPitchFrame,
-  type RefinedPitchNote,
-} from './pitch-refinement';
+  analyzeVocalRecording,
+  type VocalAnalyzedNote,
+  type VocalRecordingAnalysis,
+} from './vocal-analysis-engine';
 
 import {
   calculateInputLevel,
@@ -452,67 +453,62 @@ const emit = defineEmits<{
 }>();
 
 const isStarting = ref(false);
-
 const isRecording = ref(false);
-
 const isRefining = ref(false);
 
 const microphoneError = ref('');
-
 const analysisMessage = ref('');
-
 const analysisSucceeded = ref(false);
 
 const recordingTimeMs = ref(0);
-
 const inputLevel = ref(0);
 
 const currentFrequency = ref(0);
-
 const currentNoteIndex = ref(0);
-
 const currentOctave = ref(0);
-
 const currentCents = ref(0);
 
 /*
- * Estas notas son únicamente el resultado del análisis
- * completo posterior a la grabación.
- *
- * Ya no se modifican desde analyseVoice().
+ * Resultado musical simplificado utilizado por la interfaz
+ * y por el editor de melodía.
  */
 const capturedNotes = ref<CapturedPitchNote[]>([]);
 
 /*
- * Trayectoria vocal completa producida después de grabar.
+ * Resultado maestro de la grabación completa.
  *
- * En el próximo paso esta información viajará al motor
- * de armonización y síntesis vocal.
+ * Aquí conservamos la información detallada necesaria
+ * para el futuro motor de armonización vocal:
+ *
+ * - notas enriquecidas,
+ * - trayectoria continua de pitch,
+ * - regiones voiced,
+ * - regiones unvoiced,
+ * - silencios,
+ * - ataques,
+ * - releases,
+ * - dinámica,
+ * - confianza global.
  */
-const capturedPitchFrames = ref<RefinedPitchFrame[]>([]);
+const vocalAnalysis = ref<VocalRecordingAnalysis | null>(null);
+
+const capturedPitchFrames = computed(() => vocalAnalysis.value?.pitchFrames ?? []);
 
 const audioUrl = ref('');
 
 let audioContext: AudioContext | null = null;
-
 let microphoneStream: MediaStream | null = null;
-
 let microphoneSource: MediaStreamAudioSourceNode | null = null;
-
 let analyserNode: AnalyserNode | null = null;
-
 let analyserBuffer: Float32Array<ArrayBuffer> | null = null;
 
 let mediaRecorder: MediaRecorder | null = null;
-
 let recordedChunks: Blob[] = [];
 
 let animationFrameId: number | null = null;
-
 let recordingTimer: ReturnType<typeof setInterval> | null = null;
 
 let recordingStartedAt = 0;
-
 let lastAnalysisAt = 0;
 
 const analysisIntervalMs = 85;
@@ -560,6 +556,10 @@ const recordingStatus = computed(() => {
 const formattedRecordingTime = computed(() => formatTime(recordingTimeMs.value));
 
 const averageConfidence = computed(() => {
+  if (vocalAnalysis.value) {
+    return vocalAnalysis.value.averageConfidence;
+  }
+
   const values = capturedNotes.value
     .map((note) => note.confidence)
     .filter((value): value is number => value !== undefined);
@@ -593,16 +593,12 @@ const estimatedKeyLabel = computed(() => {
 
 async function startRecording(): Promise<void> {
   microphoneError.value = '';
-
   analysisMessage.value = '';
-
   analysisSucceeded.value = false;
-
   isStarting.value = true;
 
   try {
     stopResources();
-
     clearCapture();
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -612,12 +608,9 @@ async function startRecording(): Promise<void> {
     microphoneStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         autoGainControl: false,
-
         echoCancellation: false,
-
         noiseSuppression: false,
       },
-
       video: false,
     });
 
@@ -630,9 +623,7 @@ async function startRecording(): Promise<void> {
     microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
 
     analyserNode = audioContext.createAnalyser();
-
     analyserNode.fftSize = 2048;
-
     analyserNode.smoothingTimeConstant = 0;
 
     microphoneSource.connect(analyserNode);
@@ -656,15 +647,12 @@ async function startRecording(): Promise<void> {
     );
 
     recordingStartedAt = performance.now();
-
     recordingTimeMs.value = 0;
-
     lastAnalysisAt = 0;
 
     mediaRecorder.start(250);
 
     isRecording.value = true;
-
     isStarting.value = false;
 
     recordingTimer = setInterval(updateRecordingTime, 100);
@@ -700,7 +688,6 @@ function stopRecording(): void {
 
   if (recordingTimer) {
     clearInterval(recordingTimer);
-
     recordingTimer = null;
   }
 
@@ -708,32 +695,27 @@ function stopRecording(): void {
 
   if (animationFrameId !== null) {
     cancelAnimationFrame(animationFrameId);
-
     animationFrameId = null;
   }
 
   /*
-   * Ya no finalizamos ninguna nota aquí.
+   * No construimos notas al detener.
    *
-   * La melodía definitiva comenzará a construirse únicamente
-   * cuando MediaRecorder entregue el archivo completo.
+   * Primero MediaRecorder debe completar el archivo.
+   * El análisis definitivo comienza después.
    */
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
 
   microphoneSource?.disconnect();
-
   analyserNode?.disconnect();
 
   microphoneStream?.getTracks().forEach((track) => track.stop());
 
   microphoneSource = null;
-
   analyserNode = null;
-
   analyserBuffer = null;
-
   microphoneStream = null;
 
   inputLevel.value = 0;
@@ -742,23 +724,15 @@ function stopRecording(): void {
 
   if (audioContext) {
     void audioContext.close();
-
     audioContext = null;
   }
 }
 
 /**
- * Detección provisional durante la grabación.
+ * Detector visual durante la grabación.
  *
- * Su único propósito ahora es mostrar al usuario:
- * - nivel de entrada,
- * - frecuencia aproximada,
- * - nota aproximada,
- * - cents.
- *
- * NO escribe capturedNotes.
- * NO crea la melodía.
- * NO afecta la armonización definitiva.
+ * Esta información NO forma parte de la melodía final.
+ * Tampoco alimenta el renderer vocal.
  */
 function analyseVoice(): void {
   if (!isRecording.value || !analyserNode || !analyserBuffer || !audioContext) {
@@ -780,11 +754,8 @@ function analyseVoice(): void {
       const pitch = frequencyToPitchInformation(frequency);
 
       currentFrequency.value = pitch.frequency;
-
       currentNoteIndex.value = pitch.noteIndex;
-
       currentOctave.value = pitch.octave;
-
       currentCents.value = pitch.cents;
     } else {
       resetCurrentPitch();
@@ -823,23 +794,19 @@ async function buildRecordedAudio(): Promise<void> {
 }
 
 /**
- * Este es ahora el único punto donde se construye
- * la interpretación definitiva.
+ * Único punto donde se crea el resultado definitivo.
  *
- * El archivo completo se decodifica y después se analiza
- * desde cero.
+ * Aquí el archivo completo se entrega al motor maestro.
  */
 async function analyzeCompleteRecording(blob: Blob): Promise<void> {
   isRefining.value = true;
-
   analysisSucceeded.value = false;
 
   capturedNotes.value = [];
-
-  capturedPitchFrames.value = [];
+  vocalAnalysis.value = null;
 
   analysisMessage.value =
-    'Evaluando la grabación completa: señal, trayectoria de pitch, notas, tiempos y tonalidad...';
+    'Evaluando grabación completa: pitch, notas, regiones vocales, silencios, ataques, releases y dinámica...';
 
   let context: AudioContext | null = null;
 
@@ -851,32 +818,62 @@ async function analyzeCompleteRecording(blob: Blob): Promise<void> {
     const decoded = await context.decodeAudioData(arrayBuffer);
 
     /*
-     * La duración oficial se toma del audio decodificado
-     * y no del cronómetro de la interfaz.
+     * La duración oficial procede del audio real
+     * y no del cronómetro visual.
      */
     recordingTimeMs.value = decoded.duration * 1000;
 
-    const analysis = analyzeRecordedMelody(decoded);
+    /*
+     * ANÁLISIS MAESTRO.
+     *
+     * A partir de este punto todo el procesamiento definitivo
+     * se origina en vocal-analysis-engine.ts.
+     */
+    const analysis = analyzeVocalRecording(decoded);
 
-    capturedPitchFrames.value = analysis.frames;
+    vocalAnalysis.value = analysis;
 
-    capturedNotes.value = analysis.notes.map(mapRefinedNote);
+    capturedNotes.value = analysis.notes.map(mapAnalyzedNote);
 
     if (!analysis.notes.length) {
-      analysisMessage.value = `El audio fue evaluado, pero no se encontraron notas vocales suficientemente confiables. Se analizaron ${analysis.frames.length} frames de pitch.`;
+      analysisMessage.value =
+        `El audio completo fue evaluado, pero no se encontraron notas vocales suficientemente confiables. ` +
+        `Frames de pitch: ${analysis.pitchFrames.length}. ` +
+        `Regiones vocales: ${analysis.voicedRegions.length}. ` +
+        `Regiones sin pitch: ${analysis.unvoicedRegions.length}. ` +
+        `Silencios: ${analysis.silenceRegions.length}.`;
 
       return;
     }
 
     analysisSucceeded.value = true;
 
-    analysisMessage.value = `Evaluación terminada: ${analysis.notes.length} notas definitivas, ${analysis.frames.length} frames de pitch y ${averageRefinedConfidence(
-      analysis.notes,
-    )}% de confianza media.`;
+    analysisMessage.value =
+      `Evaluación terminada: ${analysis.notes.length} notas definitivas, ` +
+      `${analysis.pitchFrames.length} frames de pitch, ` +
+      `${analysis.voicedRegions.length} regiones vocales, ` +
+      `${analysis.unvoicedRegions.length} regiones sin pitch, ` +
+      `${analysis.silenceRegions.length} silencios, ` +
+      `${analysis.attacks.length} ataques, ` +
+      `${analysis.releases.length} releases y ` +
+      `${Math.round(analysis.averageConfidence * 100)}% de confianza media.`;
+
+    console.info('[ICP Studio][VocalAnalysis]', {
+      durationMs: analysis.durationMs,
+      sampleRate: analysis.sampleRate,
+      notes: analysis.notes.length,
+      pitchFrames: analysis.pitchFrames.length,
+      voicedRegions: analysis.voicedRegions.length,
+      unvoicedRegions: analysis.unvoicedRegions.length,
+      silenceRegions: analysis.silenceRegions.length,
+      attacks: analysis.attacks.length,
+      releases: analysis.releases.length,
+      dynamicPoints: analysis.dynamics.length,
+      averageConfidence: analysis.averageConfidence,
+    });
   } catch (error) {
     capturedNotes.value = [];
-
-    capturedPitchFrames.value = [];
+    vocalAnalysis.value = null;
 
     analysisMessage.value =
       error instanceof Error
@@ -891,34 +888,17 @@ async function analyzeCompleteRecording(blob: Blob): Promise<void> {
   }
 }
 
-function mapRefinedNote(note: RefinedPitchNote): CapturedPitchNote {
+function mapAnalyzedNote(note: VocalAnalyzedNote): CapturedPitchNote {
   return {
     id: note.id,
-
     noteIndex: note.noteIndex,
-
     octave: note.octave,
-
     startedAt: note.startedAt,
-
     endedAt: note.endedAt,
-
     durationMs: note.durationMs,
-
     confidence: note.confidence,
-
     cents: note.cents,
   };
-}
-
-function averageRefinedConfidence(refined: RefinedPitchNote[]): number {
-  if (!refined.length) {
-    return 0;
-  }
-
-  const average = refined.reduce((sum, note) => sum + note.confidence, 0) / refined.length;
-
-  return Math.round(average * 100);
 }
 
 function updateRecordingTime(): void {
@@ -938,31 +918,22 @@ function useCapturedMelody(): void {
 
   const melodyNotes: MelodyNote[] = capturedNotes.value.map((note) => ({
     id: note.id,
-
     noteIndex: note.noteIndex,
-
     octave: note.octave,
-
     beats: durationToBeats(note.durationMs),
   }));
 
   const phrase: MelodyPhrase = {
     id: makeId(),
-
     title: 'Melodía capturada',
-
     lyrics: '',
-
     chordStepId: props.progression[0]?.id ?? null,
-
     notes: melodyNotes,
   };
 
   emit('use-capture', {
     phrase,
-
     rootNote: estimate.rootNote,
-
     scaleMode: estimate.scaleMode,
   });
 }
@@ -982,7 +953,6 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
   });
 
   const majorPattern = [0, 2, 4, 5, 7, 9, 11];
-
   const minorPattern = [0, 2, 3, 5, 7, 8, 10];
 
   let best: KeyEstimate | null = null;
@@ -991,13 +961,10 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
     const modes = [
       {
         mode: 'major' as const,
-
         pattern: majorPattern,
       },
-
       {
         mode: 'minor' as const,
-
         pattern: minorPattern,
       },
     ];
@@ -1022,9 +989,7 @@ function estimateKey(detected: CapturedPitchNote[]): KeyEstimate | null {
       if (!best || score > best.score) {
         best = {
           rootNote: root,
-
           scaleMode: mode,
-
           score,
         };
       }
@@ -1056,17 +1021,14 @@ function clearCapture(): void {
   }
 
   capturedNotes.value = [];
-
-  capturedPitchFrames.value = [];
+  vocalAnalysis.value = null;
 
   recordingTimeMs.value = 0;
-
   inputLevel.value = 0;
 
   recordedChunks = [];
 
   analysisMessage.value = '';
-
   analysisSucceeded.value = false;
 
   resetCurrentPitch();
@@ -1080,24 +1042,19 @@ function clearCapture(): void {
 
 function resetCurrentPitch(): void {
   currentFrequency.value = 0;
-
   currentNoteIndex.value = 0;
-
   currentOctave.value = 0;
-
   currentCents.value = 0;
 }
 
 function stopResources(): void {
   if (animationFrameId !== null) {
     cancelAnimationFrame(animationFrameId);
-
     animationFrameId = null;
   }
 
   if (recordingTimer) {
     clearInterval(recordingTimer);
-
     recordingTimer = null;
   }
 
@@ -1106,26 +1063,20 @@ function stopResources(): void {
   }
 
   microphoneSource?.disconnect();
-
   analyserNode?.disconnect();
 
   microphoneStream?.getTracks().forEach((track) => track.stop());
 
   microphoneSource = null;
-
   analyserNode = null;
-
   analyserBuffer = null;
-
   microphoneStream = null;
-
   mediaRecorder = null;
 
   isRecording.value = false;
 
   if (audioContext) {
     void audioContext.close();
-
     audioContext = null;
   }
 }
@@ -1150,7 +1101,6 @@ function formatTime(milliseconds: number): string {
   const totalSeconds = Math.floor(milliseconds / 1000);
 
   const minutes = Math.floor(totalSeconds / 60);
-
   const seconds = totalSeconds % 60;
 
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
