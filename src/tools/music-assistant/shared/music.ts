@@ -1,4 +1,5 @@
-export type MusicalMode = 'reference' | 'detect' | 'harmony' | 'piano' | 'guitar' | 'tuner';
+export type MusicalMode =
+  'reference' | 'detect' | 'harmony' | 'score' | 'piano' | 'guitar' | 'tuner';
 
 export interface ModeDefinition {
   id: MusicalMode;
@@ -75,6 +76,23 @@ export const modes: ModeDefinition[] = [
       'Escuchar cada voz por separado',
       'Escuchar varias voces juntas',
       'Guardar configuraciones para reutilizarlas',
+    ],
+  },
+  {
+    id: 'score',
+    label: 'Leer partitura',
+    icon: 'queue_music',
+    color: '#22d3ee',
+    description: 'Interpreta una partitura y tócala en piano.',
+    longDescription:
+      'Importa una partitura, interpreta sus notas, compases, silencios y tiempos y genera referencias de piano para la melodía y sus armonías.',
+    features: [
+      'Importar MusicXML',
+      'Interpretar notas y silencios',
+      'Detectar compás y tempo',
+      'Construir línea de tiempo musical',
+      'Generar varias voces de armonía',
+      'Reproducir cada voz en piano',
     ],
   },
   {

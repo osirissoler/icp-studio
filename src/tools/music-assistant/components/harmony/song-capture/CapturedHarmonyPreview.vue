@@ -1,32 +1,49 @@
 <template>
-  <section class="harmony-preview">
+  <section class="piano-harmony-preview">
     <header class="preview-heading">
       <div>
-        <span class="kicker"> ARMONIZACIÓN AUTOMÁTICA </span>
+        <span class="kicker"> ARMONIZACIÓN EN PIANO </span>
 
-        <h3>Referencia musical desde tu interpretación</h3>
+        <h3>Armonías generadas desde tu interpretación</h3>
 
         <p>
-          Cada nota conserva el momento y la duración detectados mientras cantabas. Puedes escuchar
-          la tonalidad por separado o reproducir cada línea de armonía como referencia instrumental.
+          ICP Studio utiliza la melodía detectada, la tonalidad y la armonía para construir seis
+          líneas musicales. Por ahora todas se reproducen exclusivamente con referencia de piano.
         </p>
       </div>
 
       <div class="key-chip">
-        <span>Tonalidad usada</span>
+        <span>Tonalidad detectada</span>
+
         <strong>{{ keyLabel }}</strong>
       </div>
     </header>
 
+    <div class="piano-mode">
+      <q-icon name="piano" />
+
+      <div>
+        <span>MODO ACTUAL</span>
+
+        <strong>Armonización completa en piano</strong>
+
+        <small>
+          La síntesis de voz humana permanece pausada. El cálculo musical de las armonías continúa
+          activo.
+        </small>
+      </div>
+    </div>
+
     <section class="key-reference">
       <div class="key-reference-copy">
-        <q-icon name="piano" />
+        <q-icon name="music_note" />
 
         <div>
           <span>REFERENCIA DE TONALIDAD</span>
+
           <strong>{{ keyLabel }}</strong>
 
-          <small> Escucha únicamente la tonalidad. No reproduce tu grabación ni las voces. </small>
+          <small> Escucha primero el acorde principal de la tonalidad calculada. </small>
         </div>
       </div>
 
@@ -34,223 +51,69 @@
         unelevated
         no-caps
         icon="play_arrow"
-        :label="playbackMode === 'key' ? 'Reproduciendo tonalidad' : 'Escuchar tonalidad'"
-        class="key-play-button"
-        :disable="isPlaying || isRenderingHumanVoice"
+        :label="playbackMode === 'key' ? 'Reproduciendo' : 'Escuchar tonalidad'"
+        class="key-button"
+        :disable="isPlaying"
         @click="playKeyReference"
       />
     </section>
 
-    <div class="section-label">
-      <span>REFERENCIAS DE ARMONÍA</span>
-
-      <small>
-        Principal, Segunda, Tenor, Barítono y Bajo se reproducen como referencia instrumental.
-      </small>
-    </div>
-
-    <div class="playback-actions">
-      <q-btn
-        unelevated
-        no-caps
-        icon="music_note"
-        label="Principal"
-        class="voice-button principal"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playVoice('principal')"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="music_note"
-        label="Segunda"
-        class="voice-button second"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playVoice('second')"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="music_note"
-        label="Tenor"
-        class="voice-button tenor"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playVoice('tenor')"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="music_note"
-        label="Barítono"
-        class="voice-button baritone"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playVoice('baritone')"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="music_note"
-        label="Bajo"
-        class="voice-button bass"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playVoice('bass')"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="piano"
-        label="Todas"
-        class="all-button"
-        :disable="isPlaying || isRenderingHumanVoice"
-        @click="playAllVoices"
-      />
-
-      <q-btn
-        unelevated
-        no-caps
-        icon="library_music"
-        label="Grabación + todas"
-        class="recording-mix-button"
-        :disable="isPlaying || isRenderingHumanVoice || !audioUrl"
-        @click="playRecordingWithAllVoices"
-      />
-
-      <q-btn
-        outline
-        no-caps
-        icon="stop"
-        label="Detener"
-        class="stop-button"
-        :disable="!isPlaying"
-        @click="stopPlayback"
-      />
-    </div>
-
-    <div class="mix-description">
-      <q-icon name="headphones" />
-
-      <div>
-        <strong>Ensayo con tu grabación</strong>
-
-        <span>
-          “Grabación + todas” reproduce tu audio original junto con las referencias Principal,
-          Segunda, Tenor, Barítono y Bajo usando la misma línea de tiempo.
-        </span>
-      </div>
-    </div>
-
-    <section class="human-voice-section">
-      <header class="human-voice-heading">
+    <section class="voices-section">
+      <header>
         <div>
-          <span>VOCES USANDO MI GRABACIÓN</span>
+          <span>LÍNEAS DE ARMONÍA</span>
 
-          <strong>Escucha la armonía con tu propio timbre</strong>
+          <strong>Seis referencias independientes</strong>
 
-          <small>
-            ICP Studio procesa tu grabación localmente y conserva la línea de tiempo original. Cada
-            voz se genera la primera vez y luego se mantiene en caché para reproducirse
-            inmediatamente.
-          </small>
+          <small> Cada botón reproduce la canción completa utilizando solamente esa línea. </small>
         </div>
 
-        <div class="engine-status" :class="{ rendering: isRenderingHumanVoice }">
-          <q-spinner v-if="isRenderingHumanVoice" size="12px" />
-
-          <span v-else class="engine-status-dot"></span>
-
-          {{ isRenderingHumanVoice ? renderingStatusLabel : 'Motor vocal disponible' }}
-        </div>
+        <q-icon name="queue_music" />
       </header>
 
-      <div class="human-voice-plans">
-        <article
-          v-for="plan in humanVoicePlans"
-          :key="plan.voiceId"
-          class="human-voice-card"
-          :class="plan.voiceId"
+      <div class="voice-grid">
+        <button
+          v-for="voice in voiceDefinitions"
+          :key="voice.id"
+          type="button"
+          class="voice-card"
+          :class="[
+            voice.id,
+            {
+              active: playbackMode === 'voice' && playingVoiceId === voice.id,
+            },
+          ]"
+          :style="{
+            '--voice-color': voice.color,
+          }"
+          :disabled="isPlaying"
+          @click="playVoice(voice.id)"
         >
-          <div class="human-voice-card-top">
-            <div>
-              <span>{{ humanVoiceLabel(plan.voiceId) }}</span>
-              <strong>{{ plan.segments.length }} segmentos</strong>
-            </div>
-
-            <q-icon name="record_voice_over" />
+          <div class="voice-icon">
+            <q-icon :name="voice.icon" />
           </div>
 
-          <div class="human-voice-stats">
-            <div>
-              <span>Transformar</span>
-              <strong>{{ plan.transformedSegments }}</strong>
-            </div>
+          <div>
+            <span>{{ voice.shortLabel }}</span>
 
-            <div>
-              <span>Sin cambio</span>
-              <strong>{{ plan.passthroughSegments }}</strong>
-            </div>
+            <strong>{{ voice.label }}</strong>
 
-            <div>
-              <span>Promedio</span>
-              <strong>{{ formatSemitoneShift(plan.averageAbsoluteShift) }}</strong>
-            </div>
-
-            <div>
-              <span>Máximo</span>
-              <strong>{{ formatSemitoneShift(plan.maximumAbsoluteShift) }}</strong>
-            </div>
+            <small>{{ voice.description }}</small>
           </div>
 
-          <div class="human-voice-ready">
-            <q-icon :name="hasCachedHumanVoice(plan.voiceId) ? 'offline_pin' : 'graphic_eq'" />
-
-            <span>
-              {{ hasCachedHumanVoice(plan.voiceId) ? 'Audio generado' : 'Listo para generar' }}
-            </span>
-          </div>
-
-          <q-btn
-            unelevated
-            no-caps
-            icon="play_arrow"
-            :label="
-              isRenderingVoice(plan.voiceId)
-                ? 'Generando...'
-                : playbackMode === 'human-voice' && playingHumanVoiceId === plan.voiceId
-                  ? 'Reproduciendo'
-                  : 'Escuchar'
-            "
-            class="human-play-button"
-            :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
-            :loading="isRenderingVoice(plan.voiceId)"
-            @click="playHumanVoice(plan.voiceId)"
-          />
-        </article>
+          <q-icon name="play_arrow" class="play-icon" />
+        </button>
       </div>
 
-      <div class="human-voice-global-actions">
+      <div class="global-actions">
         <q-btn
           unelevated
           no-caps
-          icon="groups"
-          label="Todas mis voces"
-          class="human-all-button"
-          :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
-          @click="playAllHumanVoices(false)"
-        />
-
-        <q-btn
-          unelevated
-          no-caps
-          icon="library_music"
-          label="Original + todas mis voces"
-          class="human-original-mix-button"
-          :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
-          @click="playAllHumanVoices(true)"
+          icon="piano"
+          :label="playbackMode === 'all' ? 'Reproduciendo todas' : 'Escuchar todas'"
+          class="all-button"
+          :disable="isPlaying || !harmonyRows.length"
+          @click="playAllVoices"
         />
 
         <q-btn
@@ -258,161 +121,167 @@
           no-caps
           icon="stop"
           label="Detener"
-          class="human-stop-button"
+          class="stop-button"
           :disable="!isPlaying"
           @click="stopPlayback"
         />
-      </div>
-
-      <div class="human-voice-explanation">
-        <q-icon name="graphic_eq" />
-
-        <div>
-          <strong>Procesamiento completamente local</strong>
-
-          <span>
-            Esta primera versión utiliza el motor TD-PSOLA de ICP Studio. Los ataques y finales
-            permanecen protegidos mientras la parte estable de cada nota se desplaza hacia la
-            armonía calculada. No usa internet ni servicios externos.
-          </span>
-        </div>
       </div>
     </section>
 
     <div v-if="playbackError" class="playback-error">
       <q-icon name="error_outline" />
+
       <span>{{ playbackError }}</span>
     </div>
 
-    <div class="table-heading">
+    <section class="matrix-section">
+      <header class="matrix-heading">
+        <div>
+          <span>MATRIZ DE NOTAS</span>
+
+          <strong>
+            {{ harmonyRows.length }}
+            {{ harmonyRows.length === 1 ? 'nota detectada' : 'notas detectadas' }}
+          </strong>
+
+          <small>
+            Puedes tocar cualquier celda individualmente para escuchar esa nota en piano.
+          </small>
+        </div>
+
+        <div
+          v-if="isPlaying && playbackMode !== 'key' && playbackMode !== 'single'"
+          class="following-indicator"
+        >
+          <span></span>
+          Siguiendo reproducción
+        </div>
+      </header>
+
+      <div ref="tableWrapper" class="table-wrapper">
+        <table class="harmony-table">
+          <thead>
+            <tr>
+              <th>#</th>
+
+              <th>Tiempo</th>
+
+              <th>Duración</th>
+
+              <th
+                v-for="voice in voiceDefinitions"
+                :key="voice.id"
+                :style="{
+                  '--voice-color': voice.color,
+                }"
+              >
+                {{ voice.tableLabel }}
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr
+              v-for="(row, rowIndex) in harmonyRows"
+              :key="row.id"
+              :ref="(element) => setRowElement(element, rowIndex)"
+              :class="{
+                playing: activeNoteIndex === rowIndex,
+              }"
+            >
+              <td class="order-cell">
+                <q-icon v-if="activeNoteIndex === rowIndex" name="play_arrow" />
+
+                <span v-else>{{ rowIndex + 1 }}</span>
+              </td>
+
+              <td class="time-cell">
+                {{ formatTimelineTime(row.startedAt) }}
+                –
+                {{ formatTimelineTime(row.endedAt) }}
+              </td>
+
+              <td class="duration-cell">
+                {{ formatDuration(row.durationMs) }}
+              </td>
+
+              <td v-for="voiceDefinition in voiceDefinitions" :key="voiceDefinition.id">
+                <button
+                  type="button"
+                  class="note-button"
+                  :style="{
+                    '--voice-color': voiceDefinition.color,
+                  }"
+                  @click="playSingleVoiceNote(row, voiceDefinition.id, rowIndex)"
+                >
+                  {{ voiceLabel(row, voiceDefinition.id) }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="explanation-grid">
+      <article>
+        <q-icon name="north" />
+
+        <div>
+          <span>SEGUNDA ARRIBA</span>
+
+          <strong>Armonía superior</strong>
+
+          <small>
+            Busca una nota armónica por encima de la melodía principal, procurando mantener
+            movimiento suave.
+          </small>
+        </div>
+      </article>
+
+      <article>
+        <q-icon name="south" />
+
+        <div>
+          <span>SEGUNDA ABAJO</span>
+
+          <strong>Armonía inferior cercana</strong>
+
+          <small>
+            Busca una alternativa armónica por debajo de la melodía sin confundirse con las líneas
+            graves.
+          </small>
+        </div>
+      </article>
+
+      <article>
+        <q-icon name="graphic_eq" />
+
+        <div>
+          <span>VOCES GRAVES</span>
+
+          <strong>Tenor, Barítono y Bajo</strong>
+
+          <small>
+            Las tres líneas reciben rangos independientes para construir una distribución más
+            completa.
+          </small>
+        </div>
+      </article>
+    </section>
+
+    <div class="experimental-note">
+      <q-icon name="science" />
+
       <div>
-        <span>SECUENCIA DETECTADA</span>
+        <strong>Motor vocal congelado</strong>
 
-        <small>
-          {{ harmonyRows.length }}
-          {{ harmonyRows.length === 1 ? 'nota' : 'notas' }}
-        </small>
+        <p>
+          El experimento de voz humana queda guardado fuera de este flujo. A partir de ahora
+          priorizamos que ICP Studio calcule correctamente todas las notas y armonías antes de
+          volver a trabajar con síntesis vocal.
+        </p>
       </div>
-
-      <div v-if="isPlaying && playbackMode !== 'key'" class="following-indicator">
-        <span class="following-dot"></span>
-        Siguiendo reproducción
-      </div>
-    </div>
-
-    <div ref="tableWrapper" class="table-wrapper">
-      <table class="harmony-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Tiempo</th>
-            <th>Duración</th>
-            <th>Principal</th>
-            <th>Segunda</th>
-            <th>Tenor</th>
-            <th>Barítono</th>
-            <th>Bajo</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <tr
-            v-for="(row, index) in harmonyRows"
-            :key="row.id"
-            :ref="(element) => setRowElement(element, index)"
-            :class="{ playing: activeNoteIndex === index }"
-          >
-            <td class="order-cell">
-              <span v-if="activeNoteIndex === index" class="playing-marker">
-                <q-icon name="play_arrow" />
-              </span>
-
-              <span v-else>
-                {{ index + 1 }}
-              </span>
-            </td>
-
-            <td class="time-cell">
-              {{ formatTimelineTime(row.startedAt) }}
-              –
-              {{ formatTimelineTime(row.endedAt) }}
-            </td>
-
-            <td class="duration-cell">
-              {{ formatDuration(row.durationMs) }}
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="note-cell principal-note"
-                @click="playSingleNote(row, 'principal')"
-              >
-                {{ voiceLabel(row, 'principal') }}
-              </button>
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="note-cell second-note"
-                @click="playSingleNote(row, 'second')"
-              >
-                {{ voiceLabel(row, 'second') }}
-              </button>
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="note-cell tenor-note"
-                @click="playSingleNote(row, 'tenor')"
-              >
-                {{ voiceLabel(row, 'tenor') }}
-              </button>
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="note-cell baritone-note"
-                @click="playSingleNote(row, 'baritone')"
-              >
-                {{ voiceLabel(row, 'baritone') }}
-              </button>
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="note-cell bass-note"
-                @click="playSingleNote(row, 'bass')"
-              >
-                {{ voiceLabel(row, 'bass') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="scroll-note">
-      <q-icon name="swap_vert" />
-
-      <span>
-        Cuando la secuencia sea larga, esta área tendrá su propio scroll. Durante la reproducción
-        ICP Studio seguirá automáticamente la nota activa.
-      </span>
-    </div>
-
-    <div class="preview-note">
-      <q-icon name="info" />
-
-      <p>
-        Las referencias instrumentales y las voces generadas permanecen separadas. Así puedes usar
-        el sonido limpio como guía o escuchar la armonía utilizando el timbre de tu propia
-        grabación.
-      </p>
     </div>
   </section>
 </template>
@@ -421,7 +290,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue';
 
 import {
-  harmonizeMelodyPhrases,
+  harmonizeCapturedMelodyPhrases,
   type ChordStep,
   type MelodyHarmonyVoiceNote,
   type MelodyNote,
@@ -431,16 +300,6 @@ import {
 } from '../../../shared/harmony';
 
 import { midiToFrequency, notes } from '../../../shared/music';
-
-import {
-  createHumanVoiceRenderPlan,
-  type HumanVoiceId,
-  type HumanVoiceRenderPlan,
-  type HumanVoiceSourceNote,
-  type HumanVoiceTargetNote,
-} from './human-voice-engine';
-
-import { renderHumanVoice } from './human-voice-renderer';
 
 interface CapturedNote {
   id: string;
@@ -457,18 +316,17 @@ interface HarmonyRow extends CapturedNote {
   voices: MelodyHarmonyVoiceNote[];
 }
 
-type PlaybackMode =
-  | 'key'
-  | 'voice'
-  | 'all'
-  | 'recording'
-  | 'single'
-  | 'human-voice'
-  | 'human-all'
-  | 'human-recording'
-  | null;
+interface VoiceDefinition {
+  id: MelodyVoiceId;
+  label: string;
+  shortLabel: string;
+  tableLabel: string;
+  color: string;
+  icon: string;
+  description: string;
+}
 
-const humanVoiceIds: HumanVoiceId[] = ['principal', 'second', 'tenor', 'baritone', 'bass'];
+type PlaybackMode = 'key' | 'voice' | 'all' | 'single' | null;
 
 const props = defineProps<{
   rootNote: number;
@@ -478,25 +336,76 @@ const props = defineProps<{
   audioUrl: string;
 }>();
 
+const voiceDefinitions: VoiceDefinition[] = [
+  {
+    id: 'principal',
+    label: 'Principal',
+    shortLabel: 'P',
+    tableLabel: 'Principal',
+    color: '#f472b6',
+    icon: 'music_note',
+    description: 'La melodía exacta detectada de tu canto.',
+  },
+  {
+    id: 'second',
+    label: 'Segunda arriba',
+    shortLabel: '2ª ↑',
+    tableLabel: '2ª arriba',
+    color: '#60a5fa',
+    icon: 'north',
+    description: 'Armonía cercana por encima de la principal.',
+  },
+  {
+    id: 'second-down',
+    label: 'Segunda abajo',
+    shortLabel: '2ª ↓',
+    tableLabel: '2ª abajo',
+    color: '#38bdf8',
+    icon: 'south',
+    description: 'Armonía cercana por debajo de la principal.',
+  },
+  {
+    id: 'tenor',
+    label: 'Tenor',
+    shortLabel: 'T',
+    tableLabel: 'Tenor',
+    color: '#a78bfa',
+    icon: 'graphic_eq',
+    description: 'Línea intermedia de soporte armónico.',
+  },
+  {
+    id: 'baritone',
+    label: 'Barítono',
+    shortLabel: 'Brt',
+    tableLabel: 'Barítono',
+    color: '#34d399',
+    icon: 'equalizer',
+    description: 'Línea grave intermedia.',
+  },
+  {
+    id: 'bass',
+    label: 'Bajo',
+    shortLabel: 'B',
+    tableLabel: 'Bajo',
+    color: '#fbbf24',
+    icon: 'volume_down',
+    description: 'Fundamento grave de la armonía.',
+  },
+];
+
 const isPlaying = ref(false);
+
+const playbackMode = ref<PlaybackMode>(null);
+
+const playingVoiceId = ref<MelodyVoiceId | null>(null);
 
 const activeNoteIndex = ref<number | null>(null);
 
 const playbackError = ref('');
 
-const playbackMode = ref<PlaybackMode>(null);
-
 const tableWrapper = ref<HTMLElement | null>(null);
 
-const isRenderingHumanVoice = ref(false);
-
-const renderingHumanVoiceId = ref<HumanVoiceId | null>(null);
-
-const playingHumanVoiceId = ref<HumanVoiceId | null>(null);
-
 const rowElements = new Map<number, HTMLElement>();
-
-const humanVoiceBufferCache = new Map<HumanVoiceId, AudioBuffer>();
 
 let audioContext: AudioContext | null = null;
 
@@ -504,15 +413,7 @@ let activeOscillators: OscillatorNode[] = [];
 
 let activeGainNodes: GainNode[] = [];
 
-let activeBufferSources: AudioBufferSourceNode[] = [];
-
 let timers: ReturnType<typeof setTimeout>[] = [];
-
-let decodedAudioBuffer: AudioBuffer | null = null;
-
-let decodedAudioUrl = '';
-
-let humanVoiceCacheSignature = '';
 
 const keyLabel = computed(() => {
   const note = notes.find((item) => item.value === props.rootNote) ?? notes[0]!;
@@ -533,16 +434,19 @@ const harmonyRows = computed<HarmonyRow[]>(() => {
   }));
 
   const phrase = {
-    id: 'captured-preview',
+    id: 'captured-piano-harmony',
     title: 'Interpretación capturada',
     lyrics: '',
     chordStepId: props.progression[0]?.id ?? null,
     notes: melodyNotes,
   };
 
-  const harmonized = harmonizeMelodyPhrases(props.rootNote, props.scaleMode, props.progression, [
-    phrase,
-  ])[0];
+  const harmonized = harmonizeCapturedMelodyPhrases(
+    props.rootNote,
+    props.scaleMode,
+    props.progression,
+    [phrase],
+  )[0];
 
   if (!harmonized) {
     return [];
@@ -552,101 +456,6 @@ const harmonyRows = computed<HarmonyRow[]>(() => {
     ...captured,
     voices: harmonized.notes[index]?.voices ?? [],
   }));
-});
-
-const capturedTimelineDuration = computed(() => {
-  return harmonyRows.value.reduce((maximum, row) => Math.max(maximum, row.endedAt), 0);
-});
-
-const humanVoiceSourceNotes = computed<HumanVoiceSourceNote[]>(() => {
-  return harmonyRows.value.map((row) => {
-    const sourceNote: HumanVoiceSourceNote = {
-      id: row.id,
-      noteIndex: row.noteIndex,
-      octave: row.octave,
-      startedAt: row.startedAt,
-      endedAt: row.endedAt,
-      durationMs: row.durationMs,
-    };
-
-    if (row.confidence !== undefined) {
-      sourceNote.confidence = row.confidence;
-    }
-
-    if (row.cents !== undefined) {
-      sourceNote.cents = row.cents;
-    }
-
-    return sourceNote;
-  });
-});
-
-const humanVoiceTargetNotes = computed<HumanVoiceTargetNote[]>(() => {
-  const targets: HumanVoiceTargetNote[] = [];
-
-  harmonyRows.value.forEach((row) => {
-    row.voices.forEach((voice) => {
-      if (!isHumanVoiceId(voice.voiceId)) {
-        return;
-      }
-
-      targets.push({
-        sourceNoteId: row.id,
-        voiceId: voice.voiceId,
-        noteIndex: voice.noteIndex,
-        octave: voice.octave,
-      });
-    });
-  });
-
-  return targets;
-});
-
-const humanVoicePlans = computed<HumanVoiceRenderPlan[]>(() => {
-  return humanVoiceIds.map((voiceId) =>
-    createHumanVoiceRenderPlan(
-      voiceId,
-      humanVoiceSourceNotes.value,
-      humanVoiceTargetNotes.value,
-      capturedTimelineDuration.value,
-    ),
-  );
-});
-
-const humanVoiceRenderSignature = computed(() => {
-  return JSON.stringify({
-    audioUrl: props.audioUrl,
-    rootNote: props.rootNote,
-    scaleMode: props.scaleMode,
-    progression: props.progression.map((step) => step.id),
-    source: humanVoiceSourceNotes.value.map((note) => ({
-      id: note.id,
-      noteIndex: note.noteIndex,
-      octave: note.octave,
-      startedAt: note.startedAt,
-      endedAt: note.endedAt,
-      confidence: note.confidence,
-      cents: note.cents,
-    })),
-    target: humanVoiceTargetNotes.value.map((note) => ({
-      sourceNoteId: note.sourceNoteId,
-      voiceId: note.voiceId,
-      noteIndex: note.noteIndex,
-      octave: note.octave,
-    })),
-  });
-});
-
-const renderingStatusLabel = computed(() => {
-  if (renderingHumanVoiceId.value) {
-    return `Generando ${humanVoiceShortLabel(renderingHumanVoiceId.value)}`;
-  }
-
-  return 'Generando voces...';
-});
-
-watch(humanVoiceRenderSignature, () => {
-  clearHumanVoiceCache();
 });
 
 watch(activeNoteIndex, (index) => {
@@ -659,118 +468,20 @@ watch(activeNoteIndex, (index) => {
   });
 });
 
-function isHumanVoiceId(value: MelodyVoiceId): value is HumanVoiceId {
-  return humanVoiceIds.includes(value);
-}
-
-function humanVoiceLabel(voiceId: HumanVoiceId): string {
-  switch (voiceId) {
-    case 'principal':
-      return 'Mi voz: Principal';
-
-    case 'second':
-      return 'Mi voz: Segunda';
-
-    case 'tenor':
-      return 'Mi voz: Tenor';
-
-    case 'baritone':
-      return 'Mi voz: Barítono';
-
-    case 'bass':
-      return 'Mi voz: Bajo';
-  }
-}
-
-function humanVoiceShortLabel(voiceId: HumanVoiceId): string {
-  switch (voiceId) {
-    case 'principal':
-      return 'Principal';
-
-    case 'second':
-      return 'Segunda';
-
-    case 'tenor':
-      return 'Tenor';
-
-    case 'baritone':
-      return 'Barítono';
-
-    case 'bass':
-      return 'Bajo';
-  }
-}
-
-function formatSemitoneShift(value: number): string {
-  return `${value.toFixed(1)} st`;
-}
-
-function isRenderingVoice(voiceId: HumanVoiceId): boolean {
-  return isRenderingHumanVoice.value && renderingHumanVoiceId.value === voiceId;
-}
-
-function hasCachedHumanVoice(voiceId: HumanVoiceId): boolean {
-  return (
-    humanVoiceCacheSignature === humanVoiceRenderSignature.value &&
-    humanVoiceBufferCache.has(voiceId)
-  );
-}
-
-function clearHumanVoiceCache(): void {
-  humanVoiceBufferCache.clear();
-
-  humanVoiceCacheSignature = '';
-
-  playingHumanVoiceId.value = null;
-}
-
-function findHumanVoicePlan(voiceId: HumanVoiceId): HumanVoiceRenderPlan | null {
-  return humanVoicePlans.value.find((plan) => plan.voiceId === voiceId) ?? null;
-}
-
-function setRowElement(element: Element | ComponentPublicInstance | null, index: number): void {
-  if (element instanceof HTMLElement) {
-    rowElements.set(index, element);
-
-    return;
+function durationToBeats(durationMs: number): MelodyNoteDuration {
+  if (durationMs < 360) {
+    return 0.5;
   }
 
-  rowElements.delete(index);
-}
-
-function scrollToActiveRow(index: number): void {
-  const wrapper = tableWrapper.value;
-
-  const row = rowElements.get(index);
-
-  if (!wrapper || !row) {
-    return;
+  if (durationMs < 750) {
+    return 1;
   }
 
-  const wrapperRect = wrapper.getBoundingClientRect();
-
-  const rowRect = row.getBoundingClientRect();
-
-  const headerHeight = 34;
-
-  const visibleTop = wrapperRect.top + headerHeight;
-
-  const visibleBottom = wrapperRect.bottom;
-
-  const isAbove = rowRect.top < visibleTop;
-
-  const isBelow = rowRect.bottom > visibleBottom;
-
-  if (!isAbove && !isBelow) {
-    return;
+  if (durationMs < 1500) {
+    return 2;
   }
 
-  const target = row.offsetTop - wrapper.clientHeight / 2 + row.clientHeight / 2;
-
-  wrapper.scrollTo({
-    top: Math.max(0, target),
-    behavior: 'smooth',
-  });
+  return 4;
 }
 
 function voiceFor(row: HarmonyRow, voiceId: MelodyVoiceId): MelodyHarmonyVoiceNote | undefined {
@@ -807,130 +518,56 @@ async function prepareAudio(): Promise<AudioContext> {
   return context;
 }
 
-function createScheduledTone(
+function createPianoTone(
   context: AudioContext,
   frequency: number,
   absoluteStart: number,
   durationSeconds: number,
   volume: number,
 ): void {
-  const oscillator = context.createOscillator();
-
-  const harmonic = context.createOscillator();
-
-  const gain = context.createGain();
-
-  const harmonicGain = context.createGain();
-
-  oscillator.type = 'triangle';
-
-  harmonic.type = 'sine';
-
-  oscillator.frequency.setValueAtTime(frequency, absoluteStart);
-
-  harmonic.frequency.setValueAtTime(frequency * 2, absoluteStart);
-
-  const duration = Math.max(durationSeconds, 0.06);
+  const duration = Math.max(0.09, durationSeconds);
 
   const end = absoluteStart + duration;
 
-  const attackEnd = absoluteStart + Math.min(0.012, duration * 0.18);
-
-  const decayEnd = absoluteStart + Math.min(duration * 0.55, 0.22);
-
-  const releaseStart =
-    absoluteStart + Math.max(duration * 0.68, duration - Math.min(0.05, duration * 0.25));
-
-  const safeDecayEnd = Math.max(attackEnd + 0.001, Math.min(decayEnd, end - 0.002));
-
-  const safeReleaseStart = Math.max(safeDecayEnd + 0.001, Math.min(releaseStart, end - 0.001));
-
-  gain.gain.setValueAtTime(0, absoluteStart);
-
-  gain.gain.linearRampToValueAtTime(volume, attackEnd);
-
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * 0.62), safeDecayEnd);
-
-  gain.gain.setValueAtTime(Math.max(0.0001, volume * 0.62), safeReleaseStart);
-
-  gain.gain.linearRampToValueAtTime(0, end);
-
-  const harmonicAttackEnd = absoluteStart + Math.min(0.008, duration * 0.14);
-
-  const harmonicDecayEnd = Math.max(
-    harmonicAttackEnd + 0.001,
-    Math.min(absoluteStart + Math.min(0.18, duration * 0.72), end),
-  );
-
-  harmonicGain.gain.setValueAtTime(0, absoluteStart);
-
-  harmonicGain.gain.linearRampToValueAtTime(volume * 0.16, harmonicAttackEnd);
-
-  harmonicGain.gain.exponentialRampToValueAtTime(0.0001, harmonicDecayEnd);
-
-  oscillator.connect(gain);
-
-  harmonic.connect(harmonicGain);
-
-  gain.connect(context.destination);
-
-  harmonicGain.connect(context.destination);
-
-  oscillator.start(absoluteStart);
-
-  harmonic.start(absoluteStart);
-
-  oscillator.stop(end + 0.03);
-
-  harmonic.stop(end + 0.03);
-
-  activeOscillators.push(oscillator, harmonic);
-
-  activeGainNodes.push(gain, harmonicGain);
-}
-
-function createPianoReferenceTone(
-  context: AudioContext,
-  frequency: number,
-  absoluteStart: number,
-  durationSeconds: number,
-  volume: number,
-): void {
   const partials = [
     {
       multiplier: 1,
       volume: 1,
+      type: 'triangle' as OscillatorType,
     },
     {
       multiplier: 2,
-      volume: 0.28,
+      volume: 0.24,
+      type: 'sine' as OscillatorType,
     },
     {
       multiplier: 3,
-      volume: 0.1,
+      volume: 0.08,
+      type: 'sine' as OscillatorType,
     },
   ];
-
-  const end = absoluteStart + Math.max(durationSeconds, 0.25);
 
   partials.forEach((partial) => {
     const oscillator = context.createOscillator();
 
     const gain = context.createGain();
 
-    oscillator.type = partial.multiplier === 1 ? 'triangle' : 'sine';
+    const partialVolume = Math.max(0.0001, volume * partial.volume);
+
+    oscillator.type = partial.type;
 
     oscillator.frequency.setValueAtTime(frequency * partial.multiplier, absoluteStart);
 
-    const peak = volume * partial.volume;
-
-    gain.gain.setValueAtTime(0, absoluteStart);
-
-    gain.gain.linearRampToValueAtTime(peak, absoluteStart + 0.008);
+    gain.gain.setValueAtTime(0.0001, absoluteStart);
 
     gain.gain.exponentialRampToValueAtTime(
-      Math.max(0.0001, peak * 0.35),
-      Math.min(end, absoluteStart + 0.32),
+      partialVolume,
+      absoluteStart + Math.min(0.009, duration * 0.12),
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, partialVolume * 0.42),
+      absoluteStart + Math.min(0.24, duration * 0.55),
     );
 
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
@@ -941,7 +578,7 @@ function createPianoReferenceTone(
 
     oscillator.start(absoluteStart);
 
-    oscillator.stop(end + 0.03);
+    oscillator.stop(end + 0.035);
 
     activeOscillators.push(oscillator);
 
@@ -954,89 +591,118 @@ async function playKeyReference(): Promise<void> {
 
   playbackError.value = '';
 
-  const context = await prepareAudio();
+  try {
+    const context = await prepareAudio();
 
-  isPlaying.value = true;
+    isPlaying.value = true;
 
-  playbackMode.value = 'key';
+    playbackMode.value = 'key';
 
-  const rootMidi = 60 + props.rootNote;
+    const rootMidi = 60 + props.rootNote;
 
-  const thirdOffset = props.scaleMode === 'major' ? 4 : 3;
+    const thirdOffset = props.scaleMode === 'major' ? 4 : 3;
 
-  const chordMidi = [rootMidi, rootMidi + thirdOffset, rootMidi + 7, rootMidi + 12];
+    const chordMidi = [rootMidi, rootMidi + thirdOffset, rootMidi + 7, rootMidi + 12];
 
-  const leadSeconds = 0.05;
+    const baseStart = context.currentTime + 0.06;
 
-  const baseStart = context.currentTime + leadSeconds;
+    chordMidi.forEach((midi, index) => {
+      createPianoTone(
+        context,
+        midiToFrequency(midi),
+        baseStart + index * 0.025,
+        1.65,
+        index === 0 ? 0.14 : 0.1,
+      );
+    });
 
-  chordMidi.forEach((midi, index) => {
-    createPianoReferenceTone(
-      context,
-      midiToFrequency(midi),
-      baseStart + index * 0.025,
-      1.65,
-      index === 0 ? 0.15 : 0.11,
+    timers.push(
+      setTimeout(() => {
+        stopPlayback();
+      }, 1900),
     );
-  });
+  } catch (error) {
+    playbackError.value =
+      error instanceof Error
+        ? `No fue posible reproducir la tonalidad: ${error.message}`
+        : 'No fue posible reproducir la tonalidad.';
 
-  const finishTimer = setTimeout(() => {
     stopPlayback();
-  }, 1900);
-
-  timers.push(finishTimer);
-}
-
-function scheduleActiveRows(leadMs: number, useAbsoluteTimeline: boolean): number {
-  if (!harmonyRows.value.length) {
-    return 0;
   }
-
-  const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
-
-  let totalDuration = 0;
-
-  harmonyRows.value.forEach((row, index) => {
-    const timelineStart = useAbsoluteTimeline
-      ? Math.max(0, row.startedAt)
-      : Math.max(0, row.startedAt - firstStart);
-
-    const startTimer = setTimeout(() => {
-      activeNoteIndex.value = index;
-    }, leadMs + timelineStart);
-
-    timers.push(startTimer);
-
-    totalDuration = Math.max(totalDuration, timelineStart + row.durationMs);
-  });
-
-  return totalDuration;
 }
 
 async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
-  stopPlayback();
-
-  playbackError.value = '';
-
   if (!harmonyRows.value.length) {
     return;
   }
 
-  const context = await prepareAudio();
+  stopPlayback();
 
-  isPlaying.value = true;
+  playbackError.value = '';
 
-  playbackMode.value = 'voice';
+  try {
+    const context = await prepareAudio();
 
+    isPlaying.value = true;
+
+    playbackMode.value = 'voice';
+
+    playingVoiceId.value = voiceId;
+
+    scheduleVoiceTimeline(context, voiceId, voiceVolume(voiceId));
+
+    schedulePlaybackEnd();
+  } catch (error) {
+    playbackError.value =
+      error instanceof Error
+        ? `No fue posible reproducir la armonía: ${error.message}`
+        : 'No fue posible reproducir la armonía.';
+
+    stopPlayback();
+  }
+}
+
+async function playAllVoices(): Promise<void> {
+  if (!harmonyRows.value.length) {
+    return;
+  }
+
+  stopPlayback();
+
+  playbackError.value = '';
+
+  try {
+    const context = await prepareAudio();
+
+    isPlaying.value = true;
+
+    playbackMode.value = 'all';
+
+    voiceDefinitions.forEach((voice) => {
+      scheduleVoiceTimeline(context, voice.id, allVoicesVolume(voice.id));
+    });
+
+    scheduleActiveRows();
+
+    schedulePlaybackEnd();
+  } catch (error) {
+    playbackError.value =
+      error instanceof Error
+        ? `No fue posible reproducir todas las líneas: ${error.message}`
+        : 'No fue posible reproducir todas las líneas.';
+
+    stopPlayback();
+  }
+}
+
+function scheduleVoiceTimeline(
+  context: AudioContext,
+  voiceId: MelodyVoiceId,
+  volume: number,
+): void {
   const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
 
-  const leadSeconds = 0.06;
-
-  const leadMs = leadSeconds * 1000;
-
-  const baseStart = context.currentTime + leadSeconds;
-
-  let totalDuration = 0;
+  const baseStart = context.currentTime + 0.08;
 
   harmonyRows.value.forEach((row) => {
     const voice = voiceFor(row, voiceId);
@@ -1047,421 +713,140 @@ async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
 
     const relativeStart = Math.max(0, row.startedAt - firstStart);
 
-    const absoluteStart = baseStart + relativeStart / 1000;
-
-    const durationSeconds = Math.max(row.durationMs / 1000, 0.06);
-
-    createScheduledTone(context, voice.frequency, absoluteStart, durationSeconds, 0.2);
-
-    totalDuration = Math.max(totalDuration, relativeStart + row.durationMs);
+    createPianoTone(
+      context,
+      voice.frequency,
+      baseStart + relativeStart / 1000,
+      Math.max(0.08, row.durationMs / 1000),
+      volume,
+    );
   });
 
-  scheduleActiveRows(leadMs, false);
-
-  const finishTimer = setTimeout(
-    () => {
-      stopPlayback();
-    },
-    leadMs + totalDuration + 120,
-  );
-
-  timers.push(finishTimer);
+  if (playbackMode.value === 'voice') {
+    scheduleActiveRows();
+  }
 }
 
-async function playAllVoices(): Promise<void> {
-  stopPlayback();
+function scheduleActiveRows(): void {
+  const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
 
-  playbackError.value = '';
+  harmonyRows.value.forEach((row, index) => {
+    const delay = Math.max(0, row.startedAt - firstStart);
 
-  if (!harmonyRows.value.length) {
-    return;
-  }
-
-  const context = await prepareAudio();
-
-  isPlaying.value = true;
-
-  playbackMode.value = 'all';
-
-  const leadSeconds = 0.06;
-
-  const leadMs = leadSeconds * 1000;
-
-  const baseStart = context.currentTime + leadSeconds;
-
-  let totalDuration = 0;
-
-  harmonyRows.value.forEach((row) => {
-    const timelineStart = Math.max(0, row.startedAt);
-
-    const absoluteStart = baseStart + timelineStart / 1000;
-
-    const durationSeconds = Math.max(row.durationMs / 1000, 0.06);
-
-    row.voices.forEach((voice) => {
-      createScheduledTone(
-        context,
-        voice.frequency,
-        absoluteStart,
-        durationSeconds,
-        voice.voiceId === 'principal' ? 0.1 : 0.065,
-      );
-    });
-
-    totalDuration = Math.max(totalDuration, timelineStart + row.durationMs);
+    timers.push(
+      setTimeout(() => {
+        activeNoteIndex.value = index;
+      }, delay),
+    );
   });
+}
 
-  scheduleActiveRows(leadMs, true);
+function schedulePlaybackEnd(): void {
+  const first = harmonyRows.value[0];
 
-  const finishTimer = setTimeout(
-    () => {
+  const last = harmonyRows.value[harmonyRows.value.length - 1];
+
+  if (!first || !last) {
+    stopPlayback();
+
+    return;
+  }
+
+  const duration = Math.max(0, last.endedAt - first.startedAt);
+
+  timers.push(
+    setTimeout(() => {
       stopPlayback();
-    },
-    leadMs + totalDuration + 120,
+    }, duration + 220),
   );
-
-  timers.push(finishTimer);
 }
 
-async function loadRecordedAudio(context: AudioContext): Promise<AudioBuffer> {
-  if (!props.audioUrl) {
-    throw new Error('No hay una grabación original disponible.');
-  }
-
-  if (decodedAudioBuffer && decodedAudioUrl === props.audioUrl) {
-    return decodedAudioBuffer;
-  }
-
-  const response = await fetch(props.audioUrl);
-
-  if (!response.ok) {
-    throw new Error('No fue posible leer la grabación original.');
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-
-  decodedAudioBuffer = await context.decodeAudioData(arrayBuffer);
-
-  decodedAudioUrl = props.audioUrl;
-
-  return decodedAudioBuffer;
-}
-
-function scheduleAudioBuffer(
-  context: AudioContext,
-  buffer: AudioBuffer,
-  absoluteStart: number,
-  volume: number,
-): void {
-  const source = context.createBufferSource();
-
-  const gain = context.createGain();
-
-  source.buffer = buffer;
-
-  gain.gain.setValueAtTime(volume, absoluteStart);
-
-  source.connect(gain);
-
-  gain.connect(context.destination);
-
-  source.start(absoluteStart);
-
-  activeBufferSources.push(source);
-
-  activeGainNodes.push(gain);
-}
-
-function scheduleRecordedAudio(
-  context: AudioContext,
-  buffer: AudioBuffer,
-  absoluteStart: number,
-): void {
-  scheduleAudioBuffer(context, buffer, absoluteStart, 0.78);
-}
-
-async function getHumanVoiceBuffer(
-  context: AudioContext,
-  voiceId: HumanVoiceId,
-): Promise<AudioBuffer> {
-  const signature = humanVoiceRenderSignature.value;
-
-  if (humanVoiceCacheSignature !== signature) {
-    humanVoiceBufferCache.clear();
-
-    humanVoiceCacheSignature = signature;
-  }
-
-  const cached = humanVoiceBufferCache.get(voiceId);
-
-  if (cached) {
-    return cached;
-  }
-
-  const plan = findHumanVoicePlan(voiceId);
-
-  if (!plan) {
-    throw new Error(`No existe un plan para ${humanVoiceShortLabel(voiceId)}.`);
-  }
-
-  const recordedAudio = await loadRecordedAudio(context);
-
-  isRenderingHumanVoice.value = true;
-
-  renderingHumanVoiceId.value = voiceId;
-
-  /*
-   * Dejamos que Vue pinte el estado "Generando..."
-   * antes de entrar al procesamiento DSP síncrono.
-   */
-  await waitForNextFrame();
-
-  try {
-    const result = renderHumanVoice(recordedAudio, plan);
-
-    humanVoiceBufferCache.set(voiceId, result.buffer);
-
-    return result.buffer;
-  } finally {
-    renderingHumanVoiceId.value = null;
-
-    isRenderingHumanVoice.value = false;
-  }
-}
-
-async function playHumanVoice(voiceId: HumanVoiceId): Promise<void> {
-  stopPlayback();
-
-  playbackError.value = '';
-
-  if (!props.audioUrl || !harmonyRows.value.length) {
-    return;
-  }
-
-  try {
-    const context = await prepareAudio();
-
-    const buffer = await getHumanVoiceBuffer(context, voiceId);
-
-    const leadSeconds = 0.06;
-
-    const leadMs = leadSeconds * 1000;
-
-    const baseStart = context.currentTime + leadSeconds;
-
-    isPlaying.value = true;
-
-    playbackMode.value = 'human-voice';
-
-    playingHumanVoiceId.value = voiceId;
-
-    scheduleAudioBuffer(context, buffer, baseStart, 0.9);
-
-    scheduleActiveRows(leadMs, true);
-
-    const finishTimer = setTimeout(
-      () => {
-        stopPlayback();
-      },
-      leadMs + buffer.duration * 1000 + 120,
-    );
-
-    timers.push(finishTimer);
-  } catch (error) {
-    stopPlayback();
-
-    playbackError.value =
-      error instanceof Error ? error.message : 'No fue posible generar esta voz.';
-  }
-}
-
-async function playAllHumanVoices(includeOriginal: boolean): Promise<void> {
-  stopPlayback();
-
-  playbackError.value = '';
-
-  if (!props.audioUrl || !harmonyRows.value.length) {
-    return;
-  }
-
-  try {
-    const context = await prepareAudio();
-
-    const renderedVoices = new Map<HumanVoiceId, AudioBuffer>();
-
-    for (const voiceId of humanVoiceIds) {
-      const buffer = await getHumanVoiceBuffer(context, voiceId);
-
-      renderedVoices.set(voiceId, buffer);
-
-      /*
-       * Permite actualizar el estado visual entre
-       * una voz y la siguiente.
-       */
-      await waitForNextFrame();
-    }
-
-    const original = includeOriginal ? await loadRecordedAudio(context) : null;
-
-    const leadSeconds = 0.08;
-
-    const leadMs = leadSeconds * 1000;
-
-    const baseStart = context.currentTime + leadSeconds;
-
-    isPlaying.value = true;
-
-    playbackMode.value = includeOriginal ? 'human-recording' : 'human-all';
-
-    playingHumanVoiceId.value = null;
-
-    if (original) {
-      scheduleAudioBuffer(context, original, baseStart, 0.34);
-    }
-
-    let totalDuration = 0;
-
-    renderedVoices.forEach((buffer, voiceId) => {
-      const volume = includeOriginal
-        ? voiceId === 'principal'
-          ? 0.11
-          : 0.095
-        : voiceId === 'principal'
-          ? 0.2
-          : 0.17;
-
-      scheduleAudioBuffer(context, buffer, baseStart, volume);
-
-      totalDuration = Math.max(totalDuration, buffer.duration * 1000);
-    });
-
-    if (original) {
-      totalDuration = Math.max(totalDuration, original.duration * 1000);
-    }
-
-    scheduleActiveRows(leadMs, true);
-
-    const finishTimer = setTimeout(
-      () => {
-        stopPlayback();
-      },
-      leadMs + totalDuration + 150,
-    );
-
-    timers.push(finishTimer);
-  } catch (error) {
-    stopPlayback();
-
-    playbackError.value =
-      error instanceof Error ? error.message : 'No fue posible generar la mezcla de voces.';
-  }
-}
-
-async function playRecordingWithAllVoices(): Promise<void> {
-  stopPlayback();
-
-  playbackError.value = '';
-
-  if (!harmonyRows.value.length || !props.audioUrl) {
-    return;
-  }
-
-  try {
-    const context = await prepareAudio();
-
-    const recordedAudio = await loadRecordedAudio(context);
-
-    const leadSeconds = 0.08;
-
-    const leadMs = leadSeconds * 1000;
-
-    const baseStart = context.currentTime + leadSeconds;
-
-    isPlaying.value = true;
-
-    playbackMode.value = 'recording';
-
-    scheduleRecordedAudio(context, recordedAudio, baseStart);
-
-    let voicesDuration = 0;
-
-    harmonyRows.value.forEach((row) => {
-      const timelineStart = Math.max(0, row.startedAt);
-
-      const absoluteStart = baseStart + timelineStart / 1000;
-
-      const durationSeconds = Math.max(row.durationMs / 1000, 0.06);
-
-      row.voices.forEach((voice) => {
-        createScheduledTone(
-          context,
-          voice.frequency,
-          absoluteStart,
-          durationSeconds,
-          voice.voiceId === 'principal' ? 0.075 : 0.05,
-        );
-      });
-
-      voicesDuration = Math.max(voicesDuration, timelineStart + row.durationMs);
-    });
-
-    scheduleActiveRows(leadMs, true);
-
-    const totalDuration = Math.max(recordedAudio.duration * 1000, voicesDuration);
-
-    const finishTimer = setTimeout(
-      () => {
-        stopPlayback();
-      },
-      leadMs + totalDuration + 150,
-    );
-
-    timers.push(finishTimer);
-  } catch (error) {
-    stopPlayback();
-
-    playbackError.value =
-      error instanceof Error
-        ? error.message
-        : 'No fue posible reproducir la grabación junto con las voces.';
-  }
-}
-
-async function playSingleNote(row: HarmonyRow, voiceId: MelodyVoiceId): Promise<void> {
-  stopPlayback();
-
-  playbackError.value = '';
-
+async function playSingleVoiceNote(
+  row: HarmonyRow,
+  voiceId: MelodyVoiceId,
+  rowIndex: number,
+): Promise<void> {
   const voice = voiceFor(row, voiceId);
 
   if (!voice) {
     return;
   }
 
-  const context = await prepareAudio();
+  stopPlayback();
 
-  isPlaying.value = true;
+  playbackError.value = '';
 
-  playbackMode.value = 'single';
+  try {
+    const context = await prepareAudio();
 
-  const rowIndex = harmonyRows.value.findIndex((item) => item.id === row.id);
+    isPlaying.value = true;
 
-  activeNoteIndex.value = rowIndex >= 0 ? rowIndex : null;
+    playbackMode.value = 'single';
 
-  const duration = Math.min(1.5, Math.max(0.08, row.durationMs / 1000));
+    playingVoiceId.value = voiceId;
 
-  const absoluteStart = context.currentTime + 0.03;
+    activeNoteIndex.value = rowIndex;
 
-  createScheduledTone(context, voice.frequency, absoluteStart, duration, 0.24);
+    const duration = Math.min(1.5, Math.max(0.35, row.durationMs / 1000));
 
-  const timer = setTimeout(
-    () => {
-      stopPlayback();
-    },
-    duration * 1000 + 110,
-  );
+    createPianoTone(context, voice.frequency, context.currentTime + 0.04, duration, 0.17);
 
-  timers.push(timer);
+    timers.push(
+      setTimeout(
+        () => {
+          stopPlayback();
+        },
+        duration * 1000 + 100,
+      ),
+    );
+  } catch (error) {
+    playbackError.value =
+      error instanceof Error
+        ? `No fue posible reproducir la nota: ${error.message}`
+        : 'No fue posible reproducir la nota.';
+
+    stopPlayback();
+  }
+}
+
+function voiceVolume(voiceId: MelodyVoiceId): number {
+  switch (voiceId) {
+    case 'principal':
+      return 0.15;
+
+    case 'second':
+    case 'second-down':
+      return 0.13;
+
+    case 'tenor':
+      return 0.12;
+
+    case 'baritone':
+      return 0.11;
+
+    case 'bass':
+      return 0.115;
+  }
+}
+
+function allVoicesVolume(voiceId: MelodyVoiceId): number {
+  switch (voiceId) {
+    case 'principal':
+      return 0.105;
+
+    case 'second':
+    case 'second-down':
+      return 0.055;
+
+    case 'tenor':
+      return 0.05;
+
+    case 'baritone':
+      return 0.047;
+
+    case 'bass':
+      return 0.052;
+  }
 }
 
 function stopPlayback(): void {
@@ -1471,108 +856,76 @@ function stopPlayback(): void {
 
   timers = [];
 
-  if (audioContext) {
-    const now = audioContext.currentTime;
+  activeOscillators.forEach((oscillator) => {
+    try {
+      oscillator.stop();
+    } catch {
+      // El oscilador puede haber terminado.
+    }
 
-    activeGainNodes.forEach((gain) => {
-      try {
-        gain.gain.cancelScheduledValues(now);
+    oscillator.disconnect();
+  });
 
-        gain.gain.setValueAtTime(gain.gain.value, now);
-
-        gain.gain.linearRampToValueAtTime(0, now + 0.025);
-      } catch {
-        // El nodo pudo terminar.
-      }
-    });
-
-    activeOscillators.forEach((oscillator) => {
-      try {
-        oscillator.stop(now + 0.03);
-      } catch {
-        // El oscilador pudo terminar.
-      }
-    });
-
-    activeBufferSources.forEach((source) => {
-      try {
-        source.stop(now + 0.03);
-      } catch {
-        // El AudioBuffer pudo terminar.
-      }
-    });
-  }
+  activeGainNodes.forEach((gain) => {
+    gain.disconnect();
+  });
 
   activeOscillators = [];
 
   activeGainNodes = [];
 
-  activeBufferSources = [];
-
   isPlaying.value = false;
 
   playbackMode.value = null;
 
-  playingHumanVoiceId.value = null;
+  playingVoiceId.value = null;
 
   activeNoteIndex.value = null;
 }
 
-function durationToBeats(durationMs: number): MelodyNoteDuration {
-  if (durationMs < 360) {
-    return 0.5;
+function setRowElement(element: Element | ComponentPublicInstance | null, index: number): void {
+  if (element instanceof HTMLElement) {
+    rowElements.set(index, element);
+
+    return;
   }
 
-  if (durationMs < 750) {
-    return 1;
-  }
-
-  if (durationMs < 1500) {
-    return 2;
-  }
-
-  return 4;
+  rowElements.delete(index);
 }
 
-function formatDuration(durationMs: number): string {
-  return `${(durationMs / 1000).toFixed(2)} s`;
+function scrollToActiveRow(index: number): void {
+  const wrapper = tableWrapper.value;
+
+  const row = rowElements.get(index);
+
+  if (!wrapper || !row) {
+    return;
+  }
+
+  const wrapperRect = wrapper.getBoundingClientRect();
+
+  const rowRect = row.getBoundingClientRect();
+
+  if (rowRect.left >= wrapperRect.left && rowRect.right <= wrapperRect.right) {
+    return;
+  }
+
+  wrapper.scrollTo({
+    left: Math.max(0, row.offsetLeft - wrapper.clientWidth / 2 + row.clientWidth / 2),
+    behavior: 'smooth',
+  });
+}
+
+function formatDuration(milliseconds: number): string {
+  return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
 function formatTimelineTime(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
-function waitForNextFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      resolve();
-    });
-  });
-}
-
-/*
- * Estas funciones/computed se usan desde el template.
- * La referencia explícita evita falsos positivos del lint
- * en algunas configuraciones de vue-tsc/eslint.
- */
-void humanVoicePlans.value;
-void humanVoiceLabel;
-void formatSemitoneShift;
-void hasCachedHumanVoice;
-void isRenderingVoice;
-void playHumanVoice;
-void playAllHumanVoices;
-
 onBeforeUnmount(() => {
   stopPlayback();
-
-  rowElements.clear();
-
-  clearHumanVoiceCache();
-
-  decodedAudioBuffer = null;
-
-  decodedAudioUrl = '';
 
   if (audioContext) {
     void audioContext.close();
@@ -1583,72 +936,112 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.harmony-preview {
+.piano-harmony-preview {
   margin-top: 14px;
-  padding: 15px;
-  background: linear-gradient(180deg, rgb(167 139 250 / 5%), transparent 160px), #0a1521;
-  border: 1px solid #26394e;
-  border-radius: 13px;
+  padding: 17px;
+  background: linear-gradient(180deg, rgb(96 165 250 / 5%), transparent 230px), #0b1622;
+  border: 1px solid #22374c;
+  border-radius: 14px;
 }
 
 .preview-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
 }
 
 .kicker {
-  color: #a78bfa;
-  font-size: 7px;
+  color: #60a5fa;
+  font-size: 8px;
   font-weight: 750;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.12em;
 }
 
 .preview-heading h3 {
-  margin: 3px 0;
-  color: #e7edf5;
-  font-size: 14px;
+  margin: 3px 0 4px;
+  color: #edf4fb;
+  font-size: 16px;
 }
 
 .preview-heading p {
-  max-width: 650px;
+  max-width: 700px;
   margin: 0;
-  color: #6f8298;
-  font-size: 8px;
-  line-height: 1.45;
+  color: #71859a;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .key-chip {
   display: flex;
-  min-width: 120px;
+  min-width: 145px;
+  flex: 0 0 auto;
   flex-direction: column;
-  padding: 7px 9px;
-  background: rgb(167 139 250 / 7%);
-  border: 1px solid rgb(167 139 250 / 20%);
-  border-radius: 8px;
-  text-align: right;
+  padding: 9px 11px;
+  background: rgb(96 165 250 / 7%);
+  border: 1px solid rgb(96 165 250 / 18%);
+  border-radius: 9px;
 }
 
 .key-chip span {
-  color: #756b94;
+  color: #66809a;
   font-size: 6px;
+  text-transform: uppercase;
 }
 
 .key-chip strong {
-  color: #ddd6fe;
+  margin-top: 2px;
+  color: #bfdbfe;
+  font-size: 11px;
+}
+
+.piano-mode {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 13px;
+  padding: 10px 11px;
+  background: rgb(52 211 153 / 4%);
+  border: 1px solid rgb(52 211 153 / 14%);
+  border-radius: 9px;
+}
+
+.piano-mode > .q-icon {
+  color: #6ee7b7;
+  font-size: 23px;
+}
+
+.piano-mode > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.piano-mode span {
+  color: #34d399;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.piano-mode strong {
+  color: #b9d8cd;
   font-size: 9px;
+}
+
+.piano-mode small {
+  color: #68857b;
+  font-size: 7px;
 }
 
 .key-reference {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 11px;
   padding: 11px 12px;
-  background: rgb(96 165 250 / 6%);
-  border: 1px solid rgb(96 165 250 / 18%);
+  background: #101e2c;
+  border: 1px solid #293e53;
   border-radius: 10px;
 }
 
@@ -1659,9 +1052,8 @@ onBeforeUnmount(() => {
 }
 
 .key-reference-copy > .q-icon {
-  flex: 0 0 auto;
-  color: #93c5fd;
-  font-size: 25px;
+  color: #a78bfa;
+  font-size: 24px;
 }
 
 .key-reference-copy > div {
@@ -1670,516 +1062,273 @@ onBeforeUnmount(() => {
 }
 
 .key-reference-copy span {
-  color: #647f9e;
+  color: #687d94;
   font-size: 6px;
   font-weight: 700;
-  letter-spacing: 0.09em;
 }
 
 .key-reference-copy strong {
-  margin-top: 1px;
-  color: #dbeafe;
-  font-size: 13px;
+  color: #d9e4ef;
+  font-size: 11px;
 }
 
 .key-reference-copy small {
-  margin-top: 2px;
-  color: #6f849c;
+  color: #65798f;
   font-size: 7px;
 }
 
-.key-play-button {
-  flex: 0 0 auto;
-  min-height: 32px;
-  color: #eff6ff;
-  background: #275d8c;
+.key-button {
+  color: white;
+  background: #6250a5;
   border-radius: 8px;
-  font-size: 8px;
 }
 
-.section-label {
+.voices-section {
+  margin-top: 12px;
+  padding: 12px;
+  background: #0d1a27;
+  border: 1px solid #24394d;
+  border-radius: 11px;
+}
+
+.voices-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.voices-section > header > div {
   display: flex;
   flex-direction: column;
-  margin-top: 13px;
 }
 
-.section-label span,
-.table-heading span {
-  color: #8598ad;
+.voices-section > header span {
+  color: #60a5fa;
   font-size: 7px;
   font-weight: 700;
   letter-spacing: 0.09em;
 }
 
-.section-label small,
-.table-heading small {
-  margin-top: 1px;
-  color: #5e7288;
+.voices-section > header strong {
+  color: #c7d6e5;
+  font-size: 10px;
+}
+
+.voices-section > header small {
+  color: #65798f;
   font-size: 7px;
 }
 
-.playback-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 7px;
+.voices-section > header > .q-icon {
+  color: #60a5fa;
+  font-size: 22px;
 }
 
-.voice-button,
-.all-button,
-.recording-mix-button,
-.stop-button {
-  min-height: 31px;
-  border-radius: 8px;
-  font-size: 8px;
-}
-
-.principal {
-  color: #fce7f3;
-  background: rgb(244 114 182 / 15%);
-}
-
-.second {
-  color: #dbeafe;
-  background: rgb(96 165 250 / 14%);
-}
-
-.tenor {
-  color: #ede9fe;
-  background: rgb(167 139 250 / 14%);
-}
-
-.baritone {
-  color: #d1fae5;
-  background: rgb(52 211 153 / 14%);
-}
-
-.bass {
-  color: #fef3c7;
-  background: rgb(251 191 36 / 14%);
-}
-
-.all-button {
-  color: white;
-  background: #5e4bbb;
-}
-
-.recording-mix-button {
-  color: #ecfeff;
-  background: #0f766e;
-}
-
-.stop-button {
-  color: #a9b6c5;
-}
-
-.mix-description {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 9px;
-  padding: 8px 10px;
-  background: rgb(20 184 166 / 5%);
-  border: 1px solid rgb(20 184 166 / 14%);
-  border-radius: 8px;
-}
-
-.mix-description > .q-icon {
-  flex: 0 0 auto;
-  color: #2dd4bf;
-  font-size: 18px;
-}
-
-.mix-description > div {
-  display: flex;
-  flex-direction: column;
-}
-
-.mix-description strong {
-  color: #99f6e4;
-  font-size: 7px;
-}
-
-.mix-description span {
-  margin-top: 1px;
-  color: #668d89;
-  font-size: 7px;
-  line-height: 1.4;
-}
-
-.human-voice-section {
-  margin-top: 14px;
-  padding: 12px;
-  background: linear-gradient(135deg, rgb(34 211 238 / 5%), transparent 55%), #0c1824;
-  border: 1px solid rgb(34 211 238 / 17%);
-  border-radius: 11px;
-}
-
-.human-voice-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.human-voice-heading > div:first-child {
-  display: flex;
-  flex-direction: column;
-}
-
-.human-voice-heading > div:first-child > span {
-  color: #67e8f9;
-  font-size: 7px;
-  font-weight: 750;
-  letter-spacing: 0.1em;
-}
-
-.human-voice-heading strong {
-  margin-top: 2px;
-  color: #cffafe;
-  font-size: 11px;
-}
-
-.human-voice-heading small {
-  max-width: 650px;
-  margin-top: 2px;
-  color: #688793;
-  font-size: 7px;
-  line-height: 1.45;
-}
-
-.engine-status {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  color: #99f6e4;
-  background: rgb(45 212 191 / 7%);
-  border: 1px solid rgb(45 212 191 / 16%);
-  border-radius: 7px;
-  font-size: 7px;
-}
-
-.engine-status.rendering {
-  color: #a5f3fc;
-  background: rgb(34 211 238 / 8%);
-  border-color: rgb(34 211 238 / 20%);
-}
-
-.engine-status-dot {
-  width: 6px;
-  height: 6px;
-  background: #2dd4bf;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgb(45 212 191 / 8%);
-}
-
-.human-voice-plans {
+.voice-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 7px;
   margin-top: 10px;
 }
 
-.human-voice-card {
-  min-width: 0;
-  padding: 9px;
-  border: 1px solid #20384a;
-  border-radius: 9px;
-}
-
-.human-voice-card.principal {
-  background: rgb(244 114 182 / 5%);
-  border-color: rgb(244 114 182 / 15%);
-}
-
-.human-voice-card.second {
-  background: rgb(96 165 250 / 5%);
-  border-color: rgb(96 165 250 / 15%);
-}
-
-.human-voice-card.tenor {
-  background: rgb(167 139 250 / 5%);
-  border-color: rgb(167 139 250 / 15%);
-}
-
-.human-voice-card.baritone {
-  background: rgb(52 211 153 / 5%);
-  border-color: rgb(52 211 153 / 15%);
-}
-
-.human-voice-card.bass {
-  background: rgb(251 191 36 / 5%);
-  border-color: rgb(251 191 36 / 15%);
-}
-
-.human-voice-card-top {
-  display: flex;
+.voice-card {
+  display: grid;
+  min-height: 72px;
+  grid-template-columns: 34px 1fr 20px;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  padding: 8px;
+  color: inherit;
+  text-align: left;
+  background: #122131;
+  border: 1px solid #2a4056;
+  border-radius: 9px;
+  cursor: pointer;
 }
 
-.human-voice-card-top > div {
+.voice-card:hover {
+  background: #15283a;
+  border-color: var(--voice-color);
+}
+
+.voice-card:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.voice-card.active {
+  background: color-mix(in srgb, var(--voice-color) 10%, #122131);
+  border-color: var(--voice-color);
+}
+
+.voice-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--voice-color);
+  background: rgb(255 255 255 / 3%);
+  border-radius: 8px;
+}
+
+.voice-card > div:nth-child(2) {
   display: flex;
   min-width: 0;
   flex-direction: column;
 }
 
-.human-voice-card-top span {
+.voice-card span {
+  color: var(--voice-color);
+  font-size: 6px;
+  font-weight: 700;
+}
+
+.voice-card strong {
+  color: #dbe6f1;
+  font-size: 9px;
+}
+
+.voice-card small {
   overflow: hidden;
-  color: #9aabba;
+  color: #62778d;
   font-size: 6px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.human-voice-card-top strong {
-  margin-top: 1px;
-  color: #dce6ee;
-  font-size: 8px;
-}
-
-.human-voice-card-top .q-icon {
-  flex: 0 0 auto;
-  color: #71899a;
+.play-icon {
+  color: var(--voice-color);
   font-size: 18px;
 }
 
-.human-voice-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-  margin-top: 8px;
-}
-
-.human-voice-stats > div {
+.global-actions {
   display: flex;
-  min-width: 0;
-  flex-direction: column;
-  padding: 5px 6px;
-  background: rgb(3 10 18 / 25%);
-  border-radius: 6px;
-}
-
-.human-voice-stats span {
-  color: #5f7484;
-  font-size: 5px;
-}
-
-.human-voice-stats strong {
-  margin-top: 1px;
-  overflow: hidden;
-  color: #aab9c5;
-  font-size: 7px;
-  text-overflow: ellipsis;
-}
-
-.human-voice-ready {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 7px;
-  color: #6ee7b7;
-  font-size: 6px;
-}
-
-.human-voice-ready .q-icon {
-  font-size: 11px;
-}
-
-.human-play-button {
-  width: 100%;
-  min-height: 29px;
-  margin-top: 7px;
-  color: #cffafe;
-  background: rgb(8 145 178 / 26%);
-  border-radius: 7px;
-  font-size: 7px;
-}
-
-.human-voice-global-actions {
-  display: flex;
-  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 7px;
-  margin-top: 10px;
-}
-
-.human-all-button,
-.human-original-mix-button,
-.human-stop-button {
-  min-height: 32px;
-  border-radius: 8px;
-  font-size: 8px;
-}
-
-.human-all-button {
-  color: #ecfeff;
-  background: #0e7490;
-}
-
-.human-original-mix-button {
-  color: #ecfdf5;
-  background: #047857;
-}
-
-.human-stop-button {
-  color: #9fb0bf;
-}
-
-.human-voice-explanation {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin-top: 9px;
-  padding: 8px 9px;
-  background: rgb(34 211 238 / 4%);
-  border-radius: 7px;
 }
 
-.human-voice-explanation > .q-icon {
-  flex: 0 0 auto;
-  color: #67e8f9;
-  font-size: 18px;
+.all-button {
+  color: white;
+  background: #2563a5;
+  border-radius: 8px;
 }
 
-.human-voice-explanation > div {
-  display: flex;
-  flex-direction: column;
-}
-
-.human-voice-explanation strong {
-  color: #a5f3fc;
-  font-size: 7px;
-}
-
-.human-voice-explanation span {
-  margin-top: 1px;
-  color: #64818c;
-  font-size: 7px;
-  line-height: 1.4;
+.stop-button {
+  color: #94a8bc;
+  border-color: #40566d;
+  border-radius: 8px;
 }
 
 .playback-error {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 8px;
-  padding: 8px 9px;
+  margin-top: 10px;
+  padding: 9px 10px;
   color: #fecdd3;
-  background: rgb(251 113 133 / 7%);
+  background: rgb(251 113 133 / 6%);
   border: 1px solid rgb(251 113 133 / 16%);
   border-radius: 8px;
-  font-size: 7px;
+  font-size: 8px;
 }
 
-.table-heading {
+.matrix-section {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid #21364a;
+}
+
+.matrix-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
 }
 
-.table-heading > div:first-child {
+.matrix-heading > div:first-child {
   display: flex;
   flex-direction: column;
+}
+
+.matrix-heading span {
+  color: #cbd8e5;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.matrix-heading strong {
+  margin-top: 2px;
+  color: #aabdcf;
+  font-size: 9px;
+}
+
+.matrix-heading small {
+  color: #61768c;
+  font-size: 7px;
 }
 
 .following-indicator {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #93c5fd;
+  color: #7dd3fc;
   font-size: 7px;
 }
 
-.following-dot {
+.following-indicator > span {
   width: 6px;
   height: 6px;
-  background: #60a5fa;
+  background: #38bdf8;
   border-radius: 50%;
-  box-shadow: 0 0 0 4px rgb(96 165 250 / 8%);
 }
 
 .table-wrapper {
-  position: relative;
-  max-height: 330px;
-  margin-top: 7px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: #0c1723;
-  border: 1px solid #22364b;
-  border-radius: 10px;
-  scrollbar-gutter: stable;
+  margin-top: 9px;
+  overflow-x: auto;
+  background: #08131e;
+  border: 1px solid #21364a;
+  border-radius: 9px;
 }
 
 .harmony-table {
   width: 100%;
-  min-width: 850px;
+  min-width: 1050px;
   border-collapse: collapse;
-  background: #0c1723;
-}
-
-.harmony-table thead {
-  position: sticky;
-  z-index: 3;
-  top: 0;
 }
 
 .harmony-table th {
-  padding: 8px 7px;
-  color: #62768d;
-  background: #101d2a;
-  border-bottom: 1px solid #26394e;
-  font-size: 6px;
+  padding: 7px 6px;
+  color: #667b91;
+  font-size: 7px;
   font-weight: 700;
-  letter-spacing: 0.07em;
-  text-align: left;
-  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 1px solid #21364a;
+}
+
+.harmony-table th:nth-child(n + 4) {
+  color: var(--voice-color);
 }
 
 .harmony-table td {
-  padding: 6px 7px;
-  color: #93a4b7;
-  border-bottom: 1px solid #172638;
+  padding: 5px;
+  color: #70859a;
   font-size: 7px;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
+  text-align: center;
+  border-bottom: 1px solid #172a3c;
 }
 
-.harmony-table tr:last-child td {
+.harmony-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.harmony-table tr.playing td {
-  color: #dbeafe;
-  background: rgb(96 165 250 / 13%);
+.harmony-table tr.playing {
+  background: rgb(59 130 246 / 7%);
 }
 
-.harmony-table tr.playing td:first-child {
-  box-shadow: inset 3px 0 0 #60a5fa;
-}
-
-.order-cell {
-  width: 35px;
-  color: #52677d !important;
-}
-
-.playing-marker {
-  display: inline-grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  color: #bfdbfe;
-  background: rgb(96 165 250 / 12%);
-  border-radius: 50%;
-}
-
-.playing-marker .q-icon {
-  font-size: 13px;
+.order-cell .q-icon {
+  color: #60a5fa;
+  font-size: 14px;
 }
 
 .time-cell,
@@ -2187,124 +1336,126 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.note-cell {
-  min-width: 54px;
+.note-button {
+  min-width: 72px;
   padding: 5px 7px;
-  background: transparent;
-  border: 1px solid transparent;
+  color: var(--voice-color);
+  background: rgb(255 255 255 / 2%);
+  border: 1px solid #25394d;
   border-radius: 6px;
   cursor: pointer;
   font-size: 8px;
+  font-weight: 700;
 }
 
-.principal-note {
-  color: #f9a8d4;
-  background: rgb(244 114 182 / 6%);
+.note-button:hover {
+  border-color: var(--voice-color);
 }
 
-.second-note {
-  color: #93c5fd;
-  background: rgb(96 165 250 / 6%);
-}
-
-.tenor-note {
-  color: #c4b5fd;
-  background: rgb(167 139 250 / 6%);
-}
-
-.baritone-note {
-  color: #6ee7b7;
-  background: rgb(52 211 153 / 6%);
-}
-
-.bass-note {
-  color: #fcd34d;
-  background: rgb(251 191 36 / 6%);
-}
-
-.note-cell:hover {
-  border-color: #41556c;
-}
-
-.scroll-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  color: #526a83;
-  font-size: 6px;
-}
-
-.scroll-note .q-icon {
-  color: #6687a8;
-  font-size: 13px;
-}
-
-.preview-note {
-  display: flex;
+.explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 7px;
-  margin-top: 9px;
-  padding: 8px 9px;
-  color: #776f5d;
-  background: rgb(251 191 36 / 4%);
+  margin-top: 10px;
+}
+
+.explanation-grid article {
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  background: #0e1b28;
+  border: 1px solid #21364a;
   border-radius: 8px;
 }
 
-.preview-note .q-icon {
+.explanation-grid .q-icon {
   flex: 0 0 auto;
-  color: #fbbf24;
-  font-size: 15px;
+  color: #60a5fa;
+  font-size: 17px;
 }
 
-.preview-note p {
-  margin: 0;
+.explanation-grid article > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.explanation-grid span {
+  color: #60a5fa;
+  font-size: 6px;
+  font-weight: 700;
+}
+
+.explanation-grid strong {
+  color: #aebfd0;
+  font-size: 8px;
+}
+
+.explanation-grid small {
+  margin-top: 2px;
+  color: #61758a;
+  font-size: 6px;
+  line-height: 1.4;
+}
+
+.experimental-note {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px;
+  color: #73879c;
+  background: rgb(167 139 250 / 4%);
+  border: 1px solid rgb(167 139 250 / 12%);
+  border-radius: 8px;
+}
+
+.experimental-note > .q-icon {
+  flex: 0 0 auto;
+  color: #a78bfa;
+  font-size: 17px;
+}
+
+.experimental-note strong {
+  color: #a99ec7;
+  font-size: 8px;
+}
+
+.experimental-note p {
+  margin: 2px 0 0;
   font-size: 7px;
   line-height: 1.45;
 }
 
-@media (max-width: 1050px) {
-  .human-voice-plans {
-    grid-template-columns: repeat(3, minmax(140px, 1fr));
+@media (max-width: 900px) {
+  .voice-grid,
+  .explanation-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 650px) {
   .preview-heading,
-  .key-reference,
-  .human-voice-heading {
+  .key-reference {
     align-items: stretch;
     flex-direction: column;
   }
 
   .key-chip {
-    align-self: flex-start;
-    text-align: left;
-  }
-
-  .key-play-button {
     width: 100%;
   }
 
-  .human-voice-plans {
+  .voice-grid,
+  .explanation-grid {
     grid-template-columns: 1fr;
   }
 
-  .engine-status {
-    align-self: flex-start;
-  }
-
-  .human-voice-global-actions {
+  .global-actions {
     flex-direction: column;
   }
 
-  .human-all-button,
-  .human-original-mix-button,
-  .human-stop-button {
+  .all-button,
+  .stop-button,
+  .key-button {
     width: 100%;
-  }
-
-  .table-wrapper {
-    max-height: 280px;
   }
 }
 </style>

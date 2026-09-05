@@ -4,7 +4,7 @@ export type ScaleMode = 'major' | 'minor';
 
 export type MelodyNoteDuration = 0.5 | 1 | 2 | 4;
 
-export type MelodyVoiceId = 'principal' | 'second' | 'tenor' | 'baritone' | 'bass';
+export type MelodyVoiceId = 'principal' | 'second' | 'second-down' | 'tenor' | 'baritone' | 'bass';
 
 export interface HarmonySetupState {
   rootNote: number;
@@ -162,6 +162,14 @@ function makeVoice(
   };
 }
 
+/*
+ * Esta distribución se conserva para la herramienta
+ * tradicional de acordes.
+ *
+ * Las dos segundas pertenecen inicialmente al motor
+ * de melodía capturada, porque allí tenemos una nota
+ * principal concreta para calcular arriba y abajo.
+ */
 export function createVoicesForChord(chordNotes: number[]): HarmonyVoice[] {
   const root = chordNotes[0] ?? 0;
 
@@ -210,9 +218,10 @@ interface VoiceProfile {
   minMidi: number;
   maxMidi: number;
   offsetFromPrincipal: number;
+  placement: 'above' | 'below';
 }
 
-const voiceProfiles: VoiceProfile[] = [
+const standardVoiceProfiles: VoiceProfile[] = [
   {
     id: 'second',
     label: 'Segunda voz',
@@ -221,6 +230,7 @@ const voiceProfiles: VoiceProfile[] = [
     minMidi: 55,
     maxMidi: 81,
     offsetFromPrincipal: 4,
+    placement: 'above',
   },
   {
     id: 'tenor',
@@ -230,6 +240,7 @@ const voiceProfiles: VoiceProfile[] = [
     minMidi: 48,
     maxMidi: 74,
     offsetFromPrincipal: -5,
+    placement: 'below',
   },
   {
     id: 'baritone',
@@ -239,6 +250,7 @@ const voiceProfiles: VoiceProfile[] = [
     minMidi: 43,
     maxMidi: 67,
     offsetFromPrincipal: -10,
+    placement: 'below',
   },
   {
     id: 'bass',
@@ -248,6 +260,66 @@ const voiceProfiles: VoiceProfile[] = [
     minMidi: 35,
     maxMidi: 57,
     offsetFromPrincipal: -18,
+    placement: 'below',
+  },
+];
+
+/*
+ * Distribución utilizada por Cantar y analizar.
+ *
+ * Conservamos las líneas tradicionales y añadimos una
+ * segunda inferior independiente.
+ */
+const capturedVoiceProfiles: VoiceProfile[] = [
+  {
+    id: 'second',
+    label: 'Segunda arriba',
+    shortLabel: '2ª ↑',
+    color: '#60a5fa',
+    minMidi: 55,
+    maxMidi: 84,
+    offsetFromPrincipal: 4,
+    placement: 'above',
+  },
+  {
+    id: 'second-down',
+    label: 'Segunda abajo',
+    shortLabel: '2ª ↓',
+    color: '#38bdf8',
+    minMidi: 48,
+    maxMidi: 76,
+    offsetFromPrincipal: -4,
+    placement: 'below',
+  },
+  {
+    id: 'tenor',
+    label: 'Tenor',
+    shortLabel: 'T',
+    color: '#a78bfa',
+    minMidi: 48,
+    maxMidi: 74,
+    offsetFromPrincipal: -5,
+    placement: 'below',
+  },
+  {
+    id: 'baritone',
+    label: 'Barítono',
+    shortLabel: 'Brt',
+    color: '#34d399',
+    minMidi: 43,
+    maxMidi: 67,
+    offsetFromPrincipal: -10,
+    placement: 'below',
+  },
+  {
+    id: 'bass',
+    label: 'Bajo',
+    shortLabel: 'B',
+    color: '#fbbf24',
+    minMidi: 35,
+    maxMidi: 57,
+    offsetFromPrincipal: -18,
+    placement: 'below',
   },
 ];
 
@@ -310,20 +382,47 @@ function chooseVoiceMidi(
   candidates.forEach((candidate) => {
     let score = Math.abs(candidate - target);
 
+    /*
+     * Continuidad entre notas.
+     * Evitamos saltos innecesarios de una nota a otra.
+     */
     if (previousMidi !== undefined) {
-      score += Math.abs(candidate - previousMidi) * 0.75;
+      score += Math.abs(candidate - previousMidi) * 0.8;
     }
 
-    if (profile.id !== 'second' && candidate > principalMidi) {
-      score += 8;
+    /*
+     * La segunda superior debe tender a permanecer
+     * por encima de la principal.
+     */
+    if (profile.placement === 'above' && candidate <= principalMidi) {
+      score += 14 + Math.abs(candidate - principalMidi);
     }
 
-    if (profile.id === 'second' && candidate < principalMidi - 5) {
-      score += 5;
+    /*
+     * Las voces inferiores deben tender a permanecer
+     * por debajo de la principal.
+     */
+    if (profile.placement === 'below' && candidate >= principalMidi) {
+      score += 14 + Math.abs(candidate - principalMidi);
     }
 
+    /*
+     * Evitamos duplicar exactamente la principal salvo
+     * que musicalmente no exista otra opción razonable.
+     */
     if (candidate === principalMidi) {
-      score += 6;
+      score += 12;
+    }
+
+    /*
+     * Segunda arriba y segunda abajo deben mantenerse
+     * relativamente cercanas a la melodía.
+     */
+    if (
+      (profile.id === 'second' || profile.id === 'second-down') &&
+      Math.abs(candidate - principalMidi) > 8
+    ) {
+      score += 7;
     }
 
     if (score < bestScore) {
@@ -336,11 +435,12 @@ function chooseVoiceMidi(
   return best;
 }
 
-export function harmonizeMelodyPhrases(
+function harmonizeWithProfiles(
   rootNote: number,
   scaleMode: ScaleMode,
   progression: ChordStep[],
   phrases: MelodyPhrase[],
+  profiles: VoiceProfile[],
 ): HarmonizedMelodyPhrase[] {
   const previousVoiceMidi: Partial<Record<MelodyVoiceId, number>> = {};
 
@@ -358,7 +458,7 @@ export function harmonizeMelodyPhrases(
 
       const principal = midiToVoiceNote('principal', 'Principal', 'P', '#f472b6', principalMidi);
 
-      const otherVoices = voiceProfiles.map((profile) => {
+      const otherVoices = profiles.map((profile) => {
         const midi = chooseVoiceMidi(
           chordNotes,
           profile,
@@ -388,6 +488,45 @@ export function harmonizeMelodyPhrases(
       notes: arrangedNotes,
     };
   });
+}
+
+/*
+ * Motor tradicional.
+ *
+ * Se mantiene compatible con las pantallas actuales:
+ * Principal, Segunda, Tenor, Barítono y Bajo.
+ */
+export function harmonizeMelodyPhrases(
+  rootNote: number,
+  scaleMode: ScaleMode,
+  progression: ChordStep[],
+  phrases: MelodyPhrase[],
+): HarmonizedMelodyPhrase[] {
+  return harmonizeWithProfiles(rootNote, scaleMode, progression, phrases, standardVoiceProfiles);
+}
+
+/*
+ * Motor específico para Cantar y analizar.
+ *
+ * Produce:
+ *
+ * - Principal
+ * - Segunda arriba
+ * - Segunda abajo
+ * - Tenor
+ * - Barítono
+ * - Bajo
+ *
+ * Esto permite trabajar completamente con piano mientras
+ * dejamos congelada la síntesis de voz humana.
+ */
+export function harmonizeCapturedMelodyPhrases(
+  rootNote: number,
+  scaleMode: ScaleMode,
+  progression: ChordStep[],
+  phrases: MelodyPhrase[],
+): HarmonizedMelodyPhrase[] {
+  return harmonizeWithProfiles(rootNote, scaleMode, progression, phrases, capturedVoiceProfiles);
 }
 
 export function romanDegree(degree: number): string {

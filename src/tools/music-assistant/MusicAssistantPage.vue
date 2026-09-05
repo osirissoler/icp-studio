@@ -13,8 +13,8 @@
             <h1>Asistente musical</h1>
 
             <p>
-              Referencias de notas, detección de voz, armonías e instrumentos guía para ensayos de
-              canto a capela.
+              Referencias de notas, detección de voz, armonías, lectura de partituras e instrumentos
+              guía para ensayos de canto a capela.
             </p>
           </div>
         </div>
@@ -76,6 +76,8 @@
 
       <HarmonyPanel v-else-if="activeMode === 'harmony'" />
 
+      <SheetMusicPanel v-else-if="activeMode === 'score'" />
+
       <UpcomingModePanel v-else :mode="activeModeData" />
     </div>
   </q-page>
@@ -89,6 +91,7 @@ import { useRouter } from 'vue-router';
 import HarmonyPanel from './components/HarmonyPanel.vue';
 import NoteReferencePanel from './components/NoteReferencePanel.vue';
 import PitchDetectorPanel from './components/PitchDetectorPanel.vue';
+import SheetMusicPanel from './components/sheet-music/SheetMusicPanel.vue';
 import UpcomingModePanel from './components/UpcomingModePanel.vue';
 
 import { modes, type MusicalMode } from './shared/music';
@@ -195,7 +198,7 @@ function useDetectedReference(value: { note: number; octave: number }): void {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 10px;
 }
 
@@ -251,7 +254,13 @@ function useDetectedReference(value: { note: number; octave: number }): void {
   font-size: 9px;
 }
 
-@media (max-width: 1250px) {
+@media (max-width: 1450px) {
+  .mode-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1000px) {
   .mode-grid {
     grid-template-columns: repeat(3, 1fr);
   }
