@@ -263,6 +263,7 @@
       :scale-mode="estimatedKey.scaleMode"
       :progression="progression"
       :captured-notes="capturedNotes"
+      :audio-url="audioUrl"
     />
 
     <section v-if="hasCapture" class="capture-result">

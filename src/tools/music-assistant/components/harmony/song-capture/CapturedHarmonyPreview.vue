@@ -81,6 +81,16 @@
       />
 
       <q-btn
+        unelevated
+        no-caps
+        icon="library_music"
+        label="Grabación + todas"
+        class="recording-mix-button"
+        :disable="isPlaying || !audioUrl"
+        @click="playRecordingWithAllVoices"
+      />
+
+      <q-btn
         outline
         no-caps
         icon="stop"
@@ -89,6 +99,27 @@
         :disable="!isPlaying"
         @click="stopPlayback"
       />
+    </div>
+
+    <div class="mix-description">
+      <q-icon name="headphones" />
+
+      <div>
+        <strong>Ensayo con tu grabación</strong>
+
+        <span>
+          “Grabación + todas” reproduce tu audio original junto con Principal, Segunda, Tenor,
+          Barítono y Bajo usando la misma línea de tiempo.
+        </span>
+      </div>
+    </div>
+
+    <div v-if="playbackError" class="playback-error">
+      <q-icon name="error_outline" />
+
+      <span>
+        {{ playbackError }}
+      </span>
     </div>
 
     <div class="table-wrapper">
@@ -227,11 +258,14 @@ const props = defineProps<{
   scaleMode: ScaleMode;
   progression: ChordStep[];
   capturedNotes: CapturedNote[];
+  audioUrl: string;
 }>();
 
 const isPlaying = ref(false);
 
 const activeNoteIndex = ref<number | null>(null);
+
+const playbackError = ref('');
 
 let audioContext: AudioContext | null = null;
 
@@ -239,7 +273,13 @@ let activeOscillators: OscillatorNode[] = [];
 
 let activeGainNodes: GainNode[] = [];
 
+let activeBufferSources: AudioBufferSourceNode[] = [];
+
 let timers: ReturnType<typeof setTimeout>[] = [];
+
+let decodedAudioBuffer: AudioBuffer | null = null;
+
+let decodedAudioUrl = '';
 
 const keyLabel = computed(() => {
   const note = notes.find((item) => item.value === props.rootNote) ?? notes[0]!;
@@ -326,7 +366,7 @@ async function prepareAudio(): Promise<AudioContext> {
 function createScheduledTone(
   context: AudioContext,
   frequency: number,
-  startSeconds: number,
+  absoluteStart: number,
   durationSeconds: number,
   volume: number,
 ): void {
@@ -336,17 +376,15 @@ function createScheduledTone(
 
   oscillator.type = 'sine';
 
-  oscillator.frequency.setValueAtTime(frequency, context.currentTime + startSeconds);
+  oscillator.frequency.setValueAtTime(frequency, absoluteStart);
 
-  const start = context.currentTime + startSeconds;
+  const end = absoluteStart + Math.max(durationSeconds, 0.08);
 
-  const end = start + Math.max(durationSeconds, 0.08);
+  gain.gain.setValueAtTime(0, absoluteStart);
 
-  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(volume, absoluteStart + 0.025);
 
-  gain.gain.linearRampToValueAtTime(volume, start + 0.025);
-
-  gain.gain.setValueAtTime(volume, Math.max(start + 0.03, end - 0.04));
+  gain.gain.setValueAtTime(volume, Math.max(absoluteStart + 0.03, end - 0.04));
 
   gain.gain.linearRampToValueAtTime(0, end);
 
@@ -354,7 +392,7 @@ function createScheduledTone(
 
   gain.connect(context.destination);
 
-  oscillator.start(start);
+  oscillator.start(absoluteStart);
 
   oscillator.stop(end + 0.03);
 
@@ -363,8 +401,36 @@ function createScheduledTone(
   activeGainNodes.push(gain);
 }
 
+function scheduleActiveRows(leadMs: number, useAbsoluteTimeline: boolean): number {
+  if (!harmonyRows.value.length) {
+    return 0;
+  }
+
+  const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
+
+  let totalDuration = 0;
+
+  harmonyRows.value.forEach((row, index) => {
+    const timelineStart = useAbsoluteTimeline
+      ? Math.max(0, row.startedAt)
+      : Math.max(0, row.startedAt - firstStart);
+
+    const startTimer = setTimeout(() => {
+      activeNoteIndex.value = index;
+    }, leadMs + timelineStart);
+
+    timers.push(startTimer);
+
+    totalDuration = Math.max(totalDuration, timelineStart + row.durationMs);
+  });
+
+  return totalDuration;
+}
+
 async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
   stopPlayback();
+
+  playbackError.value = '';
 
   if (!harmonyRows.value.length) {
     return;
@@ -376,9 +442,15 @@ async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
 
   const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
 
+  const leadSeconds = 0.06;
+
+  const leadMs = leadSeconds * 1000;
+
+  const baseStart = context.currentTime + leadSeconds;
+
   let totalDuration = 0;
 
-  harmonyRows.value.forEach((row, index) => {
+  harmonyRows.value.forEach((row) => {
     const voice = voiceFor(row, voiceId);
 
     if (!voice) {
@@ -387,30 +459,31 @@ async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
 
     const relativeStart = Math.max(0, row.startedAt - firstStart);
 
-    const startSeconds = relativeStart / 1000;
+    const absoluteStart = baseStart + relativeStart / 1000;
 
     const durationSeconds = Math.max(row.durationMs / 1000, 0.08);
 
-    createScheduledTone(context, voice.frequency, startSeconds, durationSeconds, 0.2);
-
-    const startTimer = setTimeout(() => {
-      activeNoteIndex.value = index;
-    }, relativeStart);
-
-    timers.push(startTimer);
+    createScheduledTone(context, voice.frequency, absoluteStart, durationSeconds, 0.2);
 
     totalDuration = Math.max(totalDuration, relativeStart + row.durationMs);
   });
 
-  const finishTimer = setTimeout(() => {
-    stopPlayback();
-  }, totalDuration + 120);
+  scheduleActiveRows(leadMs, false);
+
+  const finishTimer = setTimeout(
+    () => {
+      stopPlayback();
+    },
+    leadMs + totalDuration + 120,
+  );
 
   timers.push(finishTimer);
 }
 
 async function playAllVoices(): Promise<void> {
   stopPlayback();
+
+  playbackError.value = '';
 
   if (!harmonyRows.value.length) {
     return;
@@ -420,14 +493,18 @@ async function playAllVoices(): Promise<void> {
 
   isPlaying.value = true;
 
-  const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
+  const leadSeconds = 0.06;
+
+  const leadMs = leadSeconds * 1000;
+
+  const baseStart = context.currentTime + leadSeconds;
 
   let totalDuration = 0;
 
-  harmonyRows.value.forEach((row, index) => {
-    const relativeStart = Math.max(0, row.startedAt - firstStart);
+  harmonyRows.value.forEach((row) => {
+    const timelineStart = Math.max(0, row.startedAt);
 
-    const startSeconds = relativeStart / 1000;
+    const absoluteStart = baseStart + timelineStart / 1000;
 
     const durationSeconds = Math.max(row.durationMs / 1000, 0.08);
 
@@ -435,30 +512,147 @@ async function playAllVoices(): Promise<void> {
       createScheduledTone(
         context,
         voice.frequency,
-        startSeconds,
+        absoluteStart,
         durationSeconds,
         voice.voiceId === 'principal' ? 0.1 : 0.065,
       );
     });
 
-    const startTimer = setTimeout(() => {
-      activeNoteIndex.value = index;
-    }, relativeStart);
-
-    timers.push(startTimer);
-
-    totalDuration = Math.max(totalDuration, relativeStart + row.durationMs);
+    totalDuration = Math.max(totalDuration, timelineStart + row.durationMs);
   });
 
-  const finishTimer = setTimeout(() => {
-    stopPlayback();
-  }, totalDuration + 120);
+  scheduleActiveRows(leadMs, true);
+
+  const finishTimer = setTimeout(
+    () => {
+      stopPlayback();
+    },
+    leadMs + totalDuration + 120,
+  );
 
   timers.push(finishTimer);
 }
 
+async function loadRecordedAudio(context: AudioContext): Promise<AudioBuffer> {
+  if (!props.audioUrl) {
+    throw new Error('No hay una grabación original disponible.');
+  }
+
+  if (decodedAudioBuffer && decodedAudioUrl === props.audioUrl) {
+    return decodedAudioBuffer;
+  }
+
+  const response = await fetch(props.audioUrl);
+
+  if (!response.ok) {
+    throw new Error('No fue posible leer la grabación original.');
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+
+  decodedAudioBuffer = await context.decodeAudioData(arrayBuffer);
+
+  decodedAudioUrl = props.audioUrl;
+
+  return decodedAudioBuffer;
+}
+
+function scheduleRecordedAudio(
+  context: AudioContext,
+  buffer: AudioBuffer,
+  absoluteStart: number,
+): void {
+  const source = context.createBufferSource();
+
+  const gain = context.createGain();
+
+  source.buffer = buffer;
+
+  gain.gain.setValueAtTime(0.78, absoluteStart);
+
+  source.connect(gain);
+
+  gain.connect(context.destination);
+
+  source.start(absoluteStart);
+
+  activeBufferSources.push(source);
+
+  activeGainNodes.push(gain);
+}
+
+async function playRecordingWithAllVoices(): Promise<void> {
+  stopPlayback();
+
+  playbackError.value = '';
+
+  if (!harmonyRows.value.length || !props.audioUrl) {
+    return;
+  }
+
+  try {
+    const context = await prepareAudio();
+
+    const recordedAudio = await loadRecordedAudio(context);
+
+    const leadSeconds = 0.08;
+
+    const leadMs = leadSeconds * 1000;
+
+    const baseStart = context.currentTime + leadSeconds;
+
+    isPlaying.value = true;
+
+    scheduleRecordedAudio(context, recordedAudio, baseStart);
+
+    let voicesDuration = 0;
+
+    harmonyRows.value.forEach((row) => {
+      const timelineStart = Math.max(0, row.startedAt);
+
+      const absoluteStart = baseStart + timelineStart / 1000;
+
+      const durationSeconds = Math.max(row.durationMs / 1000, 0.08);
+
+      row.voices.forEach((voice) => {
+        createScheduledTone(
+          context,
+          voice.frequency,
+          absoluteStart,
+          durationSeconds,
+          voice.voiceId === 'principal' ? 0.075 : 0.05,
+        );
+      });
+
+      voicesDuration = Math.max(voicesDuration, timelineStart + row.durationMs);
+    });
+
+    scheduleActiveRows(leadMs, true);
+
+    const totalDuration = Math.max(recordedAudio.duration * 1000, voicesDuration);
+
+    const finishTimer = setTimeout(
+      () => {
+        stopPlayback();
+      },
+      leadMs + totalDuration + 150,
+    );
+
+    timers.push(finishTimer);
+  } catch (error) {
+    stopPlayback();
+
+    playbackError.value =
+      error instanceof Error
+        ? error.message
+        : 'No fue posible reproducir la grabación junto con las voces.';
+  }
+}
+
 async function playSingleNote(row: HarmonyRow, voiceId: MelodyVoiceId): Promise<void> {
   stopPlayback();
+
+  playbackError.value = '';
 
   const voice = voiceFor(row, voiceId);
 
@@ -476,13 +670,15 @@ async function playSingleNote(row: HarmonyRow, voiceId: MelodyVoiceId): Promise<
 
   const duration = Math.min(1.5, Math.max(0.3, row.durationMs / 1000));
 
-  createScheduledTone(context, voice.frequency, 0, duration, 0.24);
+  const absoluteStart = context.currentTime + 0.03;
+
+  createScheduledTone(context, voice.frequency, absoluteStart, duration, 0.24);
 
   const timer = setTimeout(
     () => {
       stopPlayback();
     },
-    duration * 1000 + 80,
+    duration * 1000 + 110,
   );
 
   timers.push(timer);
@@ -515,10 +711,21 @@ function stopPlayback(): void {
         // El oscilador pudo terminar.
       }
     });
+
+    activeBufferSources.forEach((source) => {
+      try {
+        source.stop(now + 0.03);
+      } catch {
+        // La grabación pudo terminar.
+      }
+    });
   }
 
   activeOscillators = [];
+
   activeGainNodes = [];
+
+  activeBufferSources = [];
 
   isPlaying.value = false;
 
@@ -551,6 +758,10 @@ function formatTimelineTime(milliseconds: number): string {
 
 onBeforeUnmount(() => {
   stopPlayback();
+
+  decodedAudioBuffer = null;
+
+  decodedAudioUrl = '';
 
   if (audioContext) {
     void audioContext.close();
@@ -627,6 +838,7 @@ onBeforeUnmount(() => {
 
 .voice-button,
 .all-button,
+.recording-mix-button,
 .stop-button {
   min-height: 31px;
   border-radius: 8px;
@@ -663,8 +875,60 @@ onBeforeUnmount(() => {
   background: #5e4bbb;
 }
 
+.recording-mix-button {
+  color: #ecfeff;
+  background: #0f766e;
+}
+
 .stop-button {
   color: #a9b6c5;
+}
+
+.mix-description {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 8px 10px;
+  background: rgb(20 184 166 / 5%);
+  border: 1px solid rgb(20 184 166 / 14%);
+  border-radius: 8px;
+}
+
+.mix-description > .q-icon {
+  flex: 0 0 auto;
+  color: #2dd4bf;
+  font-size: 18px;
+}
+
+.mix-description > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mix-description strong {
+  color: #99f6e4;
+  font-size: 7px;
+}
+
+.mix-description span {
+  margin-top: 1px;
+  color: #668d89;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.playback-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px 9px;
+  color: #fecdd3;
+  background: rgb(251 113 133 / 7%);
+  border: 1px solid rgb(251 113 133 / 16%);
+  border-radius: 8px;
+  font-size: 7px;
 }
 
 .table-wrapper {

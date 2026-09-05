@@ -2,13 +2,9 @@
   <section class="harmony-page">
     <header class="harmony-heading">
       <div>
-        <span class="eyebrow">
-          VOCES Y ARMONÍA
-        </span>
+        <span class="eyebrow"> VOCES Y ARMONÍA </span>
 
-        <h2>
-          Asistente de armonización vocal
-        </h2>
+        <h2>Asistente de armonización vocal</h2>
 
         <p>
           Usa la referencia rápida cuando solamente necesites encontrar notas para las voces, o
@@ -17,9 +13,7 @@
       </div>
 
       <div class="key-summary">
-        <span>
-          Tonalidad actual
-        </span>
+        <span> Tonalidad actual </span>
 
         <strong>
           {{ keyLabel }}
@@ -40,13 +34,9 @@
       </div>
 
       <div>
-        <span class="advanced-kicker">
-          ARMONIZACIÓN AVANZADA
-        </span>
+        <span class="advanced-kicker"> ARMONIZACIÓN AVANZADA </span>
 
-        <h3>
-          Construye la canción
-        </h3>
+        <h3>Construye la canción</h3>
 
         <p>
           Prepara la tonalidad, la progresión, la melodía principal y después genera una propuesta
@@ -61,17 +51,11 @@
           <q-icon name="music_note" />
 
           <div>
-            <span>
-              CONSTRUIR LA CANCIÓN
-            </span>
+            <span> CONSTRUIR LA CANCIÓN </span>
 
-            <strong>
-              Base armónica
-            </strong>
+            <strong> Base armónica </strong>
 
-            <small>
-              Define la tonalidad desde la que trabajará todo el arreglo.
-            </small>
+            <small> Define la tonalidad desde la que trabajará todo el arreglo. </small>
           </div>
         </div>
 
@@ -96,13 +80,9 @@
     <section class="melody-mode-section">
       <header class="melody-mode-heading">
         <div>
-          <span>
-            CAPTURA DE MELODÍA
-          </span>
+          <span> CAPTURA DE MELODÍA </span>
 
-          <h3>
-            ¿Cómo quieres construir la voz principal?
-          </h3>
+          <h3>¿Cómo quieres construir la voz principal?</h3>
 
           <p>
             Puedes escribir las notas manualmente o cantar la canción para que ICP Studio detecte
@@ -161,19 +141,12 @@
       />
     </section>
 
-    <section
-      v-if="melodyMode === 'capture' && phrases.length"
-      class="captured-editor-section"
-    >
+    <section v-if="melodyMode === 'capture' && phrases.length" class="captured-editor-section">
       <div class="captured-editor-heading">
         <div>
-          <span>
-            MELODÍA IMPORTADA
-          </span>
+          <span> MELODÍA IMPORTADA </span>
 
-          <strong>
-            También puedes abrirla en el editor manual.
-          </strong>
+          <strong> También puedes abrirla en el editor manual. </strong>
         </div>
 
         <q-btn
@@ -195,19 +168,12 @@
       :phrases="phrases"
     />
 
-    <VoiceArrangement
-      :root-note="rootNote"
-      :scale-mode="scaleMode"
-      :progression="progression"
-    />
+    <VoiceArrangement :root-note="rootNote" :scale-mode="scaleMode" :progression="progression" />
   </section>
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-} from 'vue';
+import { computed, ref } from 'vue';
 
 import QuickHarmonyReference from './harmony/QuickHarmonyReference.vue';
 import HarmonySetup from './harmony/HarmonySetup.vue';
@@ -217,111 +183,70 @@ import MelodyHarmonyArrangement from './harmony/MelodyHarmonyArrangement.vue';
 import VoiceArrangement from './harmony/VoiceArrangement.vue';
 import SongCapturePanel from './harmony/song-capture/SongCapturePanel.vue';
 
-import {
-  notes,
-} from '../shared/music';
+import { notes } from '../shared/music';
 
-import type {
-  ChordStep,
-  MelodyPhrase,
-  ScaleMode,
-} from '../shared/harmony';
+import type { ChordStep, MelodyPhrase, ScaleMode } from '../shared/harmony';
 
-type MelodyMode =
-  | 'manual'
-  | 'capture';
+type MelodyMode = 'manual' | 'capture';
 
-const rootNote =
-  ref(0);
+const rootNote = ref(0);
 
-const scaleMode =
-  ref<ScaleMode>(
-    'major',
-  );
+const scaleMode = ref<ScaleMode>('major');
 
-const melodyMode =
-  ref<MelodyMode>(
-    'manual',
-  );
+const melodyMode = ref<MelodyMode>('manual');
 
-const progression =
-  ref<ChordStep[]>([
-    {
-      id: 'initial-1',
-      degree: 1,
-      beats: 4,
-    },
-
-    {
-      id: 'initial-4',
-      degree: 4,
-      beats: 4,
-    },
-
-    {
-      id: 'initial-5',
-      degree: 5,
-      beats: 4,
-    },
-
-    {
-      id: 'initial-1b',
-      degree: 1,
-      beats: 4,
-    },
-  ]);
-
-const phrases =
-  ref<MelodyPhrase[]>([]);
-
-const keyLabel =
-  computed(
-    () => {
-      const note =
-        notes.find(
-          (item) =>
-            item.value ===
-            rootNote.value,
-        ) ?? notes[0]!;
-
-      return `${note.label} ${
-        scaleMode.value ===
-        'major'
-          ? 'mayor'
-          : 'menor'
-      }`;
-    },
-  );
-
-function useCapturedMelody(
-  value: {
-    phrase: MelodyPhrase;
-    rootNote: number;
-    scaleMode: ScaleMode;
+const progression = ref<ChordStep[]>([
+  {
+    id: 'initial-1',
+    degree: 1,
+    beats: 4,
   },
-): void {
-  rootNote.value =
-    value.rootNote;
 
-  scaleMode.value =
-    value.scaleMode;
+  {
+    id: 'initial-4',
+    degree: 4,
+    beats: 4,
+  },
 
-  const firstProgressionId =
-    progression.value[0]?.id ??
-    null;
+  {
+    id: 'initial-5',
+    degree: 5,
+    beats: 4,
+  },
 
-  const importedPhrase:
-    MelodyPhrase = {
-      ...value.phrase,
+  {
+    id: 'initial-1b',
+    degree: 1,
+    beats: 4,
+  },
+]);
 
-      chordStepId:
-        firstProgressionId,
-    };
+const phrases = ref<MelodyPhrase[]>([]);
 
-  phrases.value = [
-    ...phrases.value,
-    importedPhrase,
-  ];
+const keyLabel = computed(() => {
+  const note = notes.find((item) => item.value === rootNote.value) ?? notes[0]!;
+
+  return `${note.label} ${scaleMode.value === 'major' ? 'mayor' : 'menor'}`;
+});
+
+function useCapturedMelody(value: {
+  phrase: MelodyPhrase;
+  rootNote: number;
+  scaleMode: ScaleMode;
+}): void {
+  rootNote.value = value.rootNote;
+
+  scaleMode.value = value.scaleMode;
+
+  const firstProgressionId = progression.value[0]?.id ?? null;
+
+  const importedPhrase: MelodyPhrase = {
+    ...value.phrase,
+
+    chordStepId: firstProgressionId,
+  };
+
+  phrases.value = [...phrases.value, importedPhrase];
 }
 </script>
 
@@ -366,11 +291,8 @@ function useCapturedMelody(
   min-width: 130px;
   flex-direction: column;
   padding: 8px 10px;
-  background:
-    rgb(167 139 250 / 7%);
-  border:
-    1px solid
-    rgb(167 139 250 / 20%);
+  background: rgb(167 139 250 / 7%);
+  border: 1px solid rgb(167 139 250 / 20%);
   border-radius: 9px;
   text-align: right;
 }
@@ -399,8 +321,7 @@ function useCapturedMelody(
   flex: 0 0 auto;
   place-items: center;
   color: #60a5fa;
-  background:
-    rgb(96 165 250 / 9%);
+  background: rgb(96 165 250 / 9%);
   border-radius: 10px;
 }
 
@@ -443,13 +364,7 @@ function useCapturedMelody(
   flex-direction: column;
   gap: 8px;
   padding: 11px;
-  background:
-    linear-gradient(
-      180deg,
-      rgb(96 165 250 / 4%),
-      transparent 140px
-    ),
-    #0a141f;
+  background: linear-gradient(180deg, rgb(96 165 250 / 4%), transparent 140px), #0a141f;
   border: 1px solid #223348;
   border-radius: 15px;
 }
@@ -584,10 +499,8 @@ function useCapturedMelody(
 
 .melody-mode-buttons button.active {
   color: #d6f4e8;
-  background:
-    rgb(52 211 153 / 8%);
-  border-color:
-    rgb(52 211 153 / 32%);
+  background: rgb(52 211 153 / 8%);
+  border-color: rgb(52 211 153 / 32%);
 }
 
 .melody-mode-buttons button.active small {
@@ -596,11 +509,8 @@ function useCapturedMelody(
 
 .captured-editor-section {
   padding: 10px 12px;
-  background:
-    rgb(52 211 153 / 4%);
-  border:
-    1px solid
-    rgb(52 211 153 / 13%);
+  background: rgb(52 211 153 / 4%);
+  border: 1px solid rgb(52 211 153 / 13%);
   border-radius: 10px;
 }
 
@@ -634,8 +544,7 @@ function useCapturedMelody(
 
 @media (max-width: 1100px) {
   .advanced-top-grid {
-    grid-template-columns:
-      1fr;
+    grid-template-columns: 1fr;
   }
 }
 
