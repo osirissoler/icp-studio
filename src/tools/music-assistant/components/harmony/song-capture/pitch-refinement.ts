@@ -9,6 +9,83 @@ export interface RefinedPitchNote {
   cents: number;
 }
 
+/**
+ * Un punto temporal de la trayectoria real de la voz.
+ *
+ * A diferencia de RefinedPitchNote, este objeto no representa
+ * una nota musical completa. Representa una lectura puntual
+ * de la voz aproximadamente cada 8 ms.
+ *
+ * El motor vocal utilizará esta trayectoria para conservar
+ * vibrato, pequeñas variaciones de afinación y movimiento
+ * natural dentro de cada nota.
+ */
+export interface RefinedPitchFrame {
+  timeMs: number;
+
+  /**
+   * MIDI entero más cercano.
+   */
+  midi: number;
+
+  /**
+   * Posición MIDI continua.
+   *
+   * Ejemplo:
+   * 69.00 = A4 exacto
+   * 69.25 = A4 + 25 cents
+   */
+  midiFloat: number;
+
+  /**
+   * Frecuencia correspondiente al midiFloat después
+   * de las correcciones y suavizado.
+   */
+  frequency: number;
+
+  /**
+   * Confianza de la estimación 0..1.
+   */
+  confidence: number;
+
+  /**
+   * Desviación respecto al MIDI entero más cercano.
+   */
+  cents: number;
+
+  /**
+   * Nivel RMS local.
+   *
+   * También será útil para distinguir zonas vocales
+   * sostenidas de ataques, respiraciones y regiones
+   * de menor periodicidad.
+   */
+  rms: number;
+}
+
+export interface RefinedPitchAnalysis {
+  notes: RefinedPitchNote[];
+
+  /**
+   * Trayectoria vocal detallada.
+   *
+   * Los huecos temporales entre frames representan regiones
+   * donde el detector no encontró una señal periódica
+   * suficientemente confiable.
+   */
+  frames: RefinedPitchFrame[];
+
+  /**
+   * Sample rate usado internamente para el análisis.
+   */
+  analysisSampleRate: number;
+
+  /**
+   * Separación nominal entre frames.
+   */
+  frameStepMs: number;
+}
+
 interface PitchFrame {
   timeMs: number;
   midi: number;
@@ -83,7 +160,13 @@ const samePitchToleranceSemitones = 0.52;
  */
 const smoothingRadiusMs = 24;
 
-export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote[] {
+/**
+ * API nueva.
+ *
+ * Devuelve tanto las notas musicales resumidas como
+ * la trayectoria fina utilizada para construirlas.
+ */
+export function analyzeRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchAnalysis {
   const mono = createMonoSignal(audioBuffer);
 
   const normalized = normalizeSignal(mono);
@@ -95,7 +178,12 @@ export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote
   const frames = analyzeFrames(downsampled, analysisSampleRate, noiseFloor);
 
   if (!frames.length) {
-    return [];
+    return {
+      notes: [],
+      frames: [],
+      analysisSampleRate,
+      frameStepMs,
+    };
   }
 
   const octaveCorrected = correctOctaveErrors(frames);
@@ -104,9 +192,34 @@ export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote
 
   const continuityCorrected = stabilizePitchContinuity(smoothed);
 
-  const notes = buildNotesFromFrames(continuityCorrected);
+  const notes = cleanupNotes(buildNotesFromFrames(continuityCorrected));
 
-  return cleanupNotes(notes);
+  const refinedFrames: RefinedPitchFrame[] = continuityCorrected.map((frame) => ({
+    timeMs: frame.timeMs,
+    midi: frame.midi,
+    midiFloat: frame.midiFloat,
+    frequency: midiFloatToFrequency(frame.midiFloat),
+    confidence: frame.confidence,
+    cents: frame.cents,
+    rms: frame.rms,
+  }));
+
+  return {
+    notes,
+    frames: refinedFrames,
+    analysisSampleRate,
+    frameStepMs,
+  };
+}
+
+/**
+ * API anterior conservada por compatibilidad.
+ *
+ * SongCapturePanel puede seguir utilizándola mientras
+ * conectamos la nueva trayectoria vocal en el siguiente paso.
+ */
+export function refineRecordedMelody(audioBuffer: AudioBuffer): RefinedPitchNote[] {
+  return analyzeRecordedMelody(audioBuffer).notes;
 }
 
 function createMonoSignal(audioBuffer: AudioBuffer): Float32Array {
@@ -891,6 +1004,10 @@ function calculateRms(frame: Float32Array): number {
 
 function frequencyToMidiFloat(frequency: number): number {
   return 69 + 12 * Math.log2(frequency / 440);
+}
+
+function midiFloatToFrequency(midiFloat: number): number {
+  return 440 * Math.pow(2, (midiFloat - 69) / 12);
 }
 
 function normalizeNote(value: number): number {
