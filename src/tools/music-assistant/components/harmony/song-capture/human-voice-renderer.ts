@@ -352,18 +352,26 @@ function overlapGrain(
 
     const window = hannWindow(windowPosition);
 
-    rendered[targetIndex] += input[sourceIndex]! * window;
+    const currentRendered = rendered[targetIndex] ?? 0;
 
-    normalization[targetIndex] += window;
+    const currentNormalization = normalization[targetIndex] ?? 0;
+
+    const sourceSample = input[sourceIndex] ?? 0;
+
+    rendered[targetIndex] = currentRendered + sourceSample * window;
+
+    normalization[targetIndex] = currentNormalization + window;
   }
 }
 
 function normalizeOverlapAdd(rendered: Float32Array, normalization: Float32Array): void {
   for (let index = 0; index < rendered.length; index += 1) {
-    const weight = normalization[index]!;
+    const weight = normalization[index] ?? 0;
 
     if (weight > 0.000001) {
-      rendered[index] = rendered[index]! / weight;
+      const currentValue = rendered[index] ?? 0;
+
+      rendered[index] = currentValue / weight;
     }
   }
 }
