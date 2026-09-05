@@ -4,6 +4,8 @@ import {
   type VoiceShiftComplexity,
 } from './human-voice-engine';
 
+import { analyzeRecordedMelody, type RefinedPitchFrame } from './pitch-refinement';
+
 export interface HumanVoiceRenderResult {
   buffer: AudioBuffer;
   processedSegments: number;
@@ -16,15 +18,21 @@ interface SegmentRenderContext {
   output: Float32Array;
   sampleRate: number;
   segment: HumanVoiceSegmentPlan;
+  pitchFrames: RefinedPitchFrame[];
 }
 
-interface PsolaRenderRegion {
+interface DynamicPsolaRegion {
   startSample: number;
   endSample: number;
-  sourceFrequency: number;
-  targetFrequency: number;
-  sourcePeriod: number;
-  targetPeriod: number;
+  startMs: number;
+  endMs: number;
+  semitoneShift: number;
+  fallbackSourceFrequency: number;
+}
+
+interface PitchMark {
+  sample: number;
+  frequency: number;
 }
 
 const minimumFrequency = 55;
@@ -35,35 +43,43 @@ const minimumProcessingSamples = 96;
 const minimumPeriodSamples = 10;
 const maximumPeriodSamples = 900;
 
-const maximumPeakSearchSamples = 140;
-
 const minimumWindowRadiusSamples = 24;
 const maximumWindowRadiusSamples = 720;
 
-const boundaryBlendMs = 14;
+const maximumPeakSearchSamples = 110;
+
+const boundaryBlendMs = 18;
 
 const silenceThreshold = 0.00002;
 
 const minimumConfidenceForProcessing = 0.2;
 
+const minimumFrameConfidence = 0.45;
+
+const maximumTrajectoryGapMs = 56;
+
 /**
- * Renderiza una línea vocal utilizando la misma grabación
- * como fuente.
+ * Segunda generación del renderer vocal.
  *
- * La duración total y la posición temporal de cada segmento
- * permanecen intactas.
+ * Diferencia fundamental:
  *
- * El algoritmo utiliza una aproximación TD-PSOLA:
+ * La versión anterior utilizaba una frecuencia origen fija
+ * para toda una nota. Eso convertía una interpretación como:
  *
- * 1. Conserva ataques y releases.
- * 2. Busca marcas periódicas dentro de la parte vocal estable.
- * 3. Extrae pequeños fragmentos centrados en esas marcas.
- * 4. Los vuelve a superponer usando el período de la nota destino.
- * 5. Normaliza la suma de ventanas.
- * 6. Mezcla suavemente los límites con la grabación original.
+ * A3 -8c
+ * A3 -3c
+ * A3 +4c
+ * A3 +10c
+ * A3 +3c
  *
- * Este es el primer procesador real del prototipo. No pretende
- * todavía sustituir un motor vocal profesional.
+ * en un período prácticamente constante.
+ *
+ * Esta versión utiliza la trayectoria temporal real detectada
+ * en la grabación.
+ *
+ * El desplazamiento de armonía se aplica sobre esa trayectoria,
+ * por lo que vibrato y pequeñas variaciones naturales pueden
+ * conservarse.
  */
 export function renderHumanVoice(
   sourceBuffer: AudioBuffer,
@@ -71,16 +87,27 @@ export function renderHumanVoice(
 ): HumanVoiceRenderResult {
   const outputBuffer = createCompatibleAudioBuffer(sourceBuffer);
 
-  copyAudioBuffer(sourceBuffer, outputBuffer);
+  const analysis = analyzeRecordedMelody(sourceBuffer);
+
+  /*
+   * Principal conserva la grabación completa.
+   *
+   * Las voces armónicas comienzan en silencio. Después copiamos
+   * únicamente las regiones correspondientes a segmentos vocales.
+   *
+   * Esto evita que Segunda, Tenor, Barítono y Bajo contengan
+   * también una copia completa de la voz principal durante
+   * silencios y zonas no pertenecientes a sus segmentos.
+   */
+  if (plan.voiceId === 'principal') {
+    copyAudioBuffer(sourceBuffer, outputBuffer);
+  }
 
   let processedSegments = 0;
   let skippedSegments = 0;
 
   for (const segment of plan.segments) {
-    if (!shouldProcessSegment(segment)) {
-      skippedSegments += 1;
-      continue;
-    }
+    const segmentFrames = framesForSegment(analysis.frames, segment);
 
     let segmentProcessed = false;
 
@@ -89,11 +116,30 @@ export function renderHumanVoice(
 
       const output = outputBuffer.getChannelData(channelIndex);
 
+      /*
+       * En las voces armónicas copiamos primero el segmento
+       * original completo.
+       *
+       * Luego reemplazamos progresivamente su núcleo sonoro
+       * por el resultado PSOLA.
+       *
+       * De esta manera ataques, consonantes y releases permanecen
+       * naturales incluso cuando no existe F0 confiable.
+       */
+      if (plan.voiceId !== 'principal') {
+        copySegment(input, output, sourceBuffer.sampleRate, segment.startedAt, segment.endedAt);
+      }
+
+      if (!shouldProcessSegment(segment)) {
+        continue;
+      }
+
       const wasProcessed = renderSegment({
         input,
         output,
         sampleRate: sourceBuffer.sampleRate,
         segment,
+        pitchFrames: segmentFrames,
       });
 
       segmentProcessed ||= wasProcessed;
@@ -139,8 +185,22 @@ function shouldProcessSegment(segment: HumanVoiceSegmentPlan): boolean {
   );
 }
 
+function framesForSegment(
+  frames: RefinedPitchFrame[],
+  segment: HumanVoiceSegmentPlan,
+): RefinedPitchFrame[] {
+  return frames.filter(
+    (frame) =>
+      frame.timeMs >= segment.processingStartAt - maximumTrajectoryGapMs &&
+      frame.timeMs <= segment.processingEndAt + maximumTrajectoryGapMs &&
+      frame.confidence >= minimumFrameConfidence &&
+      frame.frequency >= minimumFrequency &&
+      frame.frequency <= maximumFrequency,
+  );
+}
+
 function renderSegment(context: SegmentRenderContext): boolean {
-  const { input, output, sampleRate, segment } = context;
+  const { input, output, sampleRate, segment, pitchFrames } = context;
 
   const startSample = millisecondsToSample(segment.processingStartAt, sampleRate, input.length);
 
@@ -154,42 +214,43 @@ function renderSegment(context: SegmentRenderContext): boolean {
     return false;
   }
 
-  /*
-   * El detector puede suministrar cents además de la nota MIDI.
-   *
-   * Por tanto, para PSOLA utilizamos la frecuencia real aproximada
-   * cantada y no solamente el centro teórico de la nota.
-   */
-  const sourceFrequency = segment.sourceFrequency * Math.pow(2, segment.sourceCents / 1200);
+  const fallbackSourceFrequency = segment.sourceFrequency * Math.pow(2, segment.sourceCents / 1200);
 
-  const targetFrequency = segment.targetFrequency;
-
-  const sourcePeriod = clamp(
-    sampleRate / sourceFrequency,
-    minimumPeriodSamples,
-    maximumPeriodSamples,
-  );
-
-  const targetPeriod = clamp(
-    sampleRate / targetFrequency,
-    minimumPeriodSamples,
-    maximumPeriodSamples,
-  );
-
-  if (!Number.isFinite(sourcePeriod) || !Number.isFinite(targetPeriod)) {
+  if (
+    !Number.isFinite(fallbackSourceFrequency) ||
+    fallbackSourceFrequency < minimumFrequency ||
+    fallbackSourceFrequency > maximumFrequency
+  ) {
     return false;
   }
 
-  const region: PsolaRenderRegion = {
+  /*
+   * El desplazamiento musical es constante para la nota,
+   * pero se aplica sobre la trayectoria variable original.
+   *
+   * Ejemplo:
+   *
+   * original:
+   * 220, 221, 223, 222 Hz
+   *
+   * una tercera arriba:
+   * 277, 278, 281, 280 Hz
+   *
+   * No:
+   * 277, 277, 277, 277 Hz
+   */
+  const semitoneShift = segment.semitoneShift;
+
+  const region: DynamicPsolaRegion = {
     startSample,
     endSample,
-    sourceFrequency,
-    targetFrequency,
-    sourcePeriod,
-    targetPeriod,
+    startMs: segment.processingStartAt,
+    endMs: segment.processingEndAt,
+    semitoneShift,
+    fallbackSourceFrequency,
   };
 
-  const processed = renderPsolaRegion(input, sampleRate, region);
+  const processed = renderDynamicPsolaRegion(input, sampleRate, region, pitchFrames);
 
   if (!processed) {
     return false;
@@ -200,10 +261,11 @@ function renderSegment(context: SegmentRenderContext): boolean {
   return true;
 }
 
-function renderPsolaRegion(
+function renderDynamicPsolaRegion(
   input: Float32Array,
   sampleRate: number,
-  region: PsolaRenderRegion,
+  region: DynamicPsolaRegion,
+  pitchFrames: RefinedPitchFrame[],
 ): Float32Array | null {
   const regionLength = region.endSample - region.startSample;
 
@@ -211,74 +273,126 @@ function renderPsolaRegion(
     return null;
   }
 
+  const sourceMarks = createDynamicSourcePitchMarks(input, sampleRate, region, pitchFrames);
+
+  if (sourceMarks.length < 3) {
+    return null;
+  }
+
+  const synthesisMarks = createDynamicSynthesisMarks(sourceMarks, sampleRate, region, pitchFrames);
+
+  if (synthesisMarks.length < 3) {
+    return null;
+  }
+
   const rendered = new Float32Array(regionLength);
 
   const normalization = new Float32Array(regionLength);
 
-  const sourceMarks = createSourcePitchMarks(input, region);
-
-  if (sourceMarks.length < 2) {
-    return null;
-  }
-
-  const synthesisMarks = createTargetSynthesisMarks(region);
-
-  if (synthesisMarks.length < 2) {
-    return null;
-  }
-
-  const windowRadius = calculateWindowRadius(region.sourcePeriod);
-
   for (let synthesisIndex = 0; synthesisIndex < synthesisMarks.length; synthesisIndex += 1) {
-    const synthesisMark = synthesisMarks[synthesisIndex]!;
+    const synthesisMark = synthesisMarks[synthesisIndex];
 
-    const normalizedPosition =
-      synthesisMarks.length <= 1 ? 0 : synthesisIndex / (synthesisMarks.length - 1);
+    if (!synthesisMark) {
+      continue;
+    }
 
-    const sourceMark = findMappedSourceMark(sourceMarks, normalizedPosition);
+    const sourceMark = findNearestSourceMarkForTime(sourceMarks, synthesisMark.sample, region);
 
-    overlapGrain(input, rendered, normalization, region, sourceMark, synthesisMark, windowRadius);
+    if (!sourceMark) {
+      continue;
+    }
+
+    const sourcePeriod = clamp(
+      sampleRate / sourceMark.frequency,
+      minimumPeriodSamples,
+      maximumPeriodSamples,
+    );
+
+    const windowRadius = calculateWindowRadius(sourcePeriod);
+
+    overlapGrain(
+      input,
+      rendered,
+      normalization,
+      region,
+      sourceMark.sample,
+      synthesisMark.sample,
+      windowRadius,
+    );
   }
 
   normalizeOverlapAdd(rendered, normalization);
 
+  fillSmallRenderHoles(rendered, normalization, input, region);
+
   return rendered;
 }
 
-function createSourcePitchMarks(input: Float32Array, region: PsolaRenderRegion): number[] {
-  const marks: number[] = [];
+function createDynamicSourcePitchMarks(
+  input: Float32Array,
+  sampleRate: number,
+  region: DynamicPsolaRegion,
+  frames: RefinedPitchFrame[],
+): PitchMark[] {
+  const marks: PitchMark[] = [];
 
-  const searchRadius = Math.min(
-    maximumPeakSearchSamples,
-    Math.max(2, Math.round(region.sourcePeriod * 0.32)),
+  const firstFrequency = frequencyAtTime(frames, region.startMs, region.fallbackSourceFrequency);
+
+  let currentPeriod = clamp(
+    sampleRate / firstFrequency,
+    minimumPeriodSamples,
+    maximumPeriodSamples,
   );
 
-  let expectedPosition = region.startSample + region.sourcePeriod * 0.5;
+  /*
+   * Buscamos una primera marca estable cerca del comienzo
+   * del núcleo vocal.
+   */
+  let expectedSample = region.startSample + currentPeriod * 0.5;
 
   let safetyCounter = 0;
 
   const maximumMarks =
-    Math.ceil(
-      (region.endSample - region.startSample) / Math.max(minimumPeriodSamples, region.sourcePeriod),
-    ) + 8;
+    Math.ceil((region.endSample - region.startSample) / minimumPeriodSamples) + 16;
 
-  while (expectedPosition < region.endSample && safetyCounter < maximumMarks) {
-    const refinedMark = findLocalPeak(
+  while (expectedSample < region.endSample && safetyCounter < maximumMarks) {
+    const timeMs = sampleToMilliseconds(expectedSample, sampleRate);
+
+    const frequency = frequencyAtTime(frames, timeMs, region.fallbackSourceFrequency);
+
+    currentPeriod = clamp(sampleRate / frequency, minimumPeriodSamples, maximumPeriodSamples);
+
+    const searchRadius = Math.min(
+      maximumPeakSearchSamples,
+      Math.max(2, Math.round(currentPeriod * 0.24)),
+    );
+
+    const refinedSample = findPhaseConsistentPeak(
       input,
-      Math.round(expectedPosition),
+      Math.round(expectedSample),
       searchRadius,
       region.startSample,
       region.endSample,
+      marks.length ? (input[marks[marks.length - 1]!.sample] ?? 0) : null,
     );
 
-    if (
-      marks.length === 0 ||
-      refinedMark > marks[marks.length - 1]! + minimumPeriodSamples * 0.35
-    ) {
-      marks.push(refinedMark);
+    const previous = marks[marks.length - 1];
+
+    if (!previous || refinedSample > previous.sample + minimumPeriodSamples * 0.35) {
+      marks.push({
+        sample: refinedSample,
+        frequency,
+      });
     }
 
-    expectedPosition += region.sourcePeriod;
+    /*
+     * Importante:
+     * avanzamos desde la marca refinada, no desde una
+     * cuadrícula global fija.
+     *
+     * Así evitamos acumular error de fase.
+     */
+    expectedSample = refinedSample + currentPeriod;
 
     safetyCounter += 1;
   }
@@ -286,21 +400,51 @@ function createSourcePitchMarks(input: Float32Array, region: PsolaRenderRegion):
   return marks;
 }
 
-function createTargetSynthesisMarks(region: PsolaRenderRegion): number[] {
-  const marks: number[] = [];
+function createDynamicSynthesisMarks(
+  sourceMarks: PitchMark[],
+  sampleRate: number,
+  region: DynamicPsolaRegion,
+  frames: RefinedPitchFrame[],
+): PitchMark[] {
+  const marks: PitchMark[] = [];
 
-  const length = region.endSample - region.startSample;
+  if (!sourceMarks.length) {
+    return marks;
+  }
 
-  let position = region.targetPeriod * 0.5;
+  const shiftRatio = Math.pow(2, region.semitoneShift / 12);
+
+  let position = Math.max(0, sourceMarks[0]!.sample - region.startSample);
 
   let safetyCounter = 0;
 
-  const maximumMarks = Math.ceil(length / Math.max(minimumPeriodSamples, region.targetPeriod)) + 8;
+  const maximumMarks =
+    Math.ceil((region.endSample - region.startSample) / minimumPeriodSamples) + 24;
 
-  while (position < length && safetyCounter < maximumMarks) {
-    marks.push(Math.round(position));
+  while (position < region.endSample - region.startSample && safetyCounter < maximumMarks) {
+    const absoluteSample = region.startSample + position;
 
-    position += region.targetPeriod;
+    const timeMs = sampleToMilliseconds(absoluteSample, sampleRate);
+
+    const sourceFrequency = frequencyAtTime(frames, timeMs, region.fallbackSourceFrequency);
+
+    /*
+     * Conservamos el movimiento relativo de la interpretación.
+     */
+    const targetFrequency = clamp(sourceFrequency * shiftRatio, minimumFrequency, maximumFrequency);
+
+    marks.push({
+      sample: Math.round(position),
+      frequency: targetFrequency,
+    });
+
+    const targetPeriod = clamp(
+      sampleRate / targetFrequency,
+      minimumPeriodSamples,
+      maximumPeriodSamples,
+    );
+
+    position += targetPeriod;
 
     safetyCounter += 1;
   }
@@ -308,23 +452,110 @@ function createTargetSynthesisMarks(region: PsolaRenderRegion): number[] {
   return marks;
 }
 
-function findMappedSourceMark(sourceMarks: number[], normalizedPosition: number): number {
-  if (sourceMarks.length === 1) {
-    return sourceMarks[0]!;
+function frequencyAtTime(
+  frames: RefinedPitchFrame[],
+  timeMs: number,
+  fallbackFrequency: number,
+): number {
+  if (!frames.length) {
+    return fallbackFrequency;
   }
 
-  const boundedPosition = clamp(normalizedPosition, 0, 1);
+  let previous: RefinedPitchFrame | null = null;
 
-  const mappedIndex = Math.round(boundedPosition * (sourceMarks.length - 1));
+  let next: RefinedPitchFrame | null = null;
 
-  return sourceMarks[clamp(mappedIndex, 0, sourceMarks.length - 1)]!;
+  for (const frame of frames) {
+    if (frame.timeMs <= timeMs) {
+      previous = frame;
+      continue;
+    }
+
+    next = frame;
+    break;
+  }
+
+  if (previous && next) {
+    const gap = next.timeMs - previous.timeMs;
+
+    if (gap > 0 && gap <= maximumTrajectoryGapMs * 2) {
+      const interpolation = clamp((timeMs - previous.timeMs) / gap, 0, 1);
+
+      /*
+       * Interpolamos en MIDI y no directamente en Hz.
+       * La percepción musical del pitch es logarítmica.
+       */
+      const midiFloat = previous.midiFloat + (next.midiFloat - previous.midiFloat) * interpolation;
+
+      return midiFloatToFrequency(midiFloat);
+    }
+  }
+
+  const nearest = nearestPitchFrame(frames, timeMs);
+
+  if (nearest && Math.abs(nearest.timeMs - timeMs) <= maximumTrajectoryGapMs) {
+    return nearest.frequency;
+  }
+
+  return fallbackFrequency;
+}
+
+function nearestPitchFrame(frames: RefinedPitchFrame[], timeMs: number): RefinedPitchFrame | null {
+  let best: RefinedPitchFrame | null = null;
+
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const frame of frames) {
+    const distance = Math.abs(frame.timeMs - timeMs);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+
+      best = frame;
+    }
+  }
+
+  return best;
+}
+
+function findNearestSourceMarkForTime(
+  sourceMarks: PitchMark[],
+  synthesisLocalSample: number,
+  region: DynamicPsolaRegion,
+): PitchMark | null {
+  if (!sourceMarks.length) {
+    return null;
+  }
+
+  const targetAbsoluteSample = region.startSample + synthesisLocalSample;
+
+  let best = sourceMarks[0] ?? null;
+
+  let bestDistance = best ? Math.abs(best.sample - targetAbsoluteSample) : Number.POSITIVE_INFINITY;
+
+  for (let index = 1; index < sourceMarks.length; index += 1) {
+    const candidate = sourceMarks[index];
+
+    if (!candidate) {
+      continue;
+    }
+
+    const distance = Math.abs(candidate.sample - targetAbsoluteSample);
+
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+
+  return best;
 }
 
 function overlapGrain(
   input: Float32Array,
   rendered: Float32Array,
   normalization: Float32Array,
-  region: PsolaRenderRegion,
+  region: DynamicPsolaRegion,
   sourceMark: number,
   synthesisMark: number,
   windowRadius: number,
@@ -376,28 +607,39 @@ function normalizeOverlapAdd(rendered: Float32Array, normalization: Float32Array
   }
 }
 
+function fillSmallRenderHoles(
+  rendered: Float32Array,
+  normalization: Float32Array,
+  input: Float32Array,
+  region: DynamicPsolaRegion,
+): void {
+  for (let index = 0; index < rendered.length; index += 1) {
+    const weight = normalization[index] ?? 0;
+
+    if (weight > 0.000001) {
+      continue;
+    }
+
+    const absoluteIndex = region.startSample + index;
+
+    rendered[index] = input[absoluteIndex] ?? 0;
+  }
+}
+
 function blendProcessedRegion(
   input: Float32Array,
   output: Float32Array,
   processed: Float32Array,
   sampleRate: number,
-  region: PsolaRenderRegion,
+  region: DynamicPsolaRegion,
   complexity: VoiceShiftComplexity,
 ): void {
   const regionLength = region.endSample - region.startSample;
 
   const requestedBlendSamples = Math.round((boundaryBlendMs / 1000) * sampleRate);
 
-  const blendSamples = Math.max(
-    1,
-    Math.min(requestedBlendSamples, Math.floor(regionLength * 0.18)),
-  );
+  const blendSamples = Math.max(1, Math.min(requestedBlendSamples, Math.floor(regionLength * 0.2)));
 
-  /*
-   * En desplazamientos extremos dejamos una pequeña porción
-   * del original. Esto ayuda a conservar articulación y reduce
-   * algunos artefactos metálicos de esta primera versión.
-   */
   const maximumProcessedMix = processingMixForComplexity(complexity);
 
   for (let localIndex = 0; localIndex < regionLength; localIndex += 1) {
@@ -429,41 +671,45 @@ function processingMixForComplexity(complexity: VoiceShiftComplexity): number {
       return 0;
 
     case 'light':
-      return 1;
+      return 0.98;
 
     case 'moderate':
-      return 0.96;
+      return 0.93;
 
     case 'heavy':
-      return 0.86;
+      /*
+       * Desplazamientos grandes son los más delicados.
+       * Conservamos una fracción del original para proteger
+       * articulación mientras todavía no tenemos corrección
+       * espectral/formantes explícita.
+       */
+      return 0.82;
   }
 }
 
 function calculateWindowRadius(sourcePeriod: number): number {
-  /*
-   * Un grano de aproximadamente dos períodos alrededor
-   * de la marca mantiene mejor la envolvente espectral
-   * que una ventana arbitraria fija.
-   */
   return Math.round(
-    clamp(sourcePeriod * 1.15, minimumWindowRadiusSamples, maximumWindowRadiusSamples),
+    clamp(sourcePeriod * 1.05, minimumWindowRadiusSamples, maximumWindowRadiusSamples),
   );
 }
 
-function findLocalPeak(
+function findPhaseConsistentPeak(
   input: Float32Array,
   center: number,
   radius: number,
   minimum: number,
   maximum: number,
+  previousPeakValue: number | null,
 ): number {
   const start = clamp(center - radius, minimum, maximum - 1);
 
   const end = clamp(center + radius, start, maximum - 1);
 
-  let bestIndex = center;
+  let bestIndex = clamp(center, start, end);
 
-  let bestScore = -Infinity;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  const preferredPolarity = previousPeakValue === null ? 0 : Math.sign(previousPeakValue);
 
   for (let index = start; index <= end; index += 1) {
     const current = input[index] ?? 0;
@@ -472,24 +718,23 @@ function findLocalPeak(
 
     const next = input[index + 1] ?? current;
 
-    /*
-     * Preferimos extremos locales de gran amplitud.
-     * Esto aproxima una marca glotal sin necesitar
-     * todavía un detector GCI completo.
-     */
-    const isLocalMaximum = current >= previous && current >= next;
+    const isMaximum = current >= previous && current >= next;
 
-    const isLocalMinimum = current <= previous && current <= next;
+    const isMinimum = current <= previous && current <= next;
 
-    if (!isLocalMaximum && !isLocalMinimum) {
+    if (!isMaximum && !isMinimum) {
       continue;
     }
 
     const amplitude = Math.abs(current);
 
-    const distancePenalty = Math.abs(index - center) / Math.max(1, radius);
+    const distance = Math.abs(index - center) / Math.max(1, radius);
 
-    const score = amplitude - distancePenalty * 0.08;
+    const polarity = Math.sign(current);
+
+    const polarityBonus = preferredPolarity === 0 || polarity === preferredPolarity ? 0.12 : -0.12;
+
+    const score = amplitude + polarityBonus - distance * 0.1;
 
     if (score > bestScore) {
       bestScore = score;
@@ -497,29 +742,23 @@ function findLocalPeak(
     }
   }
 
-  if (bestScore !== -Infinity) {
-    return bestIndex;
+  return bestIndex;
+}
+
+function copySegment(
+  input: Float32Array,
+  output: Float32Array,
+  sampleRate: number,
+  startedAt: number,
+  endedAt: number,
+): void {
+  const start = millisecondsToSample(startedAt, sampleRate, input.length);
+
+  const end = millisecondsToSample(endedAt, sampleRate, input.length);
+
+  for (let index = start; index < end; index += 1) {
+    output[index] = input[index] ?? 0;
   }
-
-  /*
-   * Si no encontramos un extremo claro,
-   * usamos la muestra de mayor amplitud.
-   */
-  let strongestIndex = clamp(center, start, end);
-
-  let strongestAmplitude = Math.abs(input[strongestIndex] ?? 0);
-
-  for (let index = start; index <= end; index += 1) {
-    const amplitude = Math.abs(input[index] ?? 0);
-
-    if (amplitude > strongestAmplitude) {
-      strongestAmplitude = amplitude;
-
-      strongestIndex = index;
-    }
-  }
-
-  return strongestIndex;
 }
 
 function hasUsableEnergy(input: Float32Array, startSample: number, endSample: number): boolean {
@@ -573,6 +812,14 @@ function millisecondsToSample(
   maximumLength: number,
 ): number {
   return Math.round(clamp((milliseconds / 1000) * sampleRate, 0, maximumLength));
+}
+
+function sampleToMilliseconds(sample: number, sampleRate: number): number {
+  return (sample / sampleRate) * 1000;
+}
+
+function midiFloatToFrequency(midiFloat: number): number {
+  return 440 * Math.pow(2, (midiFloat - 69) / 12);
 }
 
 function hannWindow(normalizedPosition: number): number {

@@ -36,7 +36,7 @@
         icon="play_arrow"
         :label="playbackMode === 'key' ? 'Reproduciendo tonalidad' : 'Escuchar tonalidad'"
         class="key-play-button"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playKeyReference"
       />
     </section>
@@ -56,7 +56,7 @@
         icon="music_note"
         label="Principal"
         class="voice-button principal"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playVoice('principal')"
       />
 
@@ -66,7 +66,7 @@
         icon="music_note"
         label="Segunda"
         class="voice-button second"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playVoice('second')"
       />
 
@@ -76,7 +76,7 @@
         icon="music_note"
         label="Tenor"
         class="voice-button tenor"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playVoice('tenor')"
       />
 
@@ -86,7 +86,7 @@
         icon="music_note"
         label="Barítono"
         class="voice-button baritone"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playVoice('baritone')"
       />
 
@@ -96,7 +96,7 @@
         icon="music_note"
         label="Bajo"
         class="voice-button bass"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playVoice('bass')"
       />
 
@@ -106,7 +106,7 @@
         icon="piano"
         label="Todas"
         class="all-button"
-        :disable="isPlaying"
+        :disable="isPlaying || isRenderingHumanVoice"
         @click="playAllVoices"
       />
 
@@ -116,7 +116,7 @@
         icon="library_music"
         label="Grabación + todas"
         class="recording-mix-button"
-        :disable="isPlaying || !audioUrl"
+        :disable="isPlaying || isRenderingHumanVoice || !audioUrl"
         @click="playRecordingWithAllVoices"
       />
 
@@ -149,17 +149,21 @@
         <div>
           <span>VOCES USANDO MI GRABACIÓN</span>
 
-          <strong>Preparación del motor vocal</strong>
+          <strong>Escucha la armonía con tu propio timbre</strong>
 
           <small>
-            ICP Studio ya calcula cómo debe transformarse tu voz original para cada línea de
-            armonía. El renderizado PSOLA se conectará en el próximo paso.
+            ICP Studio procesa tu grabación localmente y conserva la línea de tiempo original. Cada
+            voz se genera la primera vez y luego se mantiene en caché para reproducirse
+            inmediatamente.
           </small>
         </div>
 
-        <div class="engine-status">
-          <span class="engine-status-dot"></span>
-          Motor preparado
+        <div class="engine-status" :class="{ rendering: isRenderingHumanVoice }">
+          <q-spinner v-if="isRenderingHumanVoice" size="12px" />
+
+          <span v-else class="engine-status-dot"></span>
+
+          {{ isRenderingHumanVoice ? renderingStatusLabel : 'Motor vocal disponible' }}
         </div>
       </header>
 
@@ -202,22 +206,74 @@
           </div>
 
           <div class="human-voice-ready">
-            <q-icon name="check_circle" />
-            <span>Línea vocal calculada</span>
+            <q-icon :name="hasCachedHumanVoice(plan.voiceId) ? 'offline_pin' : 'graphic_eq'" />
+
+            <span>
+              {{ hasCachedHumanVoice(plan.voiceId) ? 'Audio generado' : 'Listo para generar' }}
+            </span>
           </div>
+
+          <q-btn
+            unelevated
+            no-caps
+            icon="play_arrow"
+            :label="
+              isRenderingVoice(plan.voiceId)
+                ? 'Generando...'
+                : playbackMode === 'human-voice' && playingHumanVoiceId === plan.voiceId
+                  ? 'Reproduciendo'
+                  : 'Escuchar'
+            "
+            class="human-play-button"
+            :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
+            :loading="isRenderingVoice(plan.voiceId)"
+            @click="playHumanVoice(plan.voiceId)"
+          />
         </article>
+      </div>
+
+      <div class="human-voice-global-actions">
+        <q-btn
+          unelevated
+          no-caps
+          icon="groups"
+          label="Todas mis voces"
+          class="human-all-button"
+          :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
+          @click="playAllHumanVoices(false)"
+        />
+
+        <q-btn
+          unelevated
+          no-caps
+          icon="library_music"
+          label="Original + todas mis voces"
+          class="human-original-mix-button"
+          :disable="!audioUrl || isPlaying || isRenderingHumanVoice"
+          @click="playAllHumanVoices(true)"
+        />
+
+        <q-btn
+          outline
+          no-caps
+          icon="stop"
+          label="Detener"
+          class="human-stop-button"
+          :disable="!isPlaying"
+          @click="stopPlayback"
+        />
       </div>
 
       <div class="human-voice-explanation">
         <q-icon name="graphic_eq" />
 
         <div>
-          <strong>La voz todavía no se está sintetizando.</strong>
+          <strong>Procesamiento completamente local</strong>
 
           <span>
-            Estos datos son el plan que usará el procesador vocal para conservar la duración de cada
-            sílaba y modificar únicamente la afinación necesaria. El siguiente bloque implementará
-            el procesamiento de audio real.
+            Esta primera versión utiliza el motor TD-PSOLA de ICP Studio. Los ataques y finales
+            permanecen protegidos mientras la parte estable de cada nota se desplaza hacia la
+            armonía calculada. No usa internet ni servicios externos.
           </span>
         </div>
       </div>
@@ -353,9 +409,9 @@
       <q-icon name="info" />
 
       <p>
-        Las referencias instrumentales y las futuras voces humanas permanecerán separadas. Así
-        puedes usar el sonido limpio como guía o escuchar posteriormente la armonía utilizando el
-        timbre de tu propia grabación.
+        Las referencias instrumentales y las voces generadas permanecen separadas. Así puedes usar
+        el sonido limpio como guía o escuchar la armonía utilizando el timbre de tu propia
+        grabación.
       </p>
     </div>
   </section>
@@ -384,6 +440,8 @@ import {
   type HumanVoiceTargetNote,
 } from './human-voice-engine';
 
+import { renderHumanVoice } from './human-voice-renderer';
+
 interface CapturedNote {
   id: string;
   noteIndex: number;
@@ -399,7 +457,16 @@ interface HarmonyRow extends CapturedNote {
   voices: MelodyHarmonyVoiceNote[];
 }
 
-type PlaybackMode = 'key' | 'voice' | 'all' | 'recording' | 'single' | null;
+type PlaybackMode =
+  | 'key'
+  | 'voice'
+  | 'all'
+  | 'recording'
+  | 'single'
+  | 'human-voice'
+  | 'human-all'
+  | 'human-recording'
+  | null;
 
 const humanVoiceIds: HumanVoiceId[] = ['principal', 'second', 'tenor', 'baritone', 'bass'];
 
@@ -412,21 +479,40 @@ const props = defineProps<{
 }>();
 
 const isPlaying = ref(false);
+
 const activeNoteIndex = ref<number | null>(null);
+
 const playbackError = ref('');
+
 const playbackMode = ref<PlaybackMode>(null);
+
 const tableWrapper = ref<HTMLElement | null>(null);
+
+const isRenderingHumanVoice = ref(false);
+
+const renderingHumanVoiceId = ref<HumanVoiceId | null>(null);
+
+const playingHumanVoiceId = ref<HumanVoiceId | null>(null);
 
 const rowElements = new Map<number, HTMLElement>();
 
+const humanVoiceBufferCache = new Map<HumanVoiceId, AudioBuffer>();
+
 let audioContext: AudioContext | null = null;
+
 let activeOscillators: OscillatorNode[] = [];
+
 let activeGainNodes: GainNode[] = [];
+
 let activeBufferSources: AudioBufferSourceNode[] = [];
+
 let timers: ReturnType<typeof setTimeout>[] = [];
 
 let decodedAudioBuffer: AudioBuffer | null = null;
+
 let decodedAudioUrl = '';
+
+let humanVoiceCacheSignature = '';
 
 const keyLabel = computed(() => {
   const note = notes.find((item) => item.value === props.rootNote) ?? notes[0]!;
@@ -527,32 +613,41 @@ const humanVoicePlans = computed<HumanVoiceRenderPlan[]>(() => {
   );
 });
 
-function isHumanVoiceId(value: MelodyVoiceId): value is HumanVoiceId {
-  return humanVoiceIds.includes(value);
-}
+const humanVoiceRenderSignature = computed(() => {
+  return JSON.stringify({
+    audioUrl: props.audioUrl,
+    rootNote: props.rootNote,
+    scaleMode: props.scaleMode,
+    progression: props.progression.map((step) => step.id),
+    source: humanVoiceSourceNotes.value.map((note) => ({
+      id: note.id,
+      noteIndex: note.noteIndex,
+      octave: note.octave,
+      startedAt: note.startedAt,
+      endedAt: note.endedAt,
+      confidence: note.confidence,
+      cents: note.cents,
+    })),
+    target: humanVoiceTargetNotes.value.map((note) => ({
+      sourceNoteId: note.sourceNoteId,
+      voiceId: note.voiceId,
+      noteIndex: note.noteIndex,
+      octave: note.octave,
+    })),
+  });
+});
 
-function humanVoiceLabel(voiceId: HumanVoiceId): string {
-  switch (voiceId) {
-    case 'principal':
-      return 'Mi voz: Principal';
-    case 'second':
-      return 'Mi voz: Segunda';
-    case 'tenor':
-      return 'Mi voz: Tenor';
-    case 'baritone':
-      return 'Mi voz: Barítono';
-    case 'bass':
-      return 'Mi voz: Bajo';
+const renderingStatusLabel = computed(() => {
+  if (renderingHumanVoiceId.value) {
+    return `Generando ${humanVoiceShortLabel(renderingHumanVoiceId.value)}`;
   }
-}
 
-function formatSemitoneShift(value: number): string {
-  return `${value.toFixed(1)} st`;
-}
+  return 'Generando voces...';
+});
 
-void humanVoicePlans.value;
-void humanVoiceLabel;
-void formatSemitoneShift;
+watch(humanVoiceRenderSignature, () => {
+  clearHumanVoiceCache();
+});
 
 watch(activeNoteIndex, (index) => {
   if (index === null) {
@@ -564,9 +659,79 @@ watch(activeNoteIndex, (index) => {
   });
 });
 
+function isHumanVoiceId(value: MelodyVoiceId): value is HumanVoiceId {
+  return humanVoiceIds.includes(value);
+}
+
+function humanVoiceLabel(voiceId: HumanVoiceId): string {
+  switch (voiceId) {
+    case 'principal':
+      return 'Mi voz: Principal';
+
+    case 'second':
+      return 'Mi voz: Segunda';
+
+    case 'tenor':
+      return 'Mi voz: Tenor';
+
+    case 'baritone':
+      return 'Mi voz: Barítono';
+
+    case 'bass':
+      return 'Mi voz: Bajo';
+  }
+}
+
+function humanVoiceShortLabel(voiceId: HumanVoiceId): string {
+  switch (voiceId) {
+    case 'principal':
+      return 'Principal';
+
+    case 'second':
+      return 'Segunda';
+
+    case 'tenor':
+      return 'Tenor';
+
+    case 'baritone':
+      return 'Barítono';
+
+    case 'bass':
+      return 'Bajo';
+  }
+}
+
+function formatSemitoneShift(value: number): string {
+  return `${value.toFixed(1)} st`;
+}
+
+function isRenderingVoice(voiceId: HumanVoiceId): boolean {
+  return isRenderingHumanVoice.value && renderingHumanVoiceId.value === voiceId;
+}
+
+function hasCachedHumanVoice(voiceId: HumanVoiceId): boolean {
+  return (
+    humanVoiceCacheSignature === humanVoiceRenderSignature.value &&
+    humanVoiceBufferCache.has(voiceId)
+  );
+}
+
+function clearHumanVoiceCache(): void {
+  humanVoiceBufferCache.clear();
+
+  humanVoiceCacheSignature = '';
+
+  playingHumanVoiceId.value = null;
+}
+
+function findHumanVoicePlan(voiceId: HumanVoiceId): HumanVoiceRenderPlan | null {
+  return humanVoicePlans.value.find((plan) => plan.voiceId === voiceId) ?? null;
+}
+
 function setRowElement(element: Element | ComponentPublicInstance | null, index: number): void {
   if (element instanceof HTMLElement) {
     rowElements.set(index, element);
+
     return;
   }
 
@@ -575,6 +740,7 @@ function setRowElement(element: Element | ComponentPublicInstance | null, index:
 
 function scrollToActiveRow(index: number): void {
   const wrapper = tableWrapper.value;
+
   const row = rowElements.get(index);
 
   if (!wrapper || !row) {
@@ -582,13 +748,17 @@ function scrollToActiveRow(index: number): void {
   }
 
   const wrapperRect = wrapper.getBoundingClientRect();
+
   const rowRect = row.getBoundingClientRect();
 
   const headerHeight = 34;
+
   const visibleTop = wrapperRect.top + headerHeight;
+
   const visibleBottom = wrapperRect.bottom;
 
   const isAbove = rowRect.top < visibleTop;
+
   const isBelow = rowRect.bottom > visibleBottom;
 
   if (!isAbove && !isBelow) {
@@ -645,18 +815,23 @@ function createScheduledTone(
   volume: number,
 ): void {
   const oscillator = context.createOscillator();
+
   const harmonic = context.createOscillator();
 
   const gain = context.createGain();
+
   const harmonicGain = context.createGain();
 
   oscillator.type = 'triangle';
+
   harmonic.type = 'sine';
 
   oscillator.frequency.setValueAtTime(frequency, absoluteStart);
+
   harmonic.frequency.setValueAtTime(frequency * 2, absoluteStart);
 
   const duration = Math.max(durationSeconds, 0.06);
+
   const end = absoluteStart + duration;
 
   const attackEnd = absoluteStart + Math.min(0.012, duration * 0.18);
@@ -671,6 +846,7 @@ function createScheduledTone(
   const safeReleaseStart = Math.max(safeDecayEnd + 0.001, Math.min(releaseStart, end - 0.001));
 
   gain.gain.setValueAtTime(0, absoluteStart);
+
   gain.gain.linearRampToValueAtTime(volume, attackEnd);
 
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * 0.62), safeDecayEnd);
@@ -693,18 +869,23 @@ function createScheduledTone(
   harmonicGain.gain.exponentialRampToValueAtTime(0.0001, harmonicDecayEnd);
 
   oscillator.connect(gain);
+
   harmonic.connect(harmonicGain);
 
   gain.connect(context.destination);
+
   harmonicGain.connect(context.destination);
 
   oscillator.start(absoluteStart);
+
   harmonic.start(absoluteStart);
 
   oscillator.stop(end + 0.03);
+
   harmonic.stop(end + 0.03);
 
   activeOscillators.push(oscillator, harmonic);
+
   activeGainNodes.push(gain, harmonicGain);
 }
 
@@ -716,15 +897,25 @@ function createPianoReferenceTone(
   volume: number,
 ): void {
   const partials = [
-    { multiplier: 1, volume: 1 },
-    { multiplier: 2, volume: 0.28 },
-    { multiplier: 3, volume: 0.1 },
+    {
+      multiplier: 1,
+      volume: 1,
+    },
+    {
+      multiplier: 2,
+      volume: 0.28,
+    },
+    {
+      multiplier: 3,
+      volume: 0.1,
+    },
   ];
 
   const end = absoluteStart + Math.max(durationSeconds, 0.25);
 
   partials.forEach((partial) => {
     const oscillator = context.createOscillator();
+
     const gain = context.createGain();
 
     oscillator.type = partial.multiplier === 1 ? 'triangle' : 'sine';
@@ -734,6 +925,7 @@ function createPianoReferenceTone(
     const peak = volume * partial.volume;
 
     gain.gain.setValueAtTime(0, absoluteStart);
+
     gain.gain.linearRampToValueAtTime(peak, absoluteStart + 0.008);
 
     gain.gain.exponentialRampToValueAtTime(
@@ -744,12 +936,15 @@ function createPianoReferenceTone(
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
     oscillator.connect(gain);
+
     gain.connect(context.destination);
 
     oscillator.start(absoluteStart);
+
     oscillator.stop(end + 0.03);
 
     activeOscillators.push(oscillator);
+
     activeGainNodes.push(gain);
   });
 }
@@ -762,6 +957,7 @@ async function playKeyReference(): Promise<void> {
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
   playbackMode.value = 'key';
 
   const rootMidi = 60 + props.rootNote;
@@ -829,11 +1025,13 @@ async function playVoice(voiceId: MelodyVoiceId): Promise<void> {
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
   playbackMode.value = 'voice';
 
   const firstStart = harmonyRows.value[0]?.startedAt ?? 0;
 
   const leadSeconds = 0.06;
+
   const leadMs = leadSeconds * 1000;
 
   const baseStart = context.currentTime + leadSeconds;
@@ -882,9 +1080,11 @@ async function playAllVoices(): Promise<void> {
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
   playbackMode.value = 'all';
 
   const leadSeconds = 0.06;
+
   const leadMs = leadSeconds * 1000;
 
   const baseStart = context.currentTime + leadSeconds;
@@ -947,25 +1147,214 @@ async function loadRecordedAudio(context: AudioContext): Promise<AudioBuffer> {
   return decodedAudioBuffer;
 }
 
-function scheduleRecordedAudio(
+function scheduleAudioBuffer(
   context: AudioContext,
   buffer: AudioBuffer,
   absoluteStart: number,
+  volume: number,
 ): void {
   const source = context.createBufferSource();
+
   const gain = context.createGain();
 
   source.buffer = buffer;
 
-  gain.gain.setValueAtTime(0.78, absoluteStart);
+  gain.gain.setValueAtTime(volume, absoluteStart);
 
   source.connect(gain);
+
   gain.connect(context.destination);
 
   source.start(absoluteStart);
 
   activeBufferSources.push(source);
+
   activeGainNodes.push(gain);
+}
+
+function scheduleRecordedAudio(
+  context: AudioContext,
+  buffer: AudioBuffer,
+  absoluteStart: number,
+): void {
+  scheduleAudioBuffer(context, buffer, absoluteStart, 0.78);
+}
+
+async function getHumanVoiceBuffer(
+  context: AudioContext,
+  voiceId: HumanVoiceId,
+): Promise<AudioBuffer> {
+  const signature = humanVoiceRenderSignature.value;
+
+  if (humanVoiceCacheSignature !== signature) {
+    humanVoiceBufferCache.clear();
+
+    humanVoiceCacheSignature = signature;
+  }
+
+  const cached = humanVoiceBufferCache.get(voiceId);
+
+  if (cached) {
+    return cached;
+  }
+
+  const plan = findHumanVoicePlan(voiceId);
+
+  if (!plan) {
+    throw new Error(`No existe un plan para ${humanVoiceShortLabel(voiceId)}.`);
+  }
+
+  const recordedAudio = await loadRecordedAudio(context);
+
+  isRenderingHumanVoice.value = true;
+
+  renderingHumanVoiceId.value = voiceId;
+
+  /*
+   * Dejamos que Vue pinte el estado "Generando..."
+   * antes de entrar al procesamiento DSP síncrono.
+   */
+  await waitForNextFrame();
+
+  try {
+    const result = renderHumanVoice(recordedAudio, plan);
+
+    humanVoiceBufferCache.set(voiceId, result.buffer);
+
+    return result.buffer;
+  } finally {
+    renderingHumanVoiceId.value = null;
+
+    isRenderingHumanVoice.value = false;
+  }
+}
+
+async function playHumanVoice(voiceId: HumanVoiceId): Promise<void> {
+  stopPlayback();
+
+  playbackError.value = '';
+
+  if (!props.audioUrl || !harmonyRows.value.length) {
+    return;
+  }
+
+  try {
+    const context = await prepareAudio();
+
+    const buffer = await getHumanVoiceBuffer(context, voiceId);
+
+    const leadSeconds = 0.06;
+
+    const leadMs = leadSeconds * 1000;
+
+    const baseStart = context.currentTime + leadSeconds;
+
+    isPlaying.value = true;
+
+    playbackMode.value = 'human-voice';
+
+    playingHumanVoiceId.value = voiceId;
+
+    scheduleAudioBuffer(context, buffer, baseStart, 0.9);
+
+    scheduleActiveRows(leadMs, true);
+
+    const finishTimer = setTimeout(
+      () => {
+        stopPlayback();
+      },
+      leadMs + buffer.duration * 1000 + 120,
+    );
+
+    timers.push(finishTimer);
+  } catch (error) {
+    stopPlayback();
+
+    playbackError.value =
+      error instanceof Error ? error.message : 'No fue posible generar esta voz.';
+  }
+}
+
+async function playAllHumanVoices(includeOriginal: boolean): Promise<void> {
+  stopPlayback();
+
+  playbackError.value = '';
+
+  if (!props.audioUrl || !harmonyRows.value.length) {
+    return;
+  }
+
+  try {
+    const context = await prepareAudio();
+
+    const renderedVoices = new Map<HumanVoiceId, AudioBuffer>();
+
+    for (const voiceId of humanVoiceIds) {
+      const buffer = await getHumanVoiceBuffer(context, voiceId);
+
+      renderedVoices.set(voiceId, buffer);
+
+      /*
+       * Permite actualizar el estado visual entre
+       * una voz y la siguiente.
+       */
+      await waitForNextFrame();
+    }
+
+    const original = includeOriginal ? await loadRecordedAudio(context) : null;
+
+    const leadSeconds = 0.08;
+
+    const leadMs = leadSeconds * 1000;
+
+    const baseStart = context.currentTime + leadSeconds;
+
+    isPlaying.value = true;
+
+    playbackMode.value = includeOriginal ? 'human-recording' : 'human-all';
+
+    playingHumanVoiceId.value = null;
+
+    if (original) {
+      scheduleAudioBuffer(context, original, baseStart, 0.34);
+    }
+
+    let totalDuration = 0;
+
+    renderedVoices.forEach((buffer, voiceId) => {
+      const volume = includeOriginal
+        ? voiceId === 'principal'
+          ? 0.11
+          : 0.095
+        : voiceId === 'principal'
+          ? 0.2
+          : 0.17;
+
+      scheduleAudioBuffer(context, buffer, baseStart, volume);
+
+      totalDuration = Math.max(totalDuration, buffer.duration * 1000);
+    });
+
+    if (original) {
+      totalDuration = Math.max(totalDuration, original.duration * 1000);
+    }
+
+    scheduleActiveRows(leadMs, true);
+
+    const finishTimer = setTimeout(
+      () => {
+        stopPlayback();
+      },
+      leadMs + totalDuration + 150,
+    );
+
+    timers.push(finishTimer);
+  } catch (error) {
+    stopPlayback();
+
+    playbackError.value =
+      error instanceof Error ? error.message : 'No fue posible generar la mezcla de voces.';
+  }
 }
 
 async function playRecordingWithAllVoices(): Promise<void> {
@@ -983,11 +1372,13 @@ async function playRecordingWithAllVoices(): Promise<void> {
     const recordedAudio = await loadRecordedAudio(context);
 
     const leadSeconds = 0.08;
+
     const leadMs = leadSeconds * 1000;
 
     const baseStart = context.currentTime + leadSeconds;
 
     isPlaying.value = true;
+
     playbackMode.value = 'recording';
 
     scheduleRecordedAudio(context, recordedAudio, baseStart);
@@ -1050,6 +1441,7 @@ async function playSingleNote(row: HarmonyRow, voiceId: MelodyVoiceId): Promise<
   const context = await prepareAudio();
 
   isPlaying.value = true;
+
   playbackMode.value = 'single';
 
   const rowIndex = harmonyRows.value.findIndex((item) => item.id === row.id);
@@ -1106,17 +1498,23 @@ function stopPlayback(): void {
       try {
         source.stop(now + 0.03);
       } catch {
-        // La grabación pudo terminar.
+        // El AudioBuffer pudo terminar.
       }
     });
   }
 
   activeOscillators = [];
+
   activeGainNodes = [];
+
   activeBufferSources = [];
 
   isPlaying.value = false;
+
   playbackMode.value = null;
+
+  playingHumanVoiceId.value = null;
+
   activeNoteIndex.value = null;
 }
 
@@ -1144,16 +1542,41 @@ function formatTimelineTime(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
+function waitForNextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+}
+
+/*
+ * Estas funciones/computed se usan desde el template.
+ * La referencia explícita evita falsos positivos del lint
+ * en algunas configuraciones de vue-tsc/eslint.
+ */
+void humanVoicePlans.value;
+void humanVoiceLabel;
+void formatSemitoneShift;
+void hasCachedHumanVoice;
+void isRenderingVoice;
+void playHumanVoice;
+void playAllHumanVoices;
+
 onBeforeUnmount(() => {
   stopPlayback();
 
   rowElements.clear();
 
+  clearHumanVoiceCache();
+
   decodedAudioBuffer = null;
+
   decodedAudioUrl = '';
 
   if (audioContext) {
     void audioContext.close();
+
     audioContext = null;
   }
 });
@@ -1438,6 +1861,12 @@ onBeforeUnmount(() => {
   font-size: 7px;
 }
 
+.engine-status.rendering {
+  color: #a5f3fc;
+  background: rgb(34 211 238 / 8%);
+  border-color: rgb(34 211 238 / 20%);
+}
+
 .engine-status-dot {
   width: 6px;
   height: 6px;
@@ -1558,6 +1987,45 @@ onBeforeUnmount(() => {
 
 .human-voice-ready .q-icon {
   font-size: 11px;
+}
+
+.human-play-button {
+  width: 100%;
+  min-height: 29px;
+  margin-top: 7px;
+  color: #cffafe;
+  background: rgb(8 145 178 / 26%);
+  border-radius: 7px;
+  font-size: 7px;
+}
+
+.human-voice-global-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.human-all-button,
+.human-original-mix-button,
+.human-stop-button {
+  min-height: 32px;
+  border-radius: 8px;
+  font-size: 8px;
+}
+
+.human-all-button {
+  color: #ecfeff;
+  background: #0e7490;
+}
+
+.human-original-mix-button {
+  color: #ecfdf5;
+  background: #047857;
+}
+
+.human-stop-button {
+  color: #9fb0bf;
 }
 
 .human-voice-explanation {
@@ -1823,6 +2291,16 @@ onBeforeUnmount(() => {
 
   .engine-status {
     align-self: flex-start;
+  }
+
+  .human-voice-global-actions {
+    flex-direction: column;
+  }
+
+  .human-all-button,
+  .human-original-mix-button,
+  .human-stop-button {
+    width: 100%;
   }
 
   .table-wrapper {
