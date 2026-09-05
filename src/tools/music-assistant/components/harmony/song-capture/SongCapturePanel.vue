@@ -7,8 +7,9 @@
         <h3>Captura la canción con tu voz</h3>
 
         <p>
-          Mientras cantas verás una lectura rápida. Al detener la grabación, ICP Studio analizará
-          nuevamente el audio completo para obtener una melodía más precisa.
+          Mientras cantas, ICP Studio solo muestra una referencia rápida de lo que está escuchando.
+          Las notas definitivas no se construyen en vivo. Al detener la grabación, el sistema
+          analiza nuevamente el audio completo desde cero.
         </p>
       </div>
 
@@ -44,7 +45,7 @@
           <div class="record-caption">
             {{
               isRefining
-                ? 'Analizando grabación completa'
+                ? 'Evaluando grabación completa'
                 : isRecording
                   ? 'Grabando interpretación'
                   : hasCapture
@@ -123,7 +124,7 @@
             <div>
               <strong>Audio original</strong>
 
-              <span> Escucha exactamente lo que cantaste. </span>
+              <span> Esta grabación completa es ahora la fuente oficial del análisis. </span>
             </div>
           </div>
 
@@ -134,7 +135,7 @@
       <div class="analysis-panel">
         <div class="current-note-card">
           <span class="analysis-label">
-            {{ isRecording ? 'NOTA ACTUAL' : 'ANÁLISIS DE MELODÍA' }}
+            {{ isRecording ? 'REFERENCIA EN VIVO' : 'ANÁLISIS DE LA GRABACIÓN' }}
           </span>
 
           <div v-if="hasCurrentPitch" class="current-note">
@@ -155,9 +156,9 @@
             <span>
               {{
                 isRefining
-                  ? 'Analizando audio completo...'
+                  ? 'Evaluando audio completo...'
                   : isRecording
-                    ? 'Escuchando...'
+                    ? 'Escuchando como referencia...'
                     : 'Sin señal'
               }}
             </span>
@@ -180,6 +181,14 @@
               </strong>
             </div>
           </div>
+
+          <div v-if="isRecording" class="live-reference-warning">
+            <q-icon name="visibility" />
+
+            <span>
+              Esta lectura es solamente visual. No se utiliza para construir la melodía final.
+            </span>
+          </div>
         </div>
 
         <div class="key-card">
@@ -190,9 +199,7 @@
               {{ estimatedKeyLabel }}
             </strong>
 
-            <small>
-              Se recalcula usando la melodía confirmada después de analizar el audio completo.
-            </small>
+            <small> Se calcula únicamente después de analizar la grabación completa. </small>
           </div>
 
           <q-icon name="music_note" />
@@ -200,10 +207,18 @@
 
         <div class="statistics">
           <div>
-            <span>Notas confirmadas</span>
+            <span>Notas finales</span>
 
             <strong>
               {{ capturedNotes.length }}
+            </strong>
+          </div>
+
+          <div>
+            <span>Frames de pitch</span>
+
+            <strong>
+              {{ capturedPitchFrames.length }}
             </strong>
           </div>
 
@@ -226,13 +241,56 @@
       </div>
     </div>
 
+    <section class="analysis-workflow">
+      <header>
+        <div>
+          <span>ANÁLISIS POST-GRABACIÓN</span>
+
+          <strong> La interpretación se evalúa después de terminar </strong>
+        </div>
+
+        <q-icon name="analytics" />
+      </header>
+
+      <div class="analysis-workflow-grid">
+        <div>
+          <q-icon name="audio_file" />
+          <span>1</span>
+          <strong>Audio completo</strong>
+          <small> Se decodifica la grabación original. </small>
+        </div>
+
+        <div>
+          <q-icon name="graphic_eq" />
+          <span>2</span>
+          <strong>Trayectoria vocal</strong>
+          <small> Se analiza el pitch frame por frame. </small>
+        </div>
+
+        <div>
+          <q-icon name="music_note" />
+          <span>3</span>
+          <strong>Notas definitivas</strong>
+          <small> Se segmentan notas, tiempos y duraciones. </small>
+        </div>
+
+        <div>
+          <q-icon name="key" />
+          <span>4</span>
+          <strong>Tonalidad</strong>
+          <small> Se estima desde el resultado completo. </small>
+        </div>
+      </div>
+    </section>
+
     <section class="timeline-section">
       <header class="timeline-heading">
         <div>
           <span>MELODÍA DETECTADA</span>
 
           <small>
-            El resultado final proviene del segundo análisis realizado sobre la grabación completa.
+            Estas notas provienen exclusivamente del análisis realizado después de detener la
+            grabación.
           </small>
         </div>
 
@@ -280,12 +338,20 @@
       </div>
 
       <div v-else class="empty-timeline">
-        <q-icon name="multiline_chart" />
+        <q-icon :name="isRefining ? 'auto_fix_high' : 'multiline_chart'" />
 
         <div>
-          <strong> La melodía aparecerá aquí </strong>
+          <strong>
+            {{ isRefining ? 'Analizando la grabación' : 'La melodía aparecerá aquí' }}
+          </strong>
 
-          <span> Presiona Grabar y comienza a cantar. </span>
+          <span>
+            {{
+              isRefining
+                ? 'ICP Studio está procesando el audio completo.'
+                : 'Graba primero la interpretación completa.'
+            }}
+          </span>
         </div>
       </div>
     </section>
@@ -307,8 +373,8 @@
           <strong> Interpretación analizada </strong>
 
           <p>
-            La referencia de voces permanece disponible arriba. Este análisis final se utiliza como
-            base para Principal, Segunda, Tenor, Barítono y Bajo.
+            Las notas mostradas arriba ya no provienen del detector en vivo. Son el resultado del
+            análisis completo del archivo grabado.
           </p>
         </div>
       </div>
@@ -331,7 +397,11 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 
 import CapturedHarmonyPreview from './CapturedHarmonyPreview.vue';
 
-import { refineRecordedMelody, type RefinedPitchNote } from './pitch-refinement';
+import {
+  analyzeRecordedMelody,
+  type RefinedPitchFrame,
+  type RefinedPitchNote,
+} from './pitch-refinement';
 
 import {
   calculateInputLevel,
@@ -405,7 +475,21 @@ const currentOctave = ref(0);
 
 const currentCents = ref(0);
 
+/*
+ * Estas notas son únicamente el resultado del análisis
+ * completo posterior a la grabación.
+ *
+ * Ya no se modifican desde analyseVoice().
+ */
 const capturedNotes = ref<CapturedPitchNote[]>([]);
+
+/*
+ * Trayectoria vocal completa producida después de grabar.
+ *
+ * En el próximo paso esta información viajará al motor
+ * de armonización y síntesis vocal.
+ */
+const capturedPitchFrames = ref<RefinedPitchFrame[]>([]);
 
 const audioUrl = ref('');
 
@@ -431,17 +515,7 @@ let recordingStartedAt = 0;
 
 let lastAnalysisAt = 0;
 
-let candidateMidi: number | null = null;
-
-let candidateSince = 0;
-
-let confirmedMidi: number | null = null;
-
-let confirmedStartedAt = 0;
-
 const analysisIntervalMs = 85;
-
-const confirmationMs = 170;
 
 const hasCurrentPitch = computed(() => currentFrequency.value > 0);
 
@@ -473,11 +547,11 @@ const recordingStatus = computed(() => {
   }
 
   if (isRefining.value) {
-    return 'Analizando con alta precisión';
+    return 'Analizando grabación completa';
   }
 
   if (hasCapture.value) {
-    return 'Captura terminada';
+    return 'Análisis terminado';
   }
 
   return 'Preparado';
@@ -511,7 +585,7 @@ const estimatedKeyLabel = computed(() => {
   const estimate = estimatedKey.value;
 
   if (!estimate) {
-    return 'Esperando más notas';
+    return isRefining.value ? 'Analizando...' : 'Esperando análisis';
   }
 
   return `${noteName(estimate.rootNote)} ${estimate.scaleMode === 'major' ? 'mayor' : 'menor'}`;
@@ -571,17 +645,21 @@ async function startRecording(): Promise<void> {
 
     mediaRecorder.addEventListener('dataavailable', handleRecordedData);
 
-    mediaRecorder.addEventListener('stop', () => {
-      void buildRecordedAudio();
-    });
+    mediaRecorder.addEventListener(
+      'stop',
+      () => {
+        void buildRecordedAudio();
+      },
+      {
+        once: true,
+      },
+    );
 
     recordingStartedAt = performance.now();
 
     recordingTimeMs.value = 0;
 
-    candidateMidi = null;
-
-    confirmedMidi = null;
+    lastAnalysisAt = 0;
 
     mediaRecorder.start(250);
 
@@ -618,8 +696,6 @@ function stopRecording(): void {
 
   const now = performance.now();
 
-  finalizeConfirmedNote(now);
-
   isRecording.value = false;
 
   if (recordingTimer) {
@@ -636,6 +712,12 @@ function stopRecording(): void {
     animationFrameId = null;
   }
 
+  /*
+   * Ya no finalizamos ninguna nota aquí.
+   *
+   * La melodía definitiva comenzará a construirse únicamente
+   * cuando MediaRecorder entregue el archivo completo.
+   */
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
@@ -665,6 +747,19 @@ function stopRecording(): void {
   }
 }
 
+/**
+ * Detección provisional durante la grabación.
+ *
+ * Su único propósito ahora es mostrar al usuario:
+ * - nivel de entrada,
+ * - frecuencia aproximada,
+ * - nota aproximada,
+ * - cents.
+ *
+ * NO escribe capturedNotes.
+ * NO crea la melodía.
+ * NO afecta la armonización definitiva.
+ */
 function analyseVoice(): void {
   if (!isRecording.value || !analyserNode || !analyserBuffer || !audioContext) {
     return;
@@ -691,93 +786,12 @@ function analyseVoice(): void {
       currentOctave.value = pitch.octave;
 
       currentCents.value = pitch.cents;
-
-      processPitchCandidate(pitch.midi, now);
     } else {
-      processSilence(now);
+      resetCurrentPitch();
     }
   }
 
   animationFrameId = requestAnimationFrame(analyseVoice);
-}
-
-function processPitchCandidate(midi: number, now: number): void {
-  if (candidateMidi !== midi) {
-    candidateMidi = midi;
-
-    candidateSince = now;
-
-    return;
-  }
-
-  if (now - candidateSince < confirmationMs) {
-    return;
-  }
-
-  if (confirmedMidi === midi) {
-    return;
-  }
-
-  finalizeConfirmedNote(candidateSince);
-
-  confirmedMidi = midi;
-
-  confirmedStartedAt = candidateSince;
-}
-
-function processSilence(now: number): void {
-  resetCurrentPitch();
-
-  if (confirmedMidi !== null && now - confirmedStartedAt > 220) {
-    finalizeConfirmedNote(now);
-  }
-
-  candidateMidi = null;
-}
-
-function finalizeConfirmedNote(endedAt: number): void {
-  if (confirmedMidi === null) {
-    return;
-  }
-
-  const durationMs = Math.max(0, endedAt - confirmedStartedAt);
-
-  if (durationMs >= 140) {
-    const noteIndex = normalizeNote(confirmedMidi);
-
-    const octave = Math.floor(confirmedMidi / 12) - 1;
-
-    const previous = capturedNotes.value[capturedNotes.value.length - 1];
-
-    if (
-      previous &&
-      previous.noteIndex === noteIndex &&
-      previous.octave === octave &&
-      confirmedStartedAt - previous.endedAt < 240
-    ) {
-      previous.endedAt = endedAt - recordingStartedAt;
-
-      previous.durationMs = previous.endedAt - previous.startedAt;
-    } else {
-      capturedNotes.value.push({
-        id: makeId(),
-
-        noteIndex,
-
-        octave,
-
-        startedAt: confirmedStartedAt - recordingStartedAt,
-
-        endedAt: endedAt - recordingStartedAt,
-
-        durationMs,
-      });
-    }
-  }
-
-  confirmedMidi = null;
-
-  confirmedStartedAt = 0;
 }
 
 function handleRecordedData(event: BlobEvent): void {
@@ -788,6 +802,8 @@ function handleRecordedData(event: BlobEvent): void {
 
 async function buildRecordedAudio(): Promise<void> {
   if (!recordedChunks.length) {
+    analysisMessage.value = 'La grabación no produjo audio suficiente para analizar.';
+
     return;
   }
 
@@ -803,16 +819,27 @@ async function buildRecordedAudio(): Promise<void> {
 
   audioUrl.value = URL.createObjectURL(blob);
 
-  await refineRecording(blob);
+  await analyzeCompleteRecording(blob);
 }
 
-async function refineRecording(blob: Blob): Promise<void> {
+/**
+ * Este es ahora el único punto donde se construye
+ * la interpretación definitiva.
+ *
+ * El archivo completo se decodifica y después se analiza
+ * desde cero.
+ */
+async function analyzeCompleteRecording(blob: Blob): Promise<void> {
   isRefining.value = true;
 
   analysisSucceeded.value = false;
 
+  capturedNotes.value = [];
+
+  capturedPitchFrames.value = [];
+
   analysisMessage.value =
-    'Analizando la grabación completa con detección de tono de alta precisión...';
+    'Evaluando la grabación completa: señal, trayectoria de pitch, notas, tiempos y tonalidad...';
 
   let context: AudioContext | null = null;
 
@@ -823,25 +850,38 @@ async function refineRecording(blob: Blob): Promise<void> {
 
     const decoded = await context.decodeAudioData(arrayBuffer);
 
-    const refined = refineRecordedMelody(decoded);
+    /*
+     * La duración oficial se toma del audio decodificado
+     * y no del cronómetro de la interfaz.
+     */
+    recordingTimeMs.value = decoded.duration * 1000;
 
-    if (refined.length < 2) {
-      analysisMessage.value =
-        'El segundo análisis no encontró suficientes notas confiables. Se conserva la captura realizada en vivo.';
+    const analysis = analyzeRecordedMelody(decoded);
+
+    capturedPitchFrames.value = analysis.frames;
+
+    capturedNotes.value = analysis.notes.map(mapRefinedNote);
+
+    if (!analysis.notes.length) {
+      analysisMessage.value = `El audio fue evaluado, pero no se encontraron notas vocales suficientemente confiables. Se analizaron ${analysis.frames.length} frames de pitch.`;
 
       return;
     }
 
-    capturedNotes.value = refined.map(mapRefinedNote);
-
     analysisSucceeded.value = true;
 
-    analysisMessage.value = `Análisis terminado: ${refined.length} notas confirmadas con ${averageRefinedConfidence(refined)}% de confianza media.`;
+    analysisMessage.value = `Evaluación terminada: ${analysis.notes.length} notas definitivas, ${analysis.frames.length} frames de pitch y ${averageRefinedConfidence(
+      analysis.notes,
+    )}% de confianza media.`;
   } catch (error) {
+    capturedNotes.value = [];
+
+    capturedPitchFrames.value = [];
+
     analysisMessage.value =
       error instanceof Error
-        ? `No fue posible completar el análisis preciso: ${error.message}`
-        : 'No fue posible completar el análisis preciso. Se conserva la captura en vivo.';
+        ? `No fue posible completar el análisis de la grabación: ${error.message}`
+        : 'No fue posible completar el análisis de la grabación.';
   } finally {
     isRefining.value = false;
 
@@ -1017,13 +1057,11 @@ function clearCapture(): void {
 
   capturedNotes.value = [];
 
+  capturedPitchFrames.value = [];
+
   recordingTimeMs.value = 0;
 
   inputLevel.value = 0;
-
-  candidateMidi = null;
-
-  confirmedMidi = null;
 
   recordedChunks = [];
 
@@ -1227,6 +1265,10 @@ onBeforeUnmount(() => {
   border-radius: 10px;
 }
 
+.microphone-display.active .record-circle {
+  animation: pulse-record 1.5s infinite;
+}
+
 .record-circle {
   display: grid;
   width: 66px;
@@ -1236,10 +1278,6 @@ onBeforeUnmount(() => {
   background: rgb(244 114 182 / 9%);
   border: 1px solid rgb(244 114 182 / 24%);
   border-radius: 50%;
-}
-
-.microphone-display.active .record-circle {
-  animation: pulse-record 1.5s infinite;
 }
 
 .record-circle .q-icon {
@@ -1468,6 +1506,23 @@ onBeforeUnmount(() => {
   font-size: 9px;
 }
 
+.live-reference-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  color: #7c8fa4;
+  background: rgb(96 165 250 / 5%);
+  border-radius: 7px;
+  font-size: 7px;
+}
+
+.live-reference-warning .q-icon {
+  color: #60a5fa;
+  font-size: 14px;
+}
+
 .key-card {
   display: flex;
   align-items: center;
@@ -1503,8 +1558,90 @@ onBeforeUnmount(() => {
 
 .statistics {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
+}
+
+.analysis-workflow {
+  margin-top: 13px;
+  padding: 12px;
+  background: rgb(96 165 250 / 4%);
+  border: 1px solid rgb(96 165 250 / 14%);
+  border-radius: 11px;
+}
+
+.analysis-workflow > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analysis-workflow > header > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-workflow > header span {
+  color: #60a5fa;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.analysis-workflow > header strong {
+  margin-top: 2px;
+  color: #c8d8e8;
+  font-size: 10px;
+}
+
+.analysis-workflow > header > .q-icon {
+  color: #60a5fa;
+  font-size: 22px;
+}
+
+.analysis-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.analysis-workflow-grid > div {
+  position: relative;
+  display: flex;
+  min-height: 83px;
+  flex-direction: column;
+  padding: 9px;
+  background: #0b1724;
+  border: 1px solid #20364a;
+  border-radius: 8px;
+}
+
+.analysis-workflow-grid .q-icon {
+  color: #7ca8d7;
+  font-size: 17px;
+}
+
+.analysis-workflow-grid > div > span {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  color: #405b75;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.analysis-workflow-grid strong {
+  margin-top: 7px;
+  color: #a9bdcf;
+  font-size: 8px;
+}
+
+.analysis-workflow-grid small {
+  margin-top: 2px;
+  color: #5f758a;
+  font-size: 6px;
+  line-height: 1.4;
 }
 
 .timeline-section {
@@ -1682,6 +1819,10 @@ onBeforeUnmount(() => {
   .capture-layout {
     grid-template-columns: 1fr;
   }
+
+  .analysis-workflow-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 650px) {
@@ -1695,7 +1836,8 @@ onBeforeUnmount(() => {
     align-self: flex-start;
   }
 
-  .statistics {
+  .statistics,
+  .analysis-workflow-grid {
     grid-template-columns: 1fr;
   }
 
