@@ -2,13 +2,13 @@
   <section v-if="parts.length" class="parts-mixer">
     <header class="mixer-header">
       <div>
-        <span> VOCES ORIGINALES </span>
+        <span>VOCES ORIGINALES</span>
 
         <strong> Mezclador de la partitura </strong>
 
         <small>
-          Selecciona las voces originales, controla el volumen de cada una y utiliza Solo o Mute
-          para estudiar cualquier combinación.
+          Cada voz original mantiene sus notas exactas y ahora dispone de una pista visual
+          sincronizada con la reproducción.
         </small>
       </div>
 
@@ -125,9 +125,16 @@
           <q-icon name="piano" class="piano-icon" />
         </header>
 
+        <ScorePartLane
+          :part="part"
+          :total-beats="totalBeats"
+          :active-beat="activeBeat"
+          accent="original"
+        />
+
         <section class="channel-volume">
           <div class="volume-heading">
-            <span> VOLUMEN </span>
+            <span>VOLUMEN</span>
 
             <strong> {{ channel(part.id).volume }}% </strong>
           </div>
@@ -200,13 +207,15 @@
 
     <div class="mixer-footer">
       <div class="selected-description">
-        <span> SE REPRODUCIRÁ </span>
+        <span>SE REPRODUCIRÁ</span>
 
         <strong>
           {{ selectedDescription }}
         </strong>
 
-        <small> Los faders, Solo y Mute se aplican automáticamente al motor de piano. </small>
+        <small>
+          Todas las pistas utilizan la misma escala temporal para poder comparar las voces.
+        </small>
       </div>
 
       <div class="playback-actions">
@@ -233,7 +242,7 @@
     </div>
 
     <div v-if="playing" class="playing-indicator">
-      <span class="playing-dot"></span>
+      <span class="playing-dot" />
 
       <strong> Reproduciendo mezcla de voces originales </strong>
 
@@ -248,7 +257,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import type { ScorePart } from '../../shared/score';
+import { scorePartDurationBeats, type ScorePart } from '../../shared/score';
+
+import ScorePartLane from './ScorePartLane.vue';
 
 import {
   resetScoreMixerChannel,
@@ -293,16 +304,23 @@ const audibleCount = computed(() => resolveScoreMixerChannels(selectedParts.valu
 
 const hasSolo = computed(() => scoreMixerHasSolo(selectedParts.value));
 
+const totalBeats = computed(() => {
+  if (!props.parts.length) {
+    return 1;
+  }
+
+  return Math.max(1, ...props.parts.map((part) => scorePartDurationBeats(part)));
+});
+
 const selectedDescription = computed(() => {
   if (!props.selectedIds.length) {
     return 'Ninguna voz seleccionada';
   }
 
-  const names = props.parts
+  return props.parts
     .filter((part) => props.selectedIds.includes(part.id))
-    .map((part) => part.name);
-
-  return names.join(' + ');
+    .map((part) => part.name)
+    .join(' + ');
 });
 
 function channel(partId: string) {
@@ -540,14 +558,10 @@ function formatBeat(value: number): string {
   font-size: 7px;
 }
 
-.solo-notice > .q-icon {
-  font-size: 15px;
-}
-
 .channels-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 9px;
 }
 
@@ -598,10 +612,6 @@ function formatBeat(value: number): string {
   cursor: pointer;
 }
 
-.channel-selector:disabled {
-  cursor: default;
-}
-
 .channel-selector > .q-icon {
   color: #526b80;
   font-size: 18px;
@@ -632,7 +642,6 @@ function formatBeat(value: number): string {
 
 .channel-selector small {
   overflow: hidden;
-  margin-top: 1px;
   color: #61778c;
   font-size: 6px;
   text-overflow: ellipsis;
@@ -645,7 +654,7 @@ function formatBeat(value: number): string {
 }
 
 .channel-volume {
-  margin-top: 9px;
+  margin-top: 8px;
   padding: 6px 7px 2px;
   background: #0b1824;
   border-radius: 7px;
@@ -653,7 +662,6 @@ function formatBeat(value: number): string {
 
 .volume-heading {
   display: flex;
-  align-items: center;
   justify-content: space-between;
 }
 
@@ -665,10 +673,6 @@ function formatBeat(value: number): string {
 .volume-heading strong {
   color: #9bdde6;
   font-size: 7px;
-}
-
-.channel-volume :deep(.q-slider) {
-  margin-top: -1px;
 }
 
 .channel-controls {
@@ -758,7 +762,6 @@ function formatBeat(value: number): string {
 }
 
 .selected-description small {
-  margin-top: 2px;
   color: #60758a;
   font-size: 6px;
 }
@@ -776,7 +779,6 @@ function formatBeat(value: number): string {
 
 .stop-button {
   color: #94a8bc;
-  border-radius: 8px;
 }
 
 .playing-indicator {
@@ -791,14 +793,13 @@ function formatBeat(value: number): string {
   border-radius: 7px;
 }
 
-.playing-indicator strong {
+.playing-indicator strong,
+.playing-indicator small {
   font-size: 7px;
 }
 
 .playing-indicator small {
   margin-left: auto;
-  color: #7c98aa;
-  font-size: 7px;
 }
 
 .playing-dot {
@@ -809,9 +810,9 @@ function formatBeat(value: number): string {
   box-shadow: 0 0 8px rgb(34 211 238 / 55%);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 950px) {
   .channels-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -826,21 +827,6 @@ function formatBeat(value: number): string {
   .selection-actions,
   .playback-actions {
     flex-wrap: wrap;
-  }
-
-  .selected-description strong {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 520px) {
-  .channels-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .selection-actions,
-  .playback-actions {
-    flex-direction: column;
   }
 }
 </style>

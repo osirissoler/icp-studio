@@ -2,7 +2,7 @@
   <section class="manager-panel">
     <header class="manager-heading">
       <div>
-        <span> VOCES GENERADAS </span>
+        <span>VOCES GENERADAS</span>
 
         <strong>
           {{ parts.length }}
@@ -10,8 +10,8 @@
         </strong>
 
         <small>
-          Cada voz es independiente. Además de editarla o regenerarla, ahora tiene su propio canal
-          con volumen, Solo y Mute.
+          Cada voz generada tiene ahora su propia pista musical. Las correcciones manuales aparecen
+          resaltadas sin modificar las voces originales.
         </small>
       </div>
 
@@ -25,7 +25,7 @@
 
       <span>
         Hay voces generadas en
-        <strong>Solo</strong>. En una mezcla conjunta tendrán prioridad sobre los demás canales.
+        <strong>Solo</strong>.
       </span>
     </div>
 
@@ -70,7 +70,8 @@
           </button>
 
           <div v-if="playingPartId === part.id" class="playing-indicator">
-            <span></span>
+            <span />
+
             Reproduciendo
           </div>
         </div>
@@ -101,9 +102,11 @@
           </div>
         </div>
 
+        <ScorePartLane :part="part" :total-beats="totalBeats" accent="generated" />
+
         <section class="mixer-channel">
           <div class="volume-heading">
-            <span> VOLUMEN </span>
+            <span>VOLUMEN</span>
 
             <strong> {{ mixerChannel(part.id).volume }}% </strong>
           </div>
@@ -214,13 +217,13 @@
     <section v-if="editingPart && draft" class="voice-editor">
       <header>
         <div>
-          <span> EDITAR VOZ </span>
+          <span>EDITAR VOZ</span>
 
           <strong>
             {{ editingPart.name }}
           </strong>
 
-          <small> Los cambios se aplicarán únicamente a esta voz cuando la regeneres. </small>
+          <small> Los cambios se aplicarán únicamente a esta voz al regenerarla. </small>
         </div>
 
         <q-btn
@@ -305,25 +308,10 @@
         />
       </div>
 
-      <div class="range-preview">
-        <q-icon name="piano" />
-
-        <div>
-          <span> RANGO ACTUAL </span>
-
-          <strong>
-            MIDI
-            {{ draft.minMidi }}
-            →
-            {{ draft.maxMidi }}
-          </strong>
-        </div>
-      </div>
-
       <div v-if="rangeError" class="editor-error">
         <q-icon name="error_outline" />
 
-        <span> El MIDI mínimo debe ser menor que el MIDI máximo. </span>
+        MIDI mínimo debe ser menor que MIDI máximo.
       </div>
 
       <footer>
@@ -352,10 +340,10 @@
       <div>
         <span>
           {{ selectedIds.length }}
-          {{ selectedIds.length === 1 ? 'seleccionada' : 'seleccionadas' }}
+          seleccionadas
         </span>
 
-        <small> La reproducción respeta volumen, Solo y Mute de cada canal. </small>
+        <small> Puedes combinar cualquier número de pistas. </small>
       </div>
 
       <q-btn
@@ -394,13 +382,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import type { ScorePart } from '../../shared/score';
+import { scorePartDurationBeats, type ScorePart } from '../../shared/score';
 
 import type {
   GeneratedVoiceKind,
   GeneratedVoicePlacement,
   GeneratedVoiceRequest,
 } from './generated-voice-engine';
+
+import ScorePartLane from './ScorePartLane.vue';
 
 import {
   removeScoreMixerChannel,
@@ -459,46 +449,15 @@ const editingPartId = ref<string | null>(null);
 
 const draft = ref<VoiceDraft | null>(null);
 
-const voiceTypeOptions = [
-  {
-    label: 'Segunda',
+const totalBeats = computed(() => {
+  const allParts = [...props.originalParts, ...props.parts];
 
-    value: 'second' satisfies GeneratedVoiceKind,
-  },
-  {
-    label: 'Tenor',
+  if (!allParts.length) {
+    return 1;
+  }
 
-    value: 'tenor' satisfies GeneratedVoiceKind,
-  },
-  {
-    label: 'Barítono',
-
-    value: 'baritone' satisfies GeneratedVoiceKind,
-  },
-  {
-    label: 'Bajo',
-
-    value: 'bass' satisfies GeneratedVoiceKind,
-  },
-  {
-    label: 'Personalizada',
-
-    value: 'custom' satisfies GeneratedVoiceKind,
-  },
-];
-
-const placementOptions = [
-  {
-    label: 'Arriba',
-
-    value: 'above' satisfies GeneratedVoicePlacement,
-  },
-  {
-    label: 'Abajo',
-
-    value: 'below' satisfies GeneratedVoicePlacement,
-  },
-];
+  return Math.max(1, ...allParts.map((part) => scorePartDurationBeats(part)));
+});
 
 const editingPart = computed(
   () => props.parts.find((part) => part.id === editingPartId.value) ?? null,
@@ -517,6 +476,40 @@ const rangeError = computed(() => {
 });
 
 const generatedHasSolo = computed(() => scoreMixerHasSolo(props.parts));
+
+const voiceTypeOptions = [
+  {
+    label: 'Segunda',
+    value: 'second' satisfies GeneratedVoiceKind,
+  },
+  {
+    label: 'Tenor',
+    value: 'tenor' satisfies GeneratedVoiceKind,
+  },
+  {
+    label: 'Barítono',
+    value: 'baritone' satisfies GeneratedVoiceKind,
+  },
+  {
+    label: 'Bajo',
+    value: 'bass' satisfies GeneratedVoiceKind,
+  },
+  {
+    label: 'Personalizada',
+    value: 'custom' satisfies GeneratedVoiceKind,
+  },
+];
+
+const placementOptions = [
+  {
+    label: 'Arriba',
+    value: 'above' satisfies GeneratedVoicePlacement,
+  },
+  {
+    label: 'Abajo',
+    value: 'below' satisfies GeneratedVoicePlacement,
+  },
+];
 
 function mixerChannel(partId: string) {
   return scoreMixerChannel(partId);
@@ -689,12 +682,10 @@ function parseLegacyVoiceType(value: string | undefined): {
       ? rawKind
       : 'second';
 
-  const placement: GeneratedVoicePlacement = rawPlacement === 'below' ? 'below' : 'above';
-
   return {
     kind,
 
-    placement,
+    placement: rawPlacement === 'below' ? 'below' : 'above',
   };
 }
 
@@ -703,21 +694,21 @@ function legacyRequestId(partId: string): string {
 }
 
 function kindLabel(part: ScorePart): string {
-  const request = requestFromPart(part);
+  const kind = requestFromPart(part).kind;
 
-  if (request.kind === 'second') {
+  if (kind === 'second') {
     return 'Segunda';
   }
 
-  if (request.kind === 'tenor') {
+  if (kind === 'tenor') {
     return 'Tenor';
   }
 
-  if (request.kind === 'baritone') {
+  if (kind === 'baritone') {
     return 'Barítono';
   }
 
-  if (request.kind === 'bass') {
+  if (kind === 'bass') {
     return 'Bajo';
   }
 
@@ -756,12 +747,10 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 55,
-
           maximum: 88,
         }
       : {
           minimum: 48,
-
           maximum: 79,
         };
   }
@@ -770,12 +759,10 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 52,
-
           maximum: 79,
         }
       : {
           minimum: 45,
-
           maximum: 74,
         };
   }
@@ -784,12 +771,10 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 48,
-
           maximum: 74,
         }
       : {
           minimum: 40,
-
           maximum: 69,
         };
   }
@@ -798,12 +783,10 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 43,
-
           maximum: 69,
         }
       : {
           minimum: 32,
-
           maximum: 60,
         };
   }
@@ -827,7 +810,6 @@ function defaultRange(
 
 .manager-heading {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
@@ -841,7 +823,6 @@ function defaultRange(
   color: #a78bfa;
   font-size: 7px;
   font-weight: 750;
-  letter-spacing: 0.08em;
 }
 
 .manager-heading strong {
@@ -851,34 +832,23 @@ function defaultRange(
 
 .manager-heading small {
   max-width: 720px;
-  margin-top: 2px;
   color: #77748d;
   font-size: 7px;
-  line-height: 1.5;
 }
 
 .heading-icon {
   display: grid;
   width: 34px;
   height: 34px;
-  flex: 0 0 auto;
   place-items: center;
   color: #c4b5fd;
   background: rgb(167 139 250 / 8%);
-  border: 1px solid rgb(167 139 250 / 18%);
   border-radius: 8px;
 }
 
-.heading-icon .q-icon {
-  font-size: 19px;
-}
-
 .solo-notice {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 9px;
-  padding: 7px 9px;
+  margin-top: 8px;
+  padding: 7px;
   color: #fde68a;
   background: rgb(245 158 11 / 6%);
   border: 1px solid rgb(245 158 11 / 18%);
@@ -888,8 +858,8 @@ function defaultRange(
 
 .voice-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 11px;
 }
 
@@ -899,10 +869,6 @@ function defaultRange(
   background: #101e2c;
   border: 1px solid #293e53;
   border-radius: 9px;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    opacity 0.15s ease;
 }
 
 .voice-card.selected {
@@ -911,7 +877,6 @@ function defaultRange(
 
 .voice-card.playing {
   background: rgb(167 139 250 / 7%);
-  border-color: #a78bfa;
 }
 
 .voice-card.editing {
@@ -919,7 +884,6 @@ function defaultRange(
 }
 
 .voice-card.solo {
-  background: rgb(245 158 11 / 4%);
   border-color: rgb(245 158 11 / 40%);
 }
 
@@ -929,7 +893,6 @@ function defaultRange(
 
 .voice-card-top {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
@@ -939,10 +902,10 @@ function defaultRange(
   min-width: 0;
   flex: 1;
   grid-template-columns: 24px 1fr;
-  align-items: center;
   gap: 7px;
+  align-items: center;
   padding: 0;
-  color: #aab9c7;
+  color: inherit;
   text-align: left;
   background: transparent;
   border: 0;
@@ -963,7 +926,6 @@ function defaultRange(
 .voice-selector span {
   color: #a78bfa;
   font-size: 6px;
-  font-weight: 700;
 }
 
 .voice-selector strong {
@@ -975,42 +937,26 @@ function defaultRange(
 }
 
 .voice-selector small {
-  overflow: hidden;
   color: #717b8a;
   font-size: 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .playing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   color: #c4b5fd;
   font-size: 6px;
-  white-space: nowrap;
-}
-
-.playing-indicator > span {
-  width: 6px;
-  height: 6px;
-  background: #a78bfa;
-  border-radius: 50%;
-  box-shadow: 0 0 7px rgb(167 139 250 / 65%);
 }
 
 .voice-meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  margin-top: 9px;
+  margin-top: 8px;
 }
 
 .voice-meta > div {
   display: flex;
-  min-width: 0;
   flex-direction: column;
-  padding: 6px 7px;
+  padding: 6px;
   background: #0d1926;
   border-radius: 6px;
 }
@@ -1021,24 +967,19 @@ function defaultRange(
 }
 
 .voice-meta strong {
-  overflow: hidden;
   color: #aebdca;
   font-size: 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mixer-channel {
   margin-top: 8px;
   padding: 7px;
   background: #0b1824;
-  border: 1px solid #21374a;
   border-radius: 7px;
 }
 
 .volume-heading {
   display: flex;
-  align-items: center;
   justify-content: space-between;
 }
 
@@ -1067,29 +1008,23 @@ function defaultRange(
 
 .solo-button.active {
   color: #fde68a;
-  background: rgb(245 158 11 / 13%);
 }
 
 .mute-button.active {
   color: #fda4af;
-  background: rgb(244 63 94 / 10%);
-}
-
-.reset-mix-button {
-  color: #77899b;
 }
 
 .voice-actions {
   display: flex;
-  align-items: center;
   gap: 4px;
   margin-top: 8px;
 }
 
-.play-button {
+.play-button,
+.save-button,
+.selected-play-button {
   color: white;
   background: #16738a;
-  border-radius: 7px;
 }
 
 .edit-button {
@@ -1108,16 +1043,14 @@ function defaultRange(
 .voice-editor {
   margin-top: 10px;
   padding: 11px;
-  background: radial-gradient(circle at 100% 0%, rgb(34 211 238 / 5%), transparent 35%), #0c1926;
+  background: #0c1926;
   border: 1px solid #315168;
   border-radius: 9px;
 }
 
 .voice-editor > header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
 }
 
 .voice-editor > header > div {
@@ -1128,7 +1061,6 @@ function defaultRange(
 .voice-editor > header span {
   color: #22d3ee;
   font-size: 6px;
-  font-weight: 750;
 }
 
 .voice-editor > header strong {
@@ -1141,33 +1073,15 @@ function defaultRange(
   font-size: 7px;
 }
 
-.close-button {
-  color: #7f93a6;
-}
-
 .editor-grid {
   display: grid;
-  grid-template-columns:
-    minmax(170px, 1.2fr)
-    minmax(120px, 0.8fr)
-    minmax(120px, 0.8fr)
-    minmax(100px, 0.6fr)
-    minmax(100px, 0.6fr);
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 0.6fr 0.6fr;
   gap: 7px;
   margin-top: 9px;
 }
 
 .manager-field :deep(.q-field__control) {
-  color: #e4f4fa;
   background: #091722;
-}
-
-.manager-field :deep(.q-field__control::before) {
-  border-color: #36566c !important;
-}
-
-.manager-field:hover :deep(.q-field__control::before) {
-  border-color: #4a748b !important;
 }
 
 .manager-field :deep(.q-field__native),
@@ -1176,55 +1090,10 @@ function defaultRange(
   font-size: 8px;
 }
 
-.manager-field :deep(.q-field__label) {
-  color: #7690a4 !important;
-}
-
-.manager-field :deep(.q-field__marginal) {
-  color: #67e8f9;
-}
-
-.range-preview {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 8px;
-  padding: 7px 8px;
-  background: #101f2d;
-  border-radius: 7px;
-}
-
-.range-preview > .q-icon {
-  color: #a78bfa;
-  font-size: 17px;
-}
-
-.range-preview > div {
-  display: flex;
-  flex-direction: column;
-}
-
-.range-preview span {
-  color: #63778b;
-  font-size: 5px;
-}
-
-.range-preview strong {
-  color: #b9c8d5;
-  font-size: 7px;
-}
-
 .editor-error {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   margin-top: 8px;
-  padding: 7px 8px;
+  padding: 7px;
   color: #fda4af;
-  background: rgb(244 63 94 / 6%);
-  border: 1px solid rgb(244 63 94 / 15%);
-  border-radius: 7px;
-  font-size: 7px;
 }
 
 .voice-editor > footer {
@@ -1234,21 +1103,9 @@ function defaultRange(
   margin-top: 9px;
 }
 
-.cancel-button {
-  color: #8397aa;
-}
-
-.save-button,
-.selected-play-button {
-  color: white;
-  background: #16738a;
-  border-radius: 8px;
-}
-
 .manager-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 7px;
   margin-top: 10px;
   padding-top: 10px;
@@ -1271,37 +1128,22 @@ function defaultRange(
   font-size: 6px;
 }
 
-.stop-button {
-  color: #aab9c7;
-  border-radius: 8px;
-}
-
 .reset-all-button {
   color: #958aad;
+}
+
+.stop-button {
+  color: #aab9c7;
 }
 
 :global(.generated-manager-menu) {
   color: #dcebf3 !important;
   background: #0c1b28 !important;
-  border: 1px solid #35566d !important;
-  border-radius: 8px !important;
 }
 
-:global(.generated-manager-menu .q-item) {
-  min-height: 34px !important;
-  color: #c7dce7 !important;
-  font-size: 9px !important;
-}
-
-:global(.generated-manager-menu .q-item:hover),
-:global(.generated-manager-menu .q-item--active) {
-  color: #67e8f9 !important;
-  background: rgb(34 211 238 / 8%) !important;
-}
-
-@media (max-width: 1100px) {
+@media (max-width: 1000px) {
   .voice-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .editor-grid {
@@ -1309,8 +1151,7 @@ function defaultRange(
   }
 }
 
-@media (max-width: 750px) {
-  .voice-grid,
+@media (max-width: 700px) {
   .editor-grid {
     grid-template-columns: 1fr;
   }
@@ -1322,26 +1163,6 @@ function defaultRange(
 
   .manager-actions > div {
     margin-right: 0;
-  }
-}
-
-@media (max-width: 520px) {
-  .voice-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .voice-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .voice-actions .q-btn {
-    width: 100%;
-  }
-
-  .voice-editor > footer {
-    align-items: stretch;
-    flex-direction: column;
   }
 }
 </style>
