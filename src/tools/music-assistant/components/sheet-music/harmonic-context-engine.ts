@@ -22,6 +22,10 @@ export interface HarmonicContext {
   scaleDegree: number;
 
   confidence: number;
+
+  chordSize: 3 | 4;
+
+  harmonicFunction: 'tonic' | 'predominant' | 'dominant' | 'other';
 }
 
 interface ActiveNote {
@@ -44,6 +48,10 @@ interface ChordCandidate {
   scaleDegree: number;
 
   score: number;
+
+  chordSize: 3 | 4;
+
+  harmonicFunction: 'tonic' | 'predominant' | 'dominant' | 'other';
 }
 
 const EPSILON = 0.000001;
@@ -57,7 +65,15 @@ export function analyzeHarmonicContexts(score: ScoreDocument): HarmonicContext[]
     (left, right) => left - right,
   );
 
-  return positions.map((absoluteBeat) => analyzePosition(score, notes, absoluteBeat));
+  const contexts: HarmonicContext[] = [];
+
+  positions.forEach((absoluteBeat) => {
+    const previous = contexts.length ? (contexts[contexts.length - 1] ?? null) : null;
+
+    contexts.push(analyzePosition(score, notes, absoluteBeat, previous));
+  });
+
+  return contexts;
 }
 
 export function harmonicContextAtBeat(
@@ -119,6 +135,7 @@ function analyzePosition(
   score: ScoreDocument,
   notes: ActiveNote[],
   absoluteBeat: number,
+  previousContext: HarmonicContext | null,
 ): HarmonicContext {
   const activeNotes = notes.filter(
     (note) => note.absoluteBeat <= absoluteBeat + EPSILON && note.endBeat > absoluteBeat + EPSILON,
@@ -138,7 +155,16 @@ function analyzePosition(
 
   const keySignature = keySignatureAtBeat(score, absoluteBeat);
 
-  const candidate = chooseChordCandidate(pitchClasses, bassNote?.pitchClass ?? null, keySignature);
+  const candidates = buildChordCandidates(
+    pitchClasses,
+    bassNote?.pitchClass ?? null,
+    keySignature,
+    previousContext,
+  );
+
+  const candidate = candidates[0] ?? fallbackChordCandidate(keySignature);
+
+  const runnerUp = candidates[1] ?? null;
 
   const measureNumber =
     consideredNotes[0]?.measureNumber ?? measureNumberAtBeat(score, absoluteBeat);
@@ -158,80 +184,224 @@ function analyzePosition(
 
     scaleDegree: candidate.scaleDegree,
 
-    confidence: calculateConfidence(candidate, pitchClasses),
+    confidence: calculateConfidence(candidate, runnerUp, pitchClasses),
+
+    chordSize: candidate.chordSize,
+
+    harmonicFunction: candidate.harmonicFunction,
   };
 }
 
-function chooseChordCandidate(
+function buildChordCandidates(
   activePitchClasses: number[],
   bassPitchClass: number | null,
   keySignature: ScoreKeySignature,
-): ChordCandidate {
+  previousContext: HarmonicContext | null,
+): ChordCandidate[] {
   const scale = getScalePitchClasses(keySignature.rootNote, keySignature.scaleMode);
 
-  const candidates = scale.map((root, scaleDegree) => {
-    const chordPitchClasses = buildDiatonicTriad(scale, scaleDegree);
+  const candidates: ChordCandidate[] = [];
 
-    let score = 0;
+  scale.forEach((root, scaleDegree) => {
+    candidates.push(
+      scoreChordCandidate(
+        buildDiatonicTriad(scale, scaleDegree),
+        root,
+        scaleDegree,
+        3,
+        harmonicFunctionForDegree(scaleDegree),
+        activePitchClasses,
+        bassPitchClass,
+        scale,
+        previousContext,
+      ),
+    );
 
-    activePitchClasses.forEach((pitchClass) => {
-      if (chordPitchClasses.includes(pitchClass)) {
-        score += 4;
-      } else if (scale.includes(pitchClass)) {
-        score -= 0.6;
-      } else {
-        score -= 1.6;
-      }
-    });
-
-    if (activePitchClasses.includes(root)) {
-      score += 1.8;
-    }
-
-    if (bassPitchClass !== null) {
-      if (bassPitchClass === root) {
-        score += 3.2;
-      } else if (chordPitchClasses.includes(bassPitchClass)) {
-        score += 1.1;
-      }
-    }
-
-    const matchingNotes = chordPitchClasses.filter((pitchClass) =>
-      activePitchClasses.includes(pitchClass),
-    ).length;
-
-    if (matchingNotes >= 2) {
-      score += 1.5;
-    }
-
-    if (matchingNotes === 3) {
-      score += 2.5;
-    }
-
-    return {
-      root,
-
-      pitchClasses: chordPitchClasses,
-
-      scaleDegree,
-
-      score,
-    };
+    candidates.push(
+      scoreChordCandidate(
+        buildDiatonicSeventh(scale, scaleDegree),
+        root,
+        scaleDegree,
+        4,
+        harmonicFunctionForDegree(scaleDegree),
+        activePitchClasses,
+        bassPitchClass,
+        scale,
+        previousContext,
+      ),
+    );
   });
 
-  candidates.sort((left, right) => right.score - left.score);
+  if (keySignature.scaleMode === 'minor') {
+    const tonic = normalizePitchClass(keySignature.rootNote);
 
-  return (
-    candidates[0] ?? {
-      root: normalizePitchClass(keySignature.rootNote),
+    const dominantRoot = normalizePitchClass(tonic + 7);
 
-      pitchClasses: buildDiatonicTriad(scale, 0),
+    const leadingTone = normalizePitchClass(tonic + 11);
 
-      scaleDegree: 0,
+    candidates.push(
+      scoreChordCandidate(
+        [
+          dominantRoot,
+          normalizePitchClass(dominantRoot + 4),
+          normalizePitchClass(dominantRoot + 7),
+        ],
+        dominantRoot,
+        4,
+        3,
+        'dominant',
+        activePitchClasses,
+        bassPitchClass,
+        scale,
+        previousContext,
+      ),
+    );
 
-      score: 0,
+    candidates.push(
+      scoreChordCandidate(
+        [
+          dominantRoot,
+          normalizePitchClass(dominantRoot + 4),
+          normalizePitchClass(dominantRoot + 7),
+          normalizePitchClass(dominantRoot + 10),
+        ],
+        dominantRoot,
+        4,
+        4,
+        'dominant',
+        activePitchClasses,
+        bassPitchClass,
+        scale,
+        previousContext,
+      ),
+    );
+
+    candidates.push(
+      scoreChordCandidate(
+        [leadingTone, normalizePitchClass(leadingTone + 3), normalizePitchClass(leadingTone + 6)],
+        leadingTone,
+        6,
+        3,
+        'dominant',
+        activePitchClasses,
+        bassPitchClass,
+        scale,
+        previousContext,
+      ),
+    );
+  }
+
+  return candidates.sort((left, right) => right.score - left.score);
+}
+
+function scoreChordCandidate(
+  chordPitchClasses: number[],
+  root: number,
+  scaleDegree: number,
+  chordSize: 3 | 4,
+  harmonicFunction: 'tonic' | 'predominant' | 'dominant' | 'other',
+  activePitchClasses: number[],
+  bassPitchClass: number | null,
+  scale: number[],
+  previousContext: HarmonicContext | null,
+): ChordCandidate {
+  let score = 0;
+
+  activePitchClasses.forEach((pitchClass) => {
+    if (chordPitchClasses.includes(pitchClass)) {
+      score += 4.3;
+    } else if (scale.includes(pitchClass)) {
+      score -= 0.55;
+    } else {
+      score -= 1.8;
     }
-  );
+  });
+
+  const matchingNotes = chordPitchClasses.filter((pitchClass) =>
+    activePitchClasses.includes(pitchClass),
+  ).length;
+
+  if (activePitchClasses.includes(root)) {
+    score += 2;
+  }
+
+  if (bassPitchClass !== null) {
+    if (bassPitchClass === root) {
+      score += 3.5;
+    } else if (chordPitchClasses.includes(bassPitchClass)) {
+      score += 1.25;
+    } else {
+      score -= 0.8;
+    }
+  }
+
+  if (matchingNotes >= 2) {
+    score += 1.6;
+  }
+
+  if (matchingNotes >= 3) {
+    score += 2.6;
+  }
+
+  if (chordSize === 4 && matchingNotes < 3) {
+    score -= 0.6;
+  }
+
+  if (chordSize === 4 && matchingNotes === 4) {
+    score += 1.5;
+  }
+
+  if (previousContext) {
+    if (previousContext.chordRoot === root) {
+      score += 0.85;
+    }
+
+    const rootMotion = pitchClassDistance(previousContext.chordRoot, root);
+
+    if (rootMotion === 5) {
+      score += 0.5;
+    }
+
+    if (previousContext.harmonicFunction === 'dominant' && harmonicFunction === 'tonic') {
+      score += 1.15;
+    }
+
+    if (previousContext.harmonicFunction === 'predominant' && harmonicFunction === 'dominant') {
+      score += 0.75;
+    }
+  }
+
+  return {
+    root,
+
+    pitchClasses: Array.from(new Set(chordPitchClasses.map(normalizePitchClass))),
+
+    scaleDegree,
+
+    score,
+
+    chordSize,
+
+    harmonicFunction,
+  };
+}
+
+function fallbackChordCandidate(keySignature: ScoreKeySignature): ChordCandidate {
+  const scale = getScalePitchClasses(keySignature.rootNote, keySignature.scaleMode);
+
+  return {
+    root: normalizePitchClass(keySignature.rootNote),
+
+    pitchClasses: buildDiatonicTriad(scale, 0),
+
+    scaleDegree: 0,
+
+    score: 0,
+
+    chordSize: 3,
+
+    harmonicFunction: 'tonic',
+  };
 }
 
 function buildDiatonicTriad(scale: number[], rootIndex: number): number[] {
@@ -244,7 +414,15 @@ function buildDiatonicTriad(scale: number[], rootIndex: number): number[] {
   ];
 }
 
-function calculateConfidence(candidate: ChordCandidate, activePitchClasses: number[]): number {
+function buildDiatonicSeventh(scale: number[], rootIndex: number): number[] {
+  return [...buildDiatonicTriad(scale, rootIndex), scale[wrapIndex(rootIndex + 6, scale.length)]!];
+}
+
+function calculateConfidence(
+  candidate: ChordCandidate,
+  runnerUp: ChordCandidate | null,
+  activePitchClasses: number[],
+): number {
   if (!activePitchClasses.length) {
     return 0;
   }
@@ -253,7 +431,13 @@ function calculateConfidence(candidate: ChordCandidate, activePitchClasses: numb
     candidate.pitchClasses.includes(pitchClass),
   ).length;
 
-  return clamp(matches / activePitchClasses.length, 0, 1);
+  const coverage = matches / activePitchClasses.length;
+
+  const margin = runnerUp ? Math.max(0, candidate.score - runnerUp.score) : 2;
+
+  const marginConfidence = clamp(margin / 5, 0, 1);
+
+  return clamp(coverage * 0.78 + marginConfidence * 0.22, 0, 1);
 }
 
 function collectNotes(parts: ScorePart[]): ActiveNote[] {
@@ -368,6 +552,24 @@ function getScalePitchClasses(rootNote: number, mode: ScoreScaleMode): number[] 
   const intervals = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
 
   return intervals.map((interval) => normalizePitchClass(rootNote + interval));
+}
+
+function harmonicFunctionForDegree(
+  scaleDegree: number,
+): 'tonic' | 'predominant' | 'dominant' | 'other' {
+  if (scaleDegree === 0 || scaleDegree === 2 || scaleDegree === 5) {
+    return 'tonic';
+  }
+
+  if (scaleDegree === 1 || scaleDegree === 3) {
+    return 'predominant';
+  }
+
+  if (scaleDegree === 4 || scaleDegree === 6) {
+    return 'dominant';
+  }
+
+  return 'other';
 }
 
 function pitchClassDistance(left: number, right: number): number {
