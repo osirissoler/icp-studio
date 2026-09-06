@@ -4,35 +4,42 @@
       <div>
         <span> VOCES ORIGINALES </span>
 
-        <strong> Mezclador de partes de la partitura </strong>
+        <strong> Mezclador de la partitura </strong>
 
         <small>
-          Selecciona una o varias voces escritas en el MusicXML y escúchalas juntas exactamente como
-          fueron importadas.
+          Selecciona las voces originales, controla el volumen de cada una y utiliza Solo o Mute
+          para estudiar cualquier combinación.
         </small>
       </div>
 
       <div class="part-count">
-        <q-icon name="groups" />
+        <q-icon name="tune" />
 
-        <strong>{{ parts.length }}</strong>
+        <strong>
+          {{ parts.length }}
+        </strong>
 
         <span>
-          {{ parts.length === 1 ? 'parte' : 'partes' }}
+          {{ parts.length === 1 ? 'canal' : 'canales' }}
         </span>
       </div>
     </header>
 
     <div class="mixer-toolbar">
       <div class="selection-info">
-        <q-icon name="checklist" />
+        <q-icon name="graphic_eq" />
 
-        <span>
-          {{ selectedIds.length }}
-          de
-          {{ parts.length }}
-          seleccionadas
-        </span>
+        <div>
+          <span>
+            {{ audibleCount }}
+            audibles
+          </span>
+
+          <small>
+            {{ selectedIds.length }}
+            seleccionadas
+          </small>
+        </div>
       </div>
 
       <div class="selection-actions">
@@ -41,7 +48,7 @@
           dense
           no-caps
           icon="done_all"
-          label="Seleccionar todas"
+          label="Todas"
           :disable="disabled || allSelected"
           @click="selectAll"
         />
@@ -51,57 +58,155 @@
           dense
           no-caps
           icon="remove_done"
-          label="Quitar todas"
+          label="Ninguna"
           :disable="disabled || !selectedIds.length"
           @click="clearAll"
+        />
+
+        <q-btn
+          flat
+          dense
+          no-caps
+          icon="restart_alt"
+          label="Restablecer mezcla"
+          :disable="disabled"
+          @click="resetMixer"
         />
       </div>
     </div>
 
-    <div class="parts-grid">
-      <button
+    <div v-if="hasSolo" class="solo-notice">
+      <q-icon name="headphones" />
+
+      <span>
+        Hay uno o más canales en
+        <strong>Solo</strong>. Durante la reproducción solo se escucharán esos canales.
+      </span>
+    </div>
+
+    <div class="channels-grid">
+      <article
         v-for="part in parts"
         :key="part.id"
-        type="button"
-        class="part-card"
+        class="channel-card"
         :class="{
           selected: isSelected(part.id),
+          muted: channel(part.id).muted,
+          solo: channel(part.id).solo,
         }"
-        :disabled="disabled"
-        @click="togglePart(part.id)"
       >
-        <div class="part-check">
-          <q-icon :name="isSelected(part.id) ? 'check_circle' : 'radio_button_unchecked'" />
+        <header class="channel-header">
+          <button
+            type="button"
+            class="channel-selector"
+            :disabled="disabled"
+            @click="togglePart(part.id)"
+          >
+            <q-icon :name="isSelected(part.id) ? 'check_circle' : 'radio_button_unchecked'" />
+
+            <div>
+              <span>
+                {{ part.abbreviation || 'VOZ' }}
+              </span>
+
+              <strong>
+                {{ part.name }}
+              </strong>
+
+              <small>
+                {{ clefLabel(part) }}
+                ·
+                {{ noteCount(part) }}
+                notas
+              </small>
+            </div>
+          </button>
+
+          <q-icon name="piano" class="piano-icon" />
+        </header>
+
+        <section class="channel-volume">
+          <div class="volume-heading">
+            <span> VOLUMEN </span>
+
+            <strong> {{ channel(part.id).volume }}% </strong>
+          </div>
+
+          <q-slider
+            :model-value="channel(part.id).volume"
+            :min="0"
+            :max="100"
+            :step="1"
+            color="cyan-4"
+            track-color="blue-grey-9"
+            :disable="disabled"
+            @update:model-value="setVolume(part.id, $event)"
+          />
+        </section>
+
+        <div class="channel-controls">
+          <q-btn
+            unelevated
+            no-caps
+            dense
+            icon="headphones"
+            label="Solo"
+            class="solo-button"
+            :class="{
+              active: channel(part.id).solo,
+            }"
+            :disable="disabled"
+            @click="toggleSolo(part.id)"
+          />
+
+          <q-btn
+            unelevated
+            no-caps
+            dense
+            :icon="channel(part.id).muted ? 'volume_off' : 'volume_up'"
+            :label="channel(part.id).muted ? 'Muted' : 'Mute'"
+            class="mute-button"
+            :class="{
+              active: channel(part.id).muted,
+            }"
+            :disable="disabled"
+            @click="toggleMute(part.id)"
+          />
+
+          <q-btn
+            flat
+            round
+            dense
+            icon="restart_alt"
+            class="channel-reset"
+            :disable="disabled"
+            @click="resetChannel(part.id)"
+          >
+            <q-tooltip> Restablecer este canal </q-tooltip>
+          </q-btn>
         </div>
 
-        <div class="part-content">
-          <span>
-            {{ part.abbreviation || 'VOZ' }}
+        <div class="channel-state">
+          <span v-if="channel(part.id).solo" class="solo-state"> SOLO </span>
+
+          <span v-if="channel(part.id).muted" class="mute-state"> MUTE </span>
+
+          <span v-if="!channel(part.id).solo && !channel(part.id).muted" class="normal-state">
+            ACTIVO
           </span>
-
-          <strong>
-            {{ part.name }}
-          </strong>
-
-          <small>
-            {{ clefLabel(part) }}
-            ·
-            {{ noteCount(part) }}
-            notas
-          </small>
         </div>
-
-        <q-icon name="piano" class="piano-icon" />
-      </button>
+      </article>
     </div>
 
     <div class="mixer-footer">
       <div class="selected-description">
-        <span>SE ESCUCHARÁ</span>
+        <span> SE REPRODUCIRÁ </span>
 
         <strong>
           {{ selectedDescription }}
         </strong>
+
+        <small> Los faders, Solo y Mute se aplican automáticamente al motor de piano. </small>
       </div>
 
       <div class="playback-actions">
@@ -109,10 +214,10 @@
           unelevated
           no-caps
           icon="play_arrow"
-          :label="playing ? 'Reproduciendo selección' : 'Reproducir seleccionadas'"
+          :label="playing ? 'Reproduciendo mezcla' : 'Reproducir mezcla'"
           class="play-button"
-          :disable="disabled || playing || !selectedIds.length"
-          @click="$emit('play')"
+          :disable="disabled || playing || !selectedIds.length || !audibleCount"
+          @click="emit('play')"
         />
 
         <q-btn
@@ -122,7 +227,7 @@
           label="Detener"
           class="stop-button"
           :disable="!playing"
-          @click="$emit('stop')"
+          @click="emit('stop')"
         />
       </div>
     </div>
@@ -130,9 +235,12 @@
     <div v-if="playing" class="playing-indicator">
       <span class="playing-dot"></span>
 
-      <strong>Reproduciendo partes originales</strong>
+      <strong> Reproduciendo mezcla de voces originales </strong>
 
-      <small v-if="activeBeat !== null"> Beat {{ formatBeat(activeBeat) }} </small>
+      <small v-if="activeBeat !== null">
+        Beat
+        {{ formatBeat(activeBeat) }}
+      </small>
     </div>
   </section>
 </template>
@@ -142,23 +250,48 @@ import { computed } from 'vue';
 
 import type { ScorePart } from '../../shared/score';
 
+import {
+  resetScoreMixerChannel,
+  resetScoreMixerParts,
+  resolveScoreMixerChannels,
+  scoreMixerChannel,
+  scoreMixerHasSolo,
+  setScoreMixerVolume,
+  toggleScoreMixerMute,
+  toggleScoreMixerSolo,
+} from './score-mixer-store';
+
 const props = defineProps<{
   parts: ScorePart[];
+
   selectedIds: string[];
+
   disabled: boolean;
+
   playing: boolean;
+
   activeBeat: number | null;
 }>();
 
 const emit = defineEmits<{
   'update:selectedIds': [value: string[]];
+
   play: [];
+
   stop: [];
 }>();
 
 const allSelected = computed(
   () => props.parts.length > 0 && props.selectedIds.length === props.parts.length,
 );
+
+const selectedParts = computed(() =>
+  props.parts.filter((part) => props.selectedIds.includes(part.id)),
+);
+
+const audibleCount = computed(() => resolveScoreMixerChannels(selectedParts.value).length);
+
+const hasSolo = computed(() => scoreMixerHasSolo(selectedParts.value));
 
 const selectedDescription = computed(() => {
   if (!props.selectedIds.length) {
@@ -171,6 +304,10 @@ const selectedDescription = computed(() => {
 
   return names.join(' + ');
 });
+
+function channel(partId: string) {
+  return scoreMixerChannel(partId);
+}
 
 function isSelected(partId: string): boolean {
   return props.selectedIds.includes(partId);
@@ -202,6 +339,30 @@ function selectAll(): void {
 
 function clearAll(): void {
   emit('update:selectedIds', []);
+}
+
+function setVolume(partId: string, value: number | null): void {
+  if (value === null) {
+    return;
+  }
+
+  setScoreMixerVolume(partId, value);
+}
+
+function toggleMute(partId: string): void {
+  toggleScoreMixerMute(partId);
+}
+
+function toggleSolo(partId: string): void {
+  toggleScoreMixerSolo(partId);
+}
+
+function resetChannel(partId: string): void {
+  resetScoreMixerChannel(partId);
+}
+
+function resetMixer(): void {
+  resetScoreMixerParts(props.parts);
 }
 
 function noteCount(part: ScorePart): number {
@@ -292,7 +453,7 @@ function formatBeat(value: number): string {
 
 .part-count {
   display: flex;
-  min-width: 80px;
+  min-width: 86px;
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -319,12 +480,12 @@ function formatBeat(value: number): string {
 
 .mixer-toolbar {
   display: flex;
-  min-height: 34px;
+  min-height: 38px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-top: 10px;
-  padding: 5px 7px;
+  padding: 6px 8px;
   background: #0a1723;
   border: 1px solid #1f3548;
   border-radius: 8px;
@@ -333,14 +494,27 @@ function formatBeat(value: number): string {
 .selection-info {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #8ba0b4;
+  gap: 7px;
+}
+
+.selection-info > .q-icon {
+  color: #22d3ee;
+  font-size: 18px;
+}
+
+.selection-info > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.selection-info span {
+  color: #a6bbc9;
   font-size: 8px;
 }
 
-.selection-info .q-icon {
-  color: #22d3ee;
-  font-size: 16px;
+.selection-info small {
+  color: #60788c;
+  font-size: 6px;
 }
 
 .selection-actions {
@@ -353,72 +527,102 @@ function formatBeat(value: number): string {
   font-size: 8px;
 }
 
-.parts-grid {
+.solo-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  color: #fde68a;
+  background: rgb(245 158 11 / 6%);
+  border: 1px solid rgb(245 158 11 / 18%);
+  border-radius: 7px;
+  font-size: 7px;
+}
+
+.solo-notice > .q-icon {
+  font-size: 15px;
+}
+
+.channels-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 7px;
   margin-top: 9px;
 }
 
-.part-card {
-  display: grid;
-  min-height: 68px;
-  grid-template-columns: 24px 1fr 20px;
-  align-items: center;
-  gap: 7px;
-  padding: 8px;
-  color: #8296aa;
-  text-align: left;
+.channel-card {
+  position: relative;
+  min-width: 0;
+  padding: 9px;
   background: #102030;
   border: 1px solid #294055;
   border-radius: 9px;
-  cursor: pointer;
   transition:
     border-color 120ms ease,
     background 120ms ease,
-    transform 120ms ease;
+    opacity 120ms ease;
 }
 
-.part-card:hover {
-  border-color: rgb(34 211 238 / 40%);
-  transform: translateY(-1px);
+.channel-card.selected {
+  border-color: rgb(34 211 238 / 45%);
 }
 
-.part-card.selected {
-  background: rgb(34 211 238 / 7%);
-  border-color: rgb(34 211 238 / 55%);
+.channel-card.solo {
+  background: rgb(245 158 11 / 5%);
+  border-color: rgb(245 158 11 / 48%);
 }
 
-.part-card:disabled {
+.channel-card.muted {
+  opacity: 0.68;
+}
+
+.channel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.channel-selector {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  grid-template-columns: 23px 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.channel-selector:disabled {
   cursor: default;
-  opacity: 0.55;
-  transform: none;
 }
 
-.part-check {
+.channel-selector > .q-icon {
   color: #526b80;
-  font-size: 19px;
+  font-size: 18px;
 }
 
-.part-card.selected .part-check {
+.channel-card.selected .channel-selector > .q-icon {
   color: #22d3ee;
 }
 
-.part-content {
+.channel-selector > div {
   display: flex;
   min-width: 0;
   flex-direction: column;
 }
 
-.part-content span {
-  overflow: hidden;
+.channel-selector span {
   color: #22d3ee;
   font-size: 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.part-content strong {
+.channel-selector strong {
   overflow: hidden;
   color: #d9e5f0;
   font-size: 9px;
@@ -426,9 +630,9 @@ function formatBeat(value: number): string {
   white-space: nowrap;
 }
 
-.part-content small {
+.channel-selector small {
   overflow: hidden;
-  margin-top: 2px;
+  margin-top: 1px;
   color: #61778c;
   font-size: 6px;
   text-overflow: ellipsis;
@@ -440,8 +644,87 @@ function formatBeat(value: number): string {
   font-size: 18px;
 }
 
-.part-card.selected .piano-icon {
+.channel-volume {
+  margin-top: 9px;
+  padding: 6px 7px 2px;
+  background: #0b1824;
+  border-radius: 7px;
+}
+
+.volume-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.volume-heading span {
+  color: #60798d;
+  font-size: 5px;
+}
+
+.volume-heading strong {
+  color: #9bdde6;
+  font-size: 7px;
+}
+
+.channel-volume :deep(.q-slider) {
+  margin-top: -1px;
+}
+
+.channel-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 30px;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.solo-button,
+.mute-button {
+  color: #8095a8;
+  background: #122333;
+  border-radius: 6px;
+}
+
+.solo-button.active {
+  color: #fde68a;
+  background: rgb(245 158 11 / 14%);
+}
+
+.mute-button.active {
+  color: #fda4af;
+  background: rgb(244 63 94 / 11%);
+}
+
+.channel-reset {
+  color: #6f8497;
+}
+
+.channel-state {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.channel-state span {
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 5px;
+  font-weight: 700;
+}
+
+.solo-state {
+  color: #fde68a;
+  background: rgb(245 158 11 / 10%);
+}
+
+.mute-state {
+  color: #fda4af;
+  background: rgb(244 63 94 / 9%);
+}
+
+.normal-state {
   color: #67e8f9;
+  background: rgb(34 211 238 / 7%);
 }
 
 .mixer-footer {
@@ -449,7 +732,7 @@ function formatBeat(value: number): string {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 9px;
+  margin-top: 10px;
   padding-top: 9px;
   border-top: 1px solid #1f3548;
 }
@@ -472,6 +755,12 @@ function formatBeat(value: number): string {
   font-size: 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.selected-description small {
+  margin-top: 2px;
+  color: #60758a;
+  font-size: 6px;
 }
 
 .playback-actions {
@@ -520,8 +809,8 @@ function formatBeat(value: number): string {
   box-shadow: 0 0 8px rgb(34 211 238 / 55%);
 }
 
-@media (max-width: 1100px) {
-  .parts-grid {
+@media (max-width: 1200px) {
+  .channels-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -545,7 +834,7 @@ function formatBeat(value: number): string {
 }
 
 @media (max-width: 520px) {
-  .parts-grid {
+  .channels-grid {
     grid-template-columns: 1fr;
   }
 

@@ -2,6 +2,8 @@ import { scorePartToTimeline, type ScoreDocument, type ScorePart } from '../../s
 
 import type { ScoreHarmonyRow, ScoreVoiceId } from './score-harmony-engine';
 
+import { mixerVolumeFactor, resolveScoreMixerChannels } from './score-mixer-store';
+
 export interface PianoPlaybackCallbacks {
   onNoteChange?: (index: number | null) => void;
 
@@ -164,14 +166,30 @@ export class ScorePianoPlayer {
       return;
     }
 
-    const timelines = parts.map((part) => ({
+    const channels = resolveScoreMixerChannels(parts);
+
+    if (!channels.length) {
+      callbacks.onPositionChange?.(null);
+
+      callbacks.onFinish?.();
+
+      return;
+    }
+
+    const timelines = channels.map(({ part, settings }) => ({
       part,
+
+      settings,
+
       notes: scorePartToTimeline(score, part),
     }));
 
-    const allNotes = timelines.flatMap(({ part, notes }) =>
+    const allNotes = timelines.flatMap(({ part, settings, notes }) =>
       notes.map((note) => ({
         partId: part.id,
+
+        settings,
+
         note,
       })),
     );
@@ -188,13 +206,19 @@ export class ScorePianoPlayer {
 
     const firstStart = Math.min(...allNotes.map(({ note }) => note.startMs));
 
-    const selectedPartCount = Math.max(1, parts.length);
+    const activePartCount = Math.max(1, channels.length);
 
-    const partVolume = Math.min(0.15, 0.2 / Math.sqrt(selectedPartCount));
+    /*
+     * Conservamos la normalización automática
+     * para evitar saturación cuando suenan muchas
+     * voces, pero cada canal multiplica ese nivel
+     * por su propio fader de 0 a 100.
+     */
+    const normalizedBaseVolume = Math.min(0.15, 0.2 / Math.sqrt(activePartCount));
 
     const beatTimers = new Set<number>();
 
-    allNotes.forEach(({ note }) => {
+    allNotes.forEach(({ settings, note }) => {
       const relativeStart = Math.max(0, note.startMs - firstStart);
 
       const beatKey = Math.round(note.absoluteBeat * 1000);
@@ -210,12 +234,18 @@ export class ScorePianoPlayer {
           callbacks.onPositionChange?.(note.absoluteBeat);
         }
 
+        const volume = normalizedBaseVolume * mixerVolumeFactor(settings.volume);
+
+        if (volume <= 0) {
+          return;
+        }
+
         this.createPianoTone(
           context,
           midiToFrequency(note.midi),
           context.currentTime + 0.015,
           Math.max(0.08, note.durationMs / 1000),
-          partVolume,
+          volume,
         );
       });
     });
@@ -329,17 +359,23 @@ export class ScorePianoPlayer {
     const partials = [
       {
         multiplier: 1,
+
         volume: 1,
+
         type: 'triangle' as OscillatorType,
       },
       {
         multiplier: 2,
+
         volume: 0.22,
+
         type: 'sine' as OscillatorType,
       },
       {
         multiplier: 3,
+
         volume: 0.07,
+
         type: 'sine' as OscillatorType,
       },
     ];

@@ -10,8 +10,8 @@
         </strong>
 
         <small>
-          Cada voz funciona de forma independiente. Puedes escucharla, editarla, regenerarla o
-          eliminarla sin modificar las voces originales.
+          Cada voz es independiente. Además de editarla o regenerarla, ahora tiene su propio canal
+          con volumen, Solo y Mute.
         </small>
       </div>
 
@@ -19,6 +19,15 @@
         <q-icon name="auto_awesome" />
       </div>
     </header>
+
+    <div v-if="generatedHasSolo" class="solo-notice">
+      <q-icon name="headphones" />
+
+      <span>
+        Hay voces generadas en
+        <strong>Solo</strong>. En una mezcla conjunta tendrán prioridad sobre los demás canales.
+      </span>
+    </div>
 
     <div class="voice-grid">
       <article
@@ -29,6 +38,8 @@
           selected: selectedIds.includes(part.id),
           playing: playingPartId === part.id,
           editing: editingPartId === part.id,
+          muted: mixerChannel(part.id).muted,
+          solo: mixerChannel(part.id).solo,
         }"
       >
         <div class="voice-card-top">
@@ -51,7 +62,10 @@
                 {{ part.name }}
               </strong>
 
-              <small> Basada en {{ sourcePartName(part.generatedFromPartId) }} </small>
+              <small>
+                Basada en
+                {{ sourcePartName(part.generatedFromPartId) }}
+              </small>
             </div>
           </button>
 
@@ -86,6 +100,67 @@
             </strong>
           </div>
         </div>
+
+        <section class="mixer-channel">
+          <div class="volume-heading">
+            <span> VOLUMEN </span>
+
+            <strong> {{ mixerChannel(part.id).volume }}% </strong>
+          </div>
+
+          <q-slider
+            :model-value="mixerChannel(part.id).volume"
+            :min="0"
+            :max="100"
+            :step="1"
+            color="deep-purple-3"
+            track-color="blue-grey-9"
+            :disable="disabled"
+            @update:model-value="updateVolume(part.id, $event)"
+          />
+
+          <div class="mixer-buttons">
+            <q-btn
+              unelevated
+              dense
+              no-caps
+              icon="headphones"
+              label="Solo"
+              class="solo-button"
+              :class="{
+                active: mixerChannel(part.id).solo,
+              }"
+              :disable="disabled"
+              @click="toggleSolo(part.id)"
+            />
+
+            <q-btn
+              unelevated
+              dense
+              no-caps
+              :icon="mixerChannel(part.id).muted ? 'volume_off' : 'volume_up'"
+              :label="mixerChannel(part.id).muted ? 'Muted' : 'Mute'"
+              class="mute-button"
+              :class="{
+                active: mixerChannel(part.id).muted,
+              }"
+              :disable="disabled"
+              @click="toggleMute(part.id)"
+            />
+
+            <q-btn
+              flat
+              round
+              dense
+              icon="restart_alt"
+              class="reset-mix-button"
+              :disable="disabled"
+              @click="resetMix(part.id)"
+            >
+              <q-tooltip> Restablecer canal </q-tooltip>
+            </q-btn>
+          </div>
+        </section>
 
         <div class="voice-actions">
           <q-btn
@@ -128,9 +203,9 @@
             icon="delete_outline"
             class="delete-button"
             :disable="disabled"
-            @click="emit('delete', part.id)"
+            @click="deletePart(part.id)"
           >
-            <q-tooltip>Eliminar voz</q-tooltip>
+            <q-tooltip> Eliminar voz </q-tooltip>
           </q-btn>
         </div>
       </article>
@@ -234,9 +309,14 @@
         <q-icon name="piano" />
 
         <div>
-          <span>RANGO ACTUAL</span>
+          <span> RANGO ACTUAL </span>
 
-          <strong> MIDI {{ draft.minMidi }} → {{ draft.maxMidi }} </strong>
+          <strong>
+            MIDI
+            {{ draft.minMidi }}
+            →
+            {{ draft.maxMidi }}
+          </strong>
         </div>
       </div>
 
@@ -275,8 +355,18 @@
           {{ selectedIds.length === 1 ? 'seleccionada' : 'seleccionadas' }}
         </span>
 
-        <small> Puedes combinar cualquier cantidad de voces. </small>
+        <small> La reproducción respeta volumen, Solo y Mute de cada canal. </small>
       </div>
+
+      <q-btn
+        flat
+        no-caps
+        icon="restart_alt"
+        label="Restablecer mezcla"
+        class="reset-all-button"
+        :disable="disabled"
+        @click="resetAllMix"
+      />
 
       <q-btn
         v-if="playing"
@@ -311,6 +401,17 @@ import type {
   GeneratedVoicePlacement,
   GeneratedVoiceRequest,
 } from './generated-voice-engine';
+
+import {
+  removeScoreMixerChannel,
+  resetScoreMixerChannel,
+  resetScoreMixerParts,
+  scoreMixerChannel,
+  scoreMixerHasSolo,
+  setScoreMixerVolume,
+  toggleScoreMixerMute,
+  toggleScoreMixerSolo,
+} from './score-mixer-store';
 
 interface VoiceDraft {
   id: string;
@@ -361,22 +462,27 @@ const draft = ref<VoiceDraft | null>(null);
 const voiceTypeOptions = [
   {
     label: 'Segunda',
+
     value: 'second' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Tenor',
+
     value: 'tenor' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Barítono',
+
     value: 'baritone' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Bajo',
+
     value: 'bass' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Personalizada',
+
     value: 'custom' satisfies GeneratedVoiceKind,
   },
 ];
@@ -384,10 +490,12 @@ const voiceTypeOptions = [
 const placementOptions = [
   {
     label: 'Arriba',
+
     value: 'above' satisfies GeneratedVoicePlacement,
   },
   {
     label: 'Abajo',
+
     value: 'below' satisfies GeneratedVoicePlacement,
   },
 ];
@@ -407,6 +515,36 @@ const rangeError = computed(() => {
     draft.value.minMidi >= draft.value.maxMidi
   );
 });
+
+const generatedHasSolo = computed(() => scoreMixerHasSolo(props.parts));
+
+function mixerChannel(partId: string) {
+  return scoreMixerChannel(partId);
+}
+
+function updateVolume(partId: string, value: number | null): void {
+  if (value === null) {
+    return;
+  }
+
+  setScoreMixerVolume(partId, value);
+}
+
+function toggleMute(partId: string): void {
+  toggleScoreMixerMute(partId);
+}
+
+function toggleSolo(partId: string): void {
+  toggleScoreMixerSolo(partId);
+}
+
+function resetMix(partId: string): void {
+  resetScoreMixerChannel(partId);
+}
+
+function resetAllMix(): void {
+  resetScoreMixerParts(props.parts);
+}
 
 function toggleSelected(partId: string): void {
   if (props.selectedIds.includes(partId)) {
@@ -487,6 +625,12 @@ function regeneratePart(part: ScorePart): void {
   emit('regenerate', part.id, requestFromPart(part));
 }
 
+function deletePart(partId: string): void {
+  removeScoreMixerChannel(partId);
+
+  emit('delete', partId);
+}
+
 function requestFromPart(part: ScorePart): GeneratedVoiceRequest {
   const config = part.generatedVoiceConfig;
 
@@ -531,6 +675,7 @@ function requestFromPart(part: ScorePart): GeneratedVoiceRequest {
 
 function parseLegacyVoiceType(value: string | undefined): {
   kind: GeneratedVoiceKind;
+
   placement: GeneratedVoicePlacement;
 } {
   const [rawKind, rawPlacement] = (value ?? '').split(':');
@@ -604,16 +749,19 @@ function defaultRange(
   placement: GeneratedVoicePlacement,
 ): {
   minimum: number;
+
   maximum: number;
 } {
   if (kind === 'second') {
     return placement === 'above'
       ? {
           minimum: 55,
+
           maximum: 88,
         }
       : {
           minimum: 48,
+
           maximum: 79,
         };
   }
@@ -622,10 +770,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 52,
+
           maximum: 79,
         }
       : {
           minimum: 45,
+
           maximum: 74,
         };
   }
@@ -634,10 +784,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 48,
+
           maximum: 74,
         }
       : {
           minimum: 40,
+
           maximum: 69,
         };
   }
@@ -646,16 +798,19 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 43,
+
           maximum: 69,
         }
       : {
           minimum: 32,
+
           maximum: 60,
         };
   }
 
   return {
     minimum: 36,
+
     maximum: 88,
   };
 }
@@ -718,6 +873,19 @@ function defaultRange(
   font-size: 19px;
 }
 
+.solo-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 7px 9px;
+  color: #fde68a;
+  background: rgb(245 158 11 / 6%);
+  border: 1px solid rgb(245 158 11 / 18%);
+  border-radius: 7px;
+  font-size: 7px;
+}
+
 .voice-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -733,7 +901,8 @@ function defaultRange(
   border-radius: 9px;
   transition:
     border-color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .voice-card.selected {
@@ -747,6 +916,15 @@ function defaultRange(
 
 .voice-card.editing {
   border-color: #22d3ee;
+}
+
+.voice-card.solo {
+  background: rgb(245 158 11 / 4%);
+  border-color: rgb(245 158 11 / 40%);
+}
+
+.voice-card.muted {
+  opacity: 0.68;
 }
 
 .voice-card-top {
@@ -848,6 +1026,57 @@ function defaultRange(
   font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mixer-channel {
+  margin-top: 8px;
+  padding: 7px;
+  background: #0b1824;
+  border: 1px solid #21374a;
+  border-radius: 7px;
+}
+
+.volume-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.volume-heading span {
+  color: #69617e;
+  font-size: 5px;
+}
+
+.volume-heading strong {
+  color: #c4b5fd;
+  font-size: 7px;
+}
+
+.mixer-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 30px;
+  gap: 5px;
+}
+
+.solo-button,
+.mute-button {
+  color: #817c91;
+  background: #12202e;
+  border-radius: 6px;
+}
+
+.solo-button.active {
+  color: #fde68a;
+  background: rgb(245 158 11 / 13%);
+}
+
+.mute-button.active {
+  color: #fda4af;
+  background: rgb(244 63 94 / 10%);
+}
+
+.reset-mix-button {
+  color: #77899b;
 }
 
 .voice-actions {
@@ -1045,6 +1274,10 @@ function defaultRange(
 .stop-button {
   color: #aab9c7;
   border-radius: 8px;
+}
+
+.reset-all-button {
+  color: #958aad;
 }
 
 :global(.generated-manager-menu) {
