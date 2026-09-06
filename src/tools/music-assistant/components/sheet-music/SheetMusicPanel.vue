@@ -7,8 +7,8 @@
         <h2>Partitura a piano y armonías</h2>
 
         <p>
-          Importa MusicXML, PDF o imágenes. ICP Studio convierte la partitura a su modelo musical
-          interno y genera Principal, Segunda arriba, Segunda abajo, Tenor, Barítono y Bajo.
+          Importa una partitura, conserva sus voces originales y genera nuevas líneas adicionales
+          sin modificar lo escrito en el archivo.
         </p>
       </div>
 
@@ -17,7 +17,7 @@
 
         <div>
           <span>ETAPA ACTUAL</span>
-          <strong> MusicXML + OMR experimental </strong>
+          <strong> Partitura multiparte + generación </strong>
         </div>
       </div>
     </header>
@@ -34,7 +34,7 @@
           <strong> MusicXML / XML </strong>
 
           <small>
-            Lee directamente notas, compases, duraciones, silencios, tonalidad y tempo.
+            Lee partes, notas, compases, duraciones, silencios, tonalidad, claves y tempo.
           </small>
         </div>
 
@@ -62,7 +62,9 @@
     <div v-if="parseError" class="error-message">
       <q-icon name="error_outline" />
 
-      <span>{{ parseError }}</span>
+      <span>
+        {{ parseError }}
+      </span>
     </div>
 
     <template v-if="score">
@@ -86,10 +88,7 @@
         <div class="summary-grid">
           <div>
             <span>Tonalidad</span>
-
-            <strong>
-              {{ keyLabel }}
-            </strong>
+            <strong>{{ keyLabel }}</strong>
           </div>
 
           <div>
@@ -102,32 +101,22 @@
 
           <div>
             <span>Tempo</span>
-
-            <strong> {{ score.tempo }} BPM </strong>
+            <strong>{{ score.tempo }} BPM</strong>
           </div>
 
           <div>
-            <span>Compases</span>
-
-            <strong>
-              {{ score.measures.length }}
-            </strong>
+            <span>Originales</span>
+            <strong>{{ originalParts.length }}</strong>
           </div>
 
           <div>
-            <span>Notas</span>
-
-            <strong>
-              {{ timeline.length }}
-            </strong>
+            <span>Generadas</span>
+            <strong>{{ generatedParts.length }}</strong>
           </div>
 
           <div>
             <span>Duración</span>
-
-            <strong>
-              {{ durationLabel }}
-            </strong>
+            <strong>{{ durationLabel }}</strong>
           </div>
         </div>
       </section>
@@ -138,7 +127,7 @@
 
           <strong> {{ score.tempo }} BPM </strong>
 
-          <small> Los tiempos se recalculan automáticamente cuando cambias el tempo. </small>
+          <small> El mismo tempo se aplica a las voces originales y generadas. </small>
         </div>
 
         <div class="tempo-actions">
@@ -172,56 +161,224 @@
         </div>
       </section>
 
-      <section class="voice-section">
+      <ScorePartsMixer
+        v-if="originalParts.length"
+        :parts="originalParts"
+        :selected-ids="selectedOriginalPartIds"
+        :disabled="isPlaying"
+        :playing="playbackMode === 'originals'"
+        :active-beat="activeBeat"
+        @update:selected-ids="selectedOriginalPartIds = $event"
+        @play="playOriginalParts"
+        @stop="stopPlayback"
+      />
+
+      <section v-if="originalParts.length" class="timeline-section">
         <header>
           <div>
-            <span> REPRODUCCIÓN EN PIANO </span>
+            <span> PARTITURA ORIGINAL </span>
 
-            <strong> Principal y cinco líneas de armonía </strong>
+            <strong> Línea de tiempo de las voces originales </strong>
 
-            <small> Todas mantienen los tiempos del modelo musical interpretado. </small>
+            <small>
+              Estas notas vienen directamente del archivo importado y no son modificadas por ICP
+              Studio.
+            </small>
           </div>
 
-          <q-icon name="piano" />
+          <div v-if="playbackMode === 'originals'" class="playing-status">
+            <span></span>
+            Reproduciendo originales
+          </div>
         </header>
 
-        <div class="voice-grid">
-          <button
-            v-for="voice in voices"
-            :key="voice.id"
-            type="button"
-            class="voice-button"
-            :class="{
-              active: playingVoice === voice.id,
-            }"
-            :disabled="isPlaying"
-            @click="playVoice(voice.id)"
-          >
-            <q-icon :name="voice.icon" />
+        <div class="timeline-info">
+          <div>
+            <q-icon name="verified" />
 
-            <div>
-              <span>
-                {{ voice.shortLabel }}
-              </span>
+            <span>NOTAS</span>
 
-              <strong>
-                {{ voice.label }}
-              </strong>
-            </div>
+            <strong>
+              {{ originalNoteCount }}
+            </strong>
+          </div>
 
-            <q-icon name="play_arrow" class="play-icon" />
-          </button>
+          <div>
+            <q-icon name="groups" />
+
+            <span>VOCES</span>
+
+            <strong>
+              {{ originalParts.length }}
+            </strong>
+          </div>
+
+          <div>
+            <q-icon name="schedule" />
+
+            <span>POSICIONES</span>
+
+            <strong>
+              {{ originalTimelineRows.length }}
+            </strong>
+          </div>
         </div>
 
-        <div class="playback-actions">
+        <div class="table-wrapper">
+          <table class="score-table original-table">
+            <thead>
+              <tr>
+                <th class="measure-column">Compás</th>
+
+                <th class="beat-column">Beat</th>
+
+                <th v-for="part in originalParts" :key="part.id" class="part-column">
+                  <div class="part-heading">
+                    <span>
+                      {{ part.abbreviation || 'VOZ' }}
+                    </span>
+
+                    <strong>
+                      {{ part.name }}
+                    </strong>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr
+                v-for="row in originalTimelineRows"
+                :key="row.key"
+                :class="{
+                  active: isTimelineRowActive(row.absoluteBeat),
+                }"
+              >
+                <td class="measure-cell">
+                  {{ row.measureNumber }}
+                </td>
+
+                <td class="beat-cell">
+                  {{ formatBeat(row.startBeat) }}
+                </td>
+
+                <td v-for="part in originalParts" :key="part.id" class="original-note-cell">
+                  <div v-if="notesForPart(row, part.id).length" class="timeline-notes">
+                    <button
+                      v-for="note in notesForPart(row, part.id)"
+                      :key="note.id"
+                      type="button"
+                      class="timeline-note"
+                      :disabled="isPlaying"
+                      @click="playSingleNote(note)"
+                    >
+                      <strong>
+                        {{ noteLabel(note) }}
+                      </strong>
+
+                      <small> {{ formatBeat(note.durationBeats) }} t </small>
+                    </button>
+                  </div>
+
+                  <span v-else class="empty-note"> — </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <GeneratedVoiceBuilder
+        v-if="originalParts.length"
+        :parts="originalParts"
+        :source-part-id="generationSourcePartId"
+        :disabled="isPlaying"
+        @update:source-part-id="generationSourcePartId = $event"
+        @generate="handleGenerateVoices"
+      />
+
+      <section v-if="generatedParts.length" class="generated-section">
+        <header>
+          <div>
+            <span> VOCES GENERADAS </span>
+
+            <strong>
+              {{ generatedParts.length }}
+              {{ generatedParts.length === 1 ? 'voz adicional' : 'voces adicionales' }}
+            </strong>
+
+            <small>
+              Son partes nuevas de ICP Studio. Las voces originales permanecen intactas.
+            </small>
+          </div>
+
+          <q-icon name="auto_awesome" />
+        </header>
+
+        <div class="generated-parts-grid">
+          <article
+            v-for="part in generatedParts"
+            :key="part.id"
+            class="generated-part-card"
+            :class="{
+              selected: selectedGeneratedPartIds.includes(part.id),
+            }"
+          >
+            <button
+              type="button"
+              class="generated-part-selector"
+              :disabled="isPlaying"
+              @click="toggleGeneratedPart(part.id)"
+            >
+              <q-icon
+                :name="
+                  selectedGeneratedPartIds.includes(part.id)
+                    ? 'check_circle'
+                    : 'radio_button_unchecked'
+                "
+              />
+
+              <div>
+                <span>
+                  {{ part.abbreviation || 'GEN' }}
+                </span>
+
+                <strong>
+                  {{ part.name }}
+                </strong>
+
+                <small> Basada en {{ sourcePartName(part.generatedFromPartId) }} </small>
+              </div>
+            </button>
+
+            <q-btn
+              flat
+              round
+              dense
+              icon="delete_outline"
+              class="generated-delete"
+              :disable="isPlaying"
+              @click="removeGeneratedPart(part.id)"
+            />
+          </article>
+        </div>
+
+        <div class="generated-actions">
+          <div>
+            <span>
+              {{ selectedGeneratedPartIds.length }}
+              seleccionadas
+            </span>
+          </div>
+
           <q-btn
             unelevated
             no-caps
-            icon="groups"
-            :label="playbackMode === 'all' ? 'Reproduciendo todas' : 'Escuchar todas'"
-            class="all-button"
-            :disable="isPlaying || !harmonyRows.length"
-            @click="playAll"
+            icon="play_arrow"
+            label="Escuchar generadas"
+            class="generated-play-button"
+            :disable="isPlaying || !selectedGeneratedPartIds.length"
+            @click="playGeneratedParts"
           />
 
           <q-btn
@@ -236,63 +393,114 @@
         </div>
       </section>
 
-      <section class="timeline-section">
+      <section v-if="generatedParts.length" class="timeline-section generated-timeline-section">
         <header>
           <div>
-            <span> NOTAS Y ARMONÍAS INTERPRETADAS </span>
+            <span> VOCES GENERADAS </span>
 
-            <strong> Línea de tiempo musical </strong>
+            <strong> Línea de tiempo generada </strong>
 
-            <small> Cada fila representa una nota de la canción interpretada. </small>
+            <small>
+              Cada columna es una voz adicional creada a partir de la voz original seleccionada como
+              referencia.
+            </small>
           </div>
 
-          <div v-if="isPlaying" class="playing-status">
+          <div v-if="playbackMode === 'generated'" class="playing-status generated-status">
             <span></span>
-            Reproduciendo
+            Reproduciendo generadas
           </div>
         </header>
 
+        <div class="timeline-info">
+          <div>
+            <q-icon name="auto_awesome" />
+
+            <span>NOTAS GENERADAS</span>
+
+            <strong>
+              {{ generatedNoteCount }}
+            </strong>
+          </div>
+
+          <div>
+            <q-icon name="account_tree" />
+
+            <span>VOCES</span>
+
+            <strong>
+              {{ generatedParts.length }}
+            </strong>
+          </div>
+
+          <div>
+            <q-icon name="schedule" />
+
+            <span>POSICIONES</span>
+
+            <strong>
+              {{ generatedTimelineRows.length }}
+            </strong>
+          </div>
+        </div>
+
         <div class="table-wrapper">
-          <table class="score-table">
+          <table class="score-table generated-table">
             <thead>
               <tr>
-                <th>Compás</th>
-                <th>Beat</th>
-                <th>Duración</th>
-                <th>Principal</th>
-                <th>2ª ↑</th>
-                <th>2ª ↓</th>
-                <th>Tenor</th>
-                <th>Barítono</th>
-                <th>Bajo</th>
+                <th class="measure-column">Compás</th>
+
+                <th class="beat-column">Beat</th>
+
+                <th v-for="part in generatedParts" :key="part.id" class="part-column">
+                  <div class="part-heading generated-part-heading">
+                    <span>
+                      {{ part.abbreviation || 'GEN' }}
+                    </span>
+
+                    <strong>
+                      {{ part.name }}
+                    </strong>
+                  </div>
+                </th>
               </tr>
             </thead>
 
             <tbody>
               <tr
-                v-for="(row, index) in harmonyRows"
-                :key="row.source.id"
+                v-for="row in generatedTimelineRows"
+                :key="row.key"
                 :class="{
-                  active: activeNoteIndex === index,
+                  active: isTimelineRowActive(row.absoluteBeat),
                 }"
               >
-                <td>
-                  {{ row.source.measureNumber }}
+                <td class="measure-cell">
+                  {{ row.measureNumber }}
                 </td>
 
-                <td>
-                  {{ formatBeat(row.source.startBeat) }}
+                <td class="beat-cell">
+                  {{ formatBeat(row.startBeat) }}
                 </td>
 
-                <td>
-                  {{ formatBeat(row.source.durationBeats) }}
-                  t
-                </td>
+                <td v-for="part in generatedParts" :key="part.id" class="original-note-cell">
+                  <div v-if="notesForPart(row, part.id).length" class="timeline-notes">
+                    <button
+                      v-for="note in notesForPart(row, part.id)"
+                      :key="note.id"
+                      type="button"
+                      class="timeline-note generated-note"
+                      :disabled="isPlaying"
+                      @click="playSingleNote(note)"
+                    >
+                      <strong>
+                        {{ noteLabel(note) }}
+                      </strong>
 
-                <td v-for="voice in voices" :key="voice.id">
-                  <button type="button" class="note-cell" @click="playSingle(row, voice.id)">
-                    {{ voiceLabel(row, voice.id) }}
-                  </button>
+                      <small> {{ formatBeat(note.durationBeats) }} t </small>
+                    </button>
+                  </div>
+
+                  <span v-else class="empty-note"> — </span>
                 </td>
               </tr>
             </tbody>
@@ -300,33 +508,101 @@
         </div>
       </section>
 
+      <section v-if="generatedParts.length" class="combined-playback">
+        <header>
+          <div>
+            <span> MEZCLA COMPLETA </span>
+
+            <strong> Originales + generadas </strong>
+
+            <small> Reproduce simultáneamente las voces seleccionadas de ambos grupos. </small>
+          </div>
+
+          <q-icon name="groups" />
+        </header>
+
+        <div class="combined-summary">
+          <div>
+            <span>ORIGINALES</span>
+
+            <strong>
+              {{ selectedOriginalPartIds.length }}
+            </strong>
+          </div>
+
+          <q-icon name="add" />
+
+          <div>
+            <span>GENERADAS</span>
+
+            <strong>
+              {{ selectedGeneratedPartIds.length }}
+            </strong>
+          </div>
+
+          <q-icon name="drag_handle" />
+
+          <div>
+            <span>TOTAL</span>
+
+            <strong>
+              {{ combinedSelectedCount }}
+            </strong>
+          </div>
+        </div>
+
+        <q-btn
+          unelevated
+          no-caps
+          icon="groups"
+          :label="
+            playbackMode === 'combined' ? 'Reproduciendo combinación' : 'Escuchar combinación'
+          "
+          class="combined-button"
+          :disable="isPlaying || !combinedSelectedCount"
+          @click="playCombinedParts"
+        />
+      </section>
+
       <section class="process-summary">
         <article>
           <q-icon name="description" />
+
           <span>1</span>
-          <strong>Partitura</strong>
-          <small> MusicXML u OMR se convierten al mismo modelo musical. </small>
+
+          <strong>Originales</strong>
+
+          <small> Se conservan exactamente como fueron importadas. </small>
         </article>
 
         <article>
-          <q-icon name="schedule" />
+          <q-icon name="view_timeline" />
+
           <span>2</span>
-          <strong>Tiempo</strong>
-          <small> Cada nota conserva su duración y posición. </small>
+
+          <strong>Línea original</strong>
+
+          <small> Las notas reales pueden estudiarse parte por parte. </small>
         </article>
 
         <article>
-          <q-icon name="account_tree" />
+          <q-icon name="auto_awesome" />
+
           <span>3</span>
-          <strong>Armonización</strong>
-          <small> Se generan las cinco líneas adicionales. </small>
+
+          <strong>Generador</strong>
+
+          <small> Tú decides cuántas voces nuevas quieres crear. </small>
         </article>
 
         <article>
-          <q-icon name="piano" />
+          <q-icon name="groups" />
+
           <span>4</span>
-          <strong>Piano</strong>
-          <small> Cada voz puede escucharse sola o en conjunto. </small>
+
+          <strong>Mezcla</strong>
+
+          <small> Originales y generadas pueden escucharse juntas. </small>
         </article>
       </section>
     </template>
@@ -346,61 +622,39 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { notes } from '../../shared/music';
 
-import { scoreDurationMs, scoreToTimeline, type ScoreDocument } from '../../shared/score';
+import {
+  generatedScoreParts,
+  originalScoreParts,
+  scoreDurationMs,
+  scorePartToTimeline,
+  type ScoreDocument,
+  type ScorePart,
+  type ScoreTimelineNote,
+} from '../../shared/score';
+
+import GeneratedVoiceBuilder from './GeneratedVoiceBuilder.vue';
+
+import { generateScoreParts, type GeneratedVoiceRequest } from './generated-voice-engine';
 
 import OpticalScoreImporter from './optical-score/OpticalScoreImporter.vue';
 
-import { buildScoreHarmony, type ScoreHarmonyRow, type ScoreVoiceId } from './score-harmony-engine';
+import ScorePartsMixer from './ScorePartsMixer.vue';
 
 import { ScorePianoPlayer } from './score-piano-player';
 
 import { parseMusicXml } from './score-parser';
 
-interface VoiceDefinition {
-  id: ScoreVoiceId;
-  label: string;
-  shortLabel: string;
-  icon: string;
-}
+interface TimelineRow {
+  key: string;
 
-const voices: VoiceDefinition[] = [
-  {
-    id: 'principal',
-    label: 'Principal',
-    shortLabel: 'P',
-    icon: 'music_note',
-  },
-  {
-    id: 'second-up',
-    label: 'Segunda arriba',
-    shortLabel: '2ª ↑',
-    icon: 'north',
-  },
-  {
-    id: 'second-down',
-    label: 'Segunda abajo',
-    shortLabel: '2ª ↓',
-    icon: 'south',
-  },
-  {
-    id: 'tenor',
-    label: 'Tenor',
-    shortLabel: 'T',
-    icon: 'graphic_eq',
-  },
-  {
-    id: 'baritone',
-    label: 'Barítono',
-    shortLabel: 'Brt',
-    icon: 'equalizer',
-  },
-  {
-    id: 'bass',
-    label: 'Bajo',
-    shortLabel: 'B',
-    icon: 'volume_down',
-  },
-];
+  absoluteBeat: number;
+
+  measureNumber: number;
+
+  startBeat: number;
+
+  partNotes: Map<string, ScoreTimelineNote[]>;
+}
 
 const musicXmlInput = ref<HTMLInputElement | null>(null);
 
@@ -410,29 +664,77 @@ const parseError = ref('');
 
 const isPlaying = ref(false);
 
-const activeNoteIndex = ref<number | null>(null);
+const activeBeat = ref<number | null>(null);
 
-const playingVoice = ref<ScoreVoiceId | null>(null);
+const selectedOriginalPartIds = ref<string[]>([]);
 
-const playbackMode = ref<'voice' | 'all' | 'single' | null>(null);
+const selectedGeneratedPartIds = ref<string[]>([]);
+
+const generationSourcePartId = ref<string | null>(null);
+
+const playbackMode = ref<'originals' | 'generated' | 'combined' | 'single' | null>(null);
 
 const player = new ScorePianoPlayer();
 
-const timeline = computed(() => {
+const originalParts = computed(() => {
   if (!score.value) {
     return [];
   }
 
-  return scoreToTimeline(score.value);
+  return originalScoreParts(score.value);
 });
 
-const harmonyRows = computed(() => {
+const generatedParts = computed(() => {
   if (!score.value) {
     return [];
   }
 
-  return buildScoreHarmony(score.value, timeline.value);
+  return generatedScoreParts(score.value);
 });
+
+const originalPartTimelines = computed(() => {
+  if (!score.value) {
+    return [];
+  }
+
+  return originalParts.value.map((part) => ({
+    part,
+
+    timeline: scorePartToTimeline(score.value!, part),
+  }));
+});
+
+const generatedPartTimelines = computed(() => {
+  if (!score.value) {
+    return [];
+  }
+
+  return generatedParts.value.map((part) => ({
+    part,
+
+    timeline: scorePartToTimeline(score.value!, part),
+  }));
+});
+
+const originalTimelineRows = computed<TimelineRow[]>(() =>
+  buildTimelineRows(originalPartTimelines.value),
+);
+
+const generatedTimelineRows = computed<TimelineRow[]>(() =>
+  buildTimelineRows(generatedPartTimelines.value),
+);
+
+const originalNoteCount = computed(() =>
+  originalPartTimelines.value.reduce((total, item) => total + item.timeline.length, 0),
+);
+
+const generatedNoteCount = computed(() =>
+  generatedPartTimelines.value.reduce((total, item) => total + item.timeline.length, 0),
+);
+
+const combinedSelectedCount = computed(
+  () => selectedOriginalPartIds.value.length + selectedGeneratedPartIds.value.length,
+);
 
 const durationLabel = computed(() => {
   if (!score.value) {
@@ -477,9 +779,17 @@ async function handleMusicXmlSelection(event: Event): Promise<void> {
   try {
     const text = await file.text();
 
-    score.value = parseMusicXml(text, file.name);
+    const parsedScore = parseMusicXml(text, file.name);
+
+    loadScore(parsedScore);
   } catch (error) {
     score.value = null;
+
+    selectedOriginalPartIds.value = [];
+
+    selectedGeneratedPartIds.value = [];
+
+    generationSourcePartId.value = null;
 
     parseError.value =
       error instanceof Error ? error.message : 'No fue posible interpretar la partitura.';
@@ -491,7 +801,19 @@ function handleOpticalScoreDetected(detectedScore: ScoreDocument): void {
 
   parseError.value = '';
 
-  score.value = detectedScore;
+  loadScore(detectedScore);
+}
+
+function loadScore(newScore: ScoreDocument): void {
+  score.value = newScore;
+
+  const originals = originalScoreParts(newScore);
+
+  selectedOriginalPartIds.value = originals.map((part) => part.id);
+
+  selectedGeneratedPartIds.value = [];
+
+  generationSourcePartId.value = originals[0]?.id ?? null;
 }
 
 function changeTempo(change: number): void {
@@ -509,69 +831,155 @@ function setTempo(value: number | null): void {
 
   score.value = {
     ...score.value,
+
     tempo: Math.min(220, Math.max(30, Math.round(value))),
   };
 }
 
-async function playVoice(voiceId: ScoreVoiceId): Promise<void> {
-  if (!harmonyRows.value.length) {
+function handleGenerateVoices(sourcePartId: string, requests: GeneratedVoiceRequest[]): void {
+  if (!score.value) {
     return;
   }
 
-  isPlaying.value = true;
+  const sourcePart = originalParts.value.find((part) => part.id === sourcePartId);
 
-  playingVoice.value = voiceId;
-
-  playbackMode.value = 'voice';
-
-  await player.playVoice(harmonyRows.value, voiceId, {
-    onNoteChange(index) {
-      activeNoteIndex.value = index;
-    },
-    onFinish() {
-      finishPlayback();
-    },
-  });
-}
-
-async function playAll(): Promise<void> {
-  if (!harmonyRows.value.length) {
+  if (!sourcePart) {
     return;
   }
 
-  isPlaying.value = true;
+  const newParts = generateScoreParts(score.value, sourcePart, requests);
 
-  playingVoice.value = null;
+  const existingParts = score.value.parts ?? [];
 
-  playbackMode.value = 'all';
+  const generatedIds = new Set(newParts.map((part) => part.id));
 
-  await player.playAll(harmonyRows.value, {
-    onNoteChange(index) {
-      activeNoteIndex.value = index;
-    },
-    onFinish() {
-      finishPlayback();
-    },
-  });
+  const preservedParts = existingParts.filter((part) => !generatedIds.has(part.id));
+
+  score.value = {
+    ...score.value,
+
+    parts: [...preservedParts, ...newParts],
+  };
+
+  const newSelectedIds = newParts.map((part) => part.id);
+
+  selectedGeneratedPartIds.value = Array.from(
+    new Set([...selectedGeneratedPartIds.value, ...newSelectedIds]),
+  );
 }
 
-async function playSingle(row: ScoreHarmonyRow, voiceId: ScoreVoiceId): Promise<void> {
-  const voice = row.voices.find((candidate) => candidate.voiceId === voiceId);
+function removeGeneratedPart(partId: string): void {
+  if (!score.value) {
+    return;
+  }
 
-  if (!voice) {
+  score.value = {
+    ...score.value,
+
+    parts: score.value.parts?.filter((part) => part.id !== partId) ?? [],
+  };
+
+  selectedGeneratedPartIds.value = selectedGeneratedPartIds.value.filter((id) => id !== partId);
+}
+
+function toggleGeneratedPart(partId: string): void {
+  if (selectedGeneratedPartIds.value.includes(partId)) {
+    selectedGeneratedPartIds.value = selectedGeneratedPartIds.value.filter((id) => id !== partId);
+
+    return;
+  }
+
+  selectedGeneratedPartIds.value = [...selectedGeneratedPartIds.value, partId];
+}
+
+async function playOriginalParts(): Promise<void> {
+  if (!score.value) {
+    return;
+  }
+
+  const parts = originalParts.value.filter((part) =>
+    selectedOriginalPartIds.value.includes(part.id),
+  );
+
+  await playParts(parts, 'originals');
+}
+
+async function playGeneratedParts(): Promise<void> {
+  if (!score.value) {
+    return;
+  }
+
+  const parts = generatedParts.value.filter((part) =>
+    selectedGeneratedPartIds.value.includes(part.id),
+  );
+
+  await playParts(parts, 'generated');
+}
+
+async function playCombinedParts(): Promise<void> {
+  if (!score.value) {
+    return;
+  }
+
+  const originals = originalParts.value.filter((part) =>
+    selectedOriginalPartIds.value.includes(part.id),
+  );
+
+  const generated = generatedParts.value.filter((part) =>
+    selectedGeneratedPartIds.value.includes(part.id),
+  );
+
+  await playParts([...originals, ...generated], 'combined');
+}
+
+async function playParts(
+  parts: ScorePart[],
+  mode: 'originals' | 'generated' | 'combined',
+): Promise<void> {
+  if (!score.value || !parts.length) {
     return;
   }
 
   stopPlayback();
 
+  isPlaying.value = true;
+
+  activeBeat.value = null;
+
+  playbackMode.value = mode;
+
+  await player.playScoreParts(score.value, parts, {
+    onPositionChange(absoluteBeat) {
+      activeBeat.value = absoluteBeat;
+    },
+
+    onFinish() {
+      finishPlayback();
+    },
+  });
+}
+
+async function playSingleNote(note: ScoreTimelineNote): Promise<void> {
+  stopPlayback();
+
+  isPlaying.value = true;
+
+  activeBeat.value = note.absoluteBeat;
+
   playbackMode.value = 'single';
 
-  await player.playSingle(
-    voice.frequency,
-    Math.min(1.4, Math.max(0.35, row.source.durationMs / 1000)),
-  );
+  const durationSeconds = Math.min(1.8, Math.max(0.25, note.durationMs / 1000));
 
-  playbackMode.value = null;
+  await player.playMidi(note.midi, durationSeconds);
+
+  window.setTimeout(
+    () => {
+      if (playbackMode.value === 'single') {
+        finishPlayback();
+      }
+    },
+    durationSeconds * 1000 + 120,
+  );
 }
 
 function stopPlayback(): void {
@@ -583,23 +991,83 @@ function stopPlayback(): void {
 function finishPlayback(): void {
   isPlaying.value = false;
 
-  activeNoteIndex.value = null;
-
-  playingVoice.value = null;
+  activeBeat.value = null;
 
   playbackMode.value = null;
 }
 
-function voiceLabel(row: ScoreHarmonyRow, voiceId: ScoreVoiceId): string {
-  const voice = row.voices.find((candidate) => candidate.voiceId === voiceId);
+function buildTimelineRows(
+  timelines: {
+    part: ScorePart;
 
-  if (!voice) {
-    return '—';
+    timeline: ScoreTimelineNote[];
+  }[],
+): TimelineRow[] {
+  const rows = new Map<string, TimelineRow>();
+
+  timelines.forEach(({ part, timeline }) => {
+    timeline.forEach((note) => {
+      const key = timelinePositionKey(note.absoluteBeat);
+
+      let row = rows.get(key);
+
+      if (!row) {
+        row = {
+          key,
+
+          absoluteBeat: note.absoluteBeat,
+
+          measureNumber: note.measureNumber,
+
+          startBeat: note.startBeat,
+
+          partNotes: new Map<string, ScoreTimelineNote[]>(),
+        };
+
+        rows.set(key, row);
+      }
+
+      const partNotes = row.partNotes.get(part.id) ?? [];
+
+      partNotes.push(note);
+
+      partNotes.sort((left, right) => left.midi - right.midi);
+
+      row.partNotes.set(part.id, partNotes);
+    });
+  });
+
+  return Array.from(rows.values()).sort((left, right) => left.absoluteBeat - right.absoluteBeat);
+}
+
+function notesForPart(row: TimelineRow, partId: string): ScoreTimelineNote[] {
+  return row.partNotes.get(partId) ?? [];
+}
+
+function noteLabel(note: ScoreTimelineNote): string {
+  const definition = notes.find((candidate) => candidate.value === note.noteIndex) ?? notes[0]!;
+
+  return `${definition.label}${note.octave}`;
+}
+
+function isTimelineRowActive(absoluteBeat: number): boolean {
+  if (activeBeat.value === null) {
+    return false;
   }
 
-  const definition = notes.find((note) => note.value === voice.noteIndex) ?? notes[0]!;
+  return Math.abs(activeBeat.value - absoluteBeat) < 0.0001;
+}
 
-  return `${definition.label}${voice.octave}`;
+function sourcePartName(partId: string | undefined): string {
+  if (!partId) {
+    return 'voz original';
+  }
+
+  return originalParts.value.find((part) => part.id === partId)?.name ?? 'voz original';
+}
+
+function timelinePositionKey(absoluteBeat: number): string {
+  return absoluteBeat.toFixed(6);
 }
 
 function formatBeat(value: number): string {
@@ -751,7 +1219,8 @@ onBeforeUnmount(() => {
 }
 
 .import-button,
-.all-button {
+.generated-play-button,
+.combined-button {
   color: white;
   background: #16738a;
   border-radius: 8px;
@@ -880,7 +1349,9 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
-.voice-section {
+.timeline-section,
+.generated-section,
+.combined-playback {
   margin-top: 11px;
   padding: 12px;
   background: #0d1a27;
@@ -888,136 +1359,62 @@ onBeforeUnmount(() => {
   border-radius: 10px;
 }
 
-.voice-section > header {
+.timeline-section > header,
+.generated-section > header,
+.combined-playback > header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 14px;
 }
 
-.voice-section > header > div {
+.timeline-section > header > div:first-child,
+.generated-section > header > div:first-child,
+.combined-playback > header > div:first-child {
   display: flex;
   flex-direction: column;
 }
 
-.voice-section > header span {
+.timeline-section > header span,
+.generated-section > header span,
+.combined-playback > header span {
   color: #22d3ee;
   font-size: 7px;
   font-weight: 700;
 }
 
-.voice-section > header strong {
+.timeline-section > header strong,
+.generated-section > header strong,
+.combined-playback > header strong {
   color: #c7d6e5;
   font-size: 10px;
 }
 
-.voice-section > header small {
+.timeline-section > header small,
+.generated-section > header small,
+.combined-playback > header small {
+  max-width: 680px;
   color: #65798f;
   font-size: 7px;
+  line-height: 1.5;
 }
 
-.voice-section > header > .q-icon {
-  color: #22d3ee;
+.generated-section {
+  background: radial-gradient(circle at 100% 0%, rgb(167 139 250 / 7%), transparent 30%), #0d1a27;
+  border-color: rgb(167 139 250 / 17%);
+}
+
+.generated-section > header > .q-icon {
+  color: #a78bfa;
   font-size: 22px;
 }
 
-.voice-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  margin-top: 9px;
+.generated-timeline-section {
+  border-color: rgb(167 139 250 / 17%);
 }
 
-.voice-button {
-  display: grid;
-  min-height: 55px;
-  grid-template-columns: 22px 1fr 16px;
-  align-items: center;
-  gap: 5px;
-  padding: 7px;
-  color: #8da0b4;
-  text-align: left;
-  background: #122131;
-  border: 1px solid #2a4056;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.voice-button:hover,
-.voice-button.active {
-  color: #67e8f9;
-  border-color: rgb(34 211 238 / 45%);
-}
-
-.voice-button:disabled {
-  opacity: 0.45;
-}
-
-.voice-button > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.voice-button span {
-  color: #22d3ee;
-  font-size: 6px;
-}
-
-.voice-button strong {
-  overflow: hidden;
-  color: #dbe6f1;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.play-icon {
-  font-size: 16px;
-}
-
-.playback-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 7px;
-  margin-top: 9px;
-}
-
-.stop-button {
-  color: #94a8bc;
-  border-radius: 8px;
-}
-
-.timeline-section {
-  margin-top: 11px;
-  padding-top: 11px;
-  border-top: 1px solid #21364a;
-}
-
-.timeline-section > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.timeline-section > header > div:first-child {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-section > header span {
-  color: #22d3ee;
-  font-size: 7px;
-  font-weight: 700;
-}
-
-.timeline-section > header strong {
-  color: #b6c7d8;
-  font-size: 9px;
-}
-
-.timeline-section > header small {
-  color: #62778d;
-  font-size: 7px;
+.generated-timeline-section > header span {
+  color: #a78bfa;
 }
 
 .playing-status {
@@ -1026,6 +1423,7 @@ onBeforeUnmount(() => {
   gap: 5px;
   color: #67e8f9;
   font-size: 7px;
+  white-space: nowrap;
 }
 
 .playing-status > span {
@@ -1033,6 +1431,47 @@ onBeforeUnmount(() => {
   height: 6px;
   background: #22d3ee;
   border-radius: 50%;
+}
+
+.generated-status {
+  color: #c4b5fd;
+}
+
+.generated-status > span {
+  background: #a78bfa;
+}
+
+.timeline-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.timeline-info > div {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  padding: 7px 8px;
+  background: #101f2e;
+  border: 1px solid #22394c;
+  border-radius: 7px;
+}
+
+.timeline-info .q-icon {
+  grid-row: 1 / 3;
+  align-self: center;
+  color: #22d3ee;
+  font-size: 16px;
+}
+
+.timeline-info span {
+  color: #5f7489;
+  font-size: 6px;
+}
+
+.timeline-info strong {
+  color: #b7c8d8;
+  font-size: 8px;
 }
 
 .table-wrapper {
@@ -1045,45 +1484,271 @@ onBeforeUnmount(() => {
 
 .score-table {
   width: 100%;
-  min-width: 980px;
   border-collapse: collapse;
 }
 
+.original-table,
+.generated-table {
+  min-width: 760px;
+}
+
 .score-table th {
-  padding: 7px;
+  padding: 8px 7px;
   color: #667b91;
   font-size: 7px;
   text-align: center;
+  background: #0b1926;
   border-bottom: 1px solid #21364a;
 }
 
 .score-table td {
-  padding: 5px;
+  padding: 6px;
   color: #70859a;
   font-size: 7px;
   text-align: center;
   border-bottom: 1px solid #172a3c;
 }
 
-.score-table tr.active {
+.score-table tr.active td {
   background: rgb(34 211 238 / 7%);
 }
 
-.note-cell {
-  min-width: 66px;
-  padding: 5px;
-  color: #b9d8e2;
-  background: #102030;
-  border: 1px solid #263b50;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 8px;
+.measure-column,
+.measure-cell,
+.beat-column,
+.beat-cell {
+  width: 68px;
+}
+
+.measure-cell {
+  color: #8fa5b8 !important;
   font-weight: 700;
 }
 
-.note-cell:hover {
+.part-column {
+  min-width: 135px;
+}
+
+.part-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.part-heading span {
+  color: #22d3ee;
+  font-size: 6px;
+}
+
+.part-heading strong {
+  max-width: 150px;
+  overflow: hidden;
+  color: #b8c9d9;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generated-part-heading span {
+  color: #a78bfa;
+}
+
+.original-note-cell {
+  min-width: 135px;
+}
+
+.timeline-notes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.timeline-note {
+  display: inline-flex;
+  min-width: 54px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 5px 7px;
+  color: #b9d8e2;
+  background: #102030;
+  border: 1px solid #2a4257;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.timeline-note:hover:not(:disabled) {
   color: #67e8f9;
   border-color: #22d3ee;
+}
+
+.timeline-note:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.timeline-note strong {
+  color: #d6e7ef;
+  font-size: 8px;
+}
+
+.timeline-note small {
+  margin-top: 1px;
+  color: #647f91;
+  font-size: 6px;
+}
+
+.generated-note {
+  border-color: rgb(167 139 250 / 23%);
+}
+
+.generated-note:hover:not(:disabled) {
+  color: #ddd6fe;
+  border-color: #a78bfa;
+}
+
+.empty-note {
+  color: #30495d !important;
+  font-size: 9px !important;
+}
+
+.generated-parts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.generated-part-card {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  align-items: center;
+  min-width: 0;
+  background: #101e2c;
+  border: 1px solid #293e53;
+  border-radius: 8px;
+}
+
+.generated-part-card.selected {
+  border-color: rgb(167 139 250 / 42%);
+}
+
+.generated-part-selector {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  color: #a9b7c5;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.generated-part-selector > .q-icon {
+  color: #a78bfa;
+  font-size: 18px;
+}
+
+.generated-part-selector > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.generated-part-selector span {
+  color: #a78bfa;
+  font-size: 6px;
+}
+
+.generated-part-selector strong {
+  overflow: hidden;
+  color: #d1c8e7;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generated-part-selector small {
+  overflow: hidden;
+  color: #6e7180;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generated-delete {
+  color: #8e7181;
+}
+
+.generated-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.generated-actions > div {
+  margin-right: auto;
+  color: #817795;
+  font-size: 7px;
+}
+
+.stop-button {
+  color: #94a8bc;
+  border-radius: 8px;
+}
+
+.combined-playback {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  background: radial-gradient(circle at 90% 50%, rgb(34 211 238 / 5%), transparent 34%), #0d1a27;
+}
+
+.combined-playback > header {
+  min-width: 0;
+}
+
+.combined-playback > header > .q-icon {
+  display: none;
+}
+
+.combined-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.combined-summary > div {
+  display: flex;
+  min-width: 72px;
+  flex-direction: column;
+  padding: 6px 8px;
+  background: #101f2e;
+  border-radius: 7px;
+}
+
+.combined-summary span {
+  color: #5f7489;
+  font-size: 6px;
+}
+
+.combined-summary strong {
+  color: #c0d0df;
+  font-size: 9px;
+}
+
+.combined-summary > .q-icon {
+  color: #486178;
+  font-size: 14px;
 }
 
 .process-summary {
@@ -1161,12 +1826,24 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1100px) {
   .summary-grid,
-  .voice-grid {
+  .generated-parts-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
   .process-summary {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .combined-playback {
+    grid-template-columns: 1fr;
+  }
+
+  .combined-summary {
+    justify-content: flex-start;
+  }
+
+  .combined-button {
+    justify-self: end;
   }
 }
 
@@ -1186,15 +1863,26 @@ onBeforeUnmount(() => {
   }
 
   .summary-grid,
-  .voice-grid,
+  .timeline-info,
+  .generated-parts-grid,
   .process-summary {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .generated-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .generated-actions > div {
+    margin-right: 0;
   }
 }
 
 @media (max-width: 520px) {
   .summary-grid,
-  .voice-grid,
+  .timeline-info,
+  .generated-parts-grid,
   .process-summary {
     grid-template-columns: 1fr;
   }
@@ -1207,8 +1895,17 @@ onBeforeUnmount(() => {
     grid-column: 1 / -1;
   }
 
-  .playback-actions {
+  .combined-summary {
+    align-items: stretch;
     flex-direction: column;
+  }
+
+  .combined-summary > .q-icon {
+    display: none;
+  }
+
+  .combined-button {
+    width: 100%;
   }
 }
 </style>

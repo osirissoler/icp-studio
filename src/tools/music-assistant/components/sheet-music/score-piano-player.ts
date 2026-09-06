@@ -1,7 +1,15 @@
+import { scorePartToTimeline, type ScoreDocument, type ScorePart } from '../../shared/score';
+
 import type { ScoreHarmonyRow, ScoreVoiceId } from './score-harmony-engine';
 
 export interface PianoPlaybackCallbacks {
   onNoteChange?: (index: number | null) => void;
+
+  onFinish?: () => void;
+}
+
+export interface ScorePartPlaybackCallbacks {
+  onPositionChange?: (absoluteBeat: number | null) => void;
 
   onFinish?: () => void;
 }
@@ -143,6 +151,94 @@ export class ScorePianoPlayer {
     });
   }
 
+  async playScoreParts(
+    score: ScoreDocument,
+    parts: ScorePart[],
+    callbacks: ScorePartPlaybackCallbacks = {},
+  ): Promise<void> {
+    this.stop();
+
+    if (!parts.length) {
+      callbacks.onFinish?.();
+
+      return;
+    }
+
+    const timelines = parts.map((part) => ({
+      part,
+      notes: scorePartToTimeline(score, part),
+    }));
+
+    const allNotes = timelines.flatMap(({ part, notes }) =>
+      notes.map((note) => ({
+        partId: part.id,
+        note,
+      })),
+    );
+
+    if (!allNotes.length) {
+      callbacks.onFinish?.();
+
+      return;
+    }
+
+    const context = await this.prepareContext();
+
+    const token = ++this.playbackToken;
+
+    const firstStart = Math.min(...allNotes.map(({ note }) => note.startMs));
+
+    const selectedPartCount = Math.max(1, parts.length);
+
+    const partVolume = Math.min(0.15, 0.2 / Math.sqrt(selectedPartCount));
+
+    const beatTimers = new Set<number>();
+
+    allNotes.forEach(({ note }) => {
+      const relativeStart = Math.max(0, note.startMs - firstStart);
+
+      const beatKey = Math.round(note.absoluteBeat * 1000);
+
+      this.scheduleTimer(relativeStart, () => {
+        if (token !== this.playbackToken) {
+          return;
+        }
+
+        if (!beatTimers.has(beatKey)) {
+          beatTimers.add(beatKey);
+
+          callbacks.onPositionChange?.(note.absoluteBeat);
+        }
+
+        this.createPianoTone(
+          context,
+          midiToFrequency(note.midi),
+          context.currentTime + 0.015,
+          Math.max(0.08, note.durationMs / 1000),
+          partVolume,
+        );
+      });
+    });
+
+    const endMs = allNotes.reduce((maximum, { note }) => {
+      const relativeStart = Math.max(0, note.startMs - firstStart);
+
+      return Math.max(maximum, relativeStart + note.durationMs);
+    }, 0);
+
+    this.scheduleTimer(endMs + 220, () => {
+      if (token !== this.playbackToken) {
+        return;
+      }
+
+      callbacks.onPositionChange?.(null);
+
+      callbacks.onFinish?.();
+
+      this.stopNodesOnly();
+    });
+  }
+
   async playSingle(frequency: number, durationSeconds = 0.8): Promise<void> {
     this.stop();
 
@@ -159,6 +255,10 @@ export class ScorePianoPlayer {
 
       this.stopNodesOnly();
     });
+  }
+
+  async playMidi(midi: number, durationSeconds = 0.8): Promise<void> {
+    await this.playSingle(midiToFrequency(midi), durationSeconds);
   }
 
   stop(): void {
@@ -349,4 +449,8 @@ export class ScorePianoPlayer {
       }
     });
   }
+}
+
+function midiToFrequency(midi: number): number {
+  return 440 * 2 ** ((midi - 69) / 12);
 }
