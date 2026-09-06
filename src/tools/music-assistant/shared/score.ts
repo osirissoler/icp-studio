@@ -26,6 +26,14 @@ export interface ScoreGeneratedVoiceConfig {
   maxMidi?: number | undefined;
 }
 
+export interface ScoreGeneratedNoteOverride {
+  noteId: string;
+
+  originalMidi: number;
+
+  midi: number;
+}
+
 export interface ScoreTimeSignature {
   numerator: number;
 
@@ -126,6 +134,8 @@ export interface ScorePart {
   generatedVoiceType?: string | undefined;
 
   generatedVoiceConfig?: ScoreGeneratedVoiceConfig | undefined;
+
+  generatedManualOverrides?: ScoreGeneratedNoteOverride[] | undefined;
 
   clef: ScoreClef;
 
