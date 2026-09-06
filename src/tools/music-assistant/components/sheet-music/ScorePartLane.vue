@@ -5,8 +5,8 @@
       `part-lane--${accent}`,
       {
         'part-lane--playing': effectiveActiveBeat !== null,
-
         'part-lane--compact': compact,
+        'part-lane--interactive': interactive,
       },
     ]"
   >
@@ -34,7 +34,9 @@
       <div>
         <q-icon name="view_timeline" />
 
-        <span> PISTA </span>
+        <span>PISTA</span>
+
+        <small v-if="interactive"> · clic en una nota para corregir </small>
       </div>
 
       <span>
@@ -70,26 +72,28 @@
           class="lane-note"
           :class="{
             manual: isManual(note.id),
+            selected: selectedNoteId === note.id,
+            clickable: interactive && !disabled,
           }"
           :style="noteStyle(note)"
+          :disabled="disabled"
           tabindex="-1"
+          @click="handleNoteClick(note)"
         >
+          <q-icon v-if="isManual(note.id)" name="edit" class="manual-icon" />
+
           <span>
             {{ noteLabel(note.midi) }}
           </span>
 
           <q-tooltip anchor="top middle" self="bottom middle">
             {{ noteLabel(note.midi) }}
-            · MIDI {{ note.midi }}
-            · Compás
-            {{ note.measureNumber }}
-            · Beat
-            {{ formatBeat(note.startBeat) }}
-            ·
-            {{ formatBeat(note.durationBeats) }}
-            tiempos
+            · MIDI {{ note.midi }} · Compás {{ note.measureNumber }} · Beat
+            {{ formatBeat(note.startBeat) }} · {{ formatBeat(note.durationBeats) }} tiempos
 
             <template v-if="isManual(note.id)"> · Corrección manual </template>
+
+            <template v-if="interactive && !disabled"> · Clic para editar </template>
           </q-tooltip>
         </button>
 
@@ -117,7 +121,7 @@ import { computed, nextTick, ref, watch, type CSSProperties } from 'vue';
 
 import { notes } from '../../shared/music';
 
-import type { ScorePart, ScoreNoteEvent } from '../../shared/score';
+import type { ScoreNoteEvent, ScorePart } from '../../shared/score';
 
 import { scorePlaybackState } from './score-playback-store';
 
@@ -154,6 +158,12 @@ const props = withDefaults(
     accent?: 'original' | 'generated';
 
     compact?: boolean;
+
+    interactive?: boolean;
+
+    disabled?: boolean;
+
+    selectedNoteId?: string | null;
   }>(),
   {
     activeBeat: null,
@@ -161,8 +171,18 @@ const props = withDefaults(
     accent: 'original',
 
     compact: false,
+
+    interactive: false,
+
+    disabled: false,
+
+    selectedNoteId: null,
   },
 );
+
+const emit = defineEmits<{
+  noteClick: [noteId: string];
+}>();
 
 const scrollContainer = ref<HTMLElement | null>(null);
 
@@ -178,6 +198,18 @@ const effectiveActiveBeat = computed<number | null>(() => {
   }
 
   return scorePlaybackState.activeBeat;
+});
+
+const partLastBeat = computed(() => {
+  let maximum = 0;
+
+  props.part.measures.forEach((measure) => {
+    measure.events.forEach((event) => {
+      maximum = Math.max(maximum, event.absoluteBeat + event.durationBeats);
+    });
+  });
+
+  return maximum;
 });
 
 const safeTotalBeats = computed(() => Math.max(1, props.totalBeats, partLastBeat.value));
@@ -221,18 +253,6 @@ const paddedMinimumMidi = computed(() => minimumMidi.value - 2);
 const paddedMaximumMidi = computed(() => maximumMidi.value + 2);
 
 const pitchSpan = computed(() => Math.max(1, paddedMaximumMidi.value - paddedMinimumMidi.value));
-
-const partLastBeat = computed(() => {
-  let maximum = 0;
-
-  props.part.measures.forEach((measure) => {
-    measure.events.forEach((event) => {
-      maximum = Math.max(maximum, event.absoluteBeat + event.durationBeats);
-    });
-  });
-
-  return maximum;
-});
 
 const measureMarkers = computed<MeasureMarker[]>(() => {
   const markers: MeasureMarker[] = [];
@@ -299,6 +319,33 @@ watch(effectiveActiveBeat, (value) => {
     followPlayhead(value);
   });
 });
+
+watch(
+  () => props.selectedNoteId,
+  (noteId) => {
+    if (!noteId) {
+      return;
+    }
+
+    const note = timelineNotes.value.find((item) => item.id === noteId);
+
+    if (!note) {
+      return;
+    }
+
+    void nextTick(() => {
+      centerNote(note.absoluteBeat);
+    });
+  },
+);
+
+function handleNoteClick(note: LaneNote): void {
+  if (!props.interactive || props.disabled) {
+    return;
+  }
+
+  emit('noteClick', note.id);
+}
 
 function noteFromEvent(event: ScoreNoteEvent): LaneNote {
   return {
@@ -370,7 +417,7 @@ function previousMeasureBeats(measureNumber: number): number {
   return props.part.measures.find((measure) => measure.number === measureNumber)?.beats ?? 4;
 }
 
-function followPlayhead(absoluteBeat: number): void {
+function centerNote(absoluteBeat: number): void {
   const container = scrollContainer.value;
 
   if (!container) {
@@ -388,6 +435,10 @@ function followPlayhead(absoluteBeat: number): void {
 
     behavior: 'smooth',
   });
+}
+
+function followPlayhead(absoluteBeat: number): void {
+  centerNote(absoluteBeat);
 }
 
 function formatBeat(value: number): string {
@@ -445,6 +496,11 @@ function formatBeat(value: number): string {
 .compact-heading {
   margin-bottom: 3px;
   color: #61788c;
+}
+
+.compact-heading small {
+  color: #655d78;
+  font-size: 5px;
 }
 
 .lane-stats {
@@ -538,7 +594,27 @@ function formatBeat(value: number): string {
   background: rgb(34 211 238 / 30%);
   border: 1px solid rgb(34 211 238 / 52%);
   border-radius: 3px;
-  pointer-events: auto;
+  cursor: default;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.lane-note.clickable {
+  cursor: pointer;
+}
+
+.lane-note.clickable:hover {
+  z-index: 4;
+  border-color: #67e8f9;
+  box-shadow: 0 0 0 1px rgb(34 211 238 / 20%);
+  transform: translateY(-1px);
+}
+
+.lane-note:disabled {
+  cursor: default;
 }
 
 .part-lane--compact .lane-note {
@@ -571,11 +647,31 @@ function formatBeat(value: number): string {
   border-color: rgb(167 139 250 / 52%);
 }
 
+.part-lane--generated .lane-note.clickable:hover {
+  border-color: #c4b5fd;
+  box-shadow: 0 0 0 1px rgb(167 139 250 / 28%);
+}
+
 .part-lane--generated .lane-note.manual {
   color: #fff7ed;
   background: rgb(245 158 11 / 35%);
   border-color: rgb(251 191 36 / 70%);
   box-shadow: 0 0 5px rgb(245 158 11 / 16%);
+}
+
+.lane-note.selected {
+  z-index: 4;
+  color: white;
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 0 2px rgb(34 211 238 / 26%);
+}
+
+.manual-icon {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  color: #fde68a;
+  font-size: 6px;
 }
 
 .playhead {

@@ -2,14 +2,17 @@
   <section class="manager-panel">
     <header class="manager-heading">
       <div>
-        <span> VOCES GENERADAS </span>
+        <span>VOCES GENERADAS</span>
 
         <strong>
           {{ parts.length }}
           {{ parts.length === 1 ? 'voz adicional' : 'voces adicionales' }}
         </strong>
 
-        <small> Cada voz tiene pista, volumen y controles independientes. </small>
+        <small>
+          Cada voz tiene pista, volumen y controles independientes. Haz clic en una nota de la pista
+          para corregirla manualmente.
+        </small>
       </div>
 
       <div class="heading-icon">
@@ -36,7 +39,9 @@
 
           playing: playingPartId === part.id,
 
-          editing: editingPartId === part.id,
+          editing: editingVoicePartId === part.id,
+
+          'editing-note': noteEditingPartId === part.id,
 
           muted: mixerChannel(part.id).muted,
 
@@ -76,6 +81,12 @@
 
             Reproduciendo
           </div>
+
+          <div v-else-if="noteEditingPartId === part.id" class="editing-indicator">
+            <q-icon name="edit_note" />
+
+            Corrigiendo
+          </div>
         </div>
 
         <div class="source-row">
@@ -87,7 +98,16 @@
           </span>
         </div>
 
-        <ScorePartLane :part="part" :total-beats="totalBeats" accent="generated" compact />
+        <ScorePartLane
+          :part="part"
+          :total-beats="totalBeats"
+          accent="generated"
+          compact
+          interactive
+          :disabled="disabled"
+          :selected-note-id="noteEditingPartId === part.id ? noteEditingNoteId : null"
+          @note-click="emit('editNote', part.id, $event)"
+        />
 
         <div class="compact-mixer">
           <div class="volume-row">
@@ -203,13 +223,13 @@
       </article>
     </div>
 
-    <section v-if="editingPart && draft" class="voice-editor">
+    <section v-if="editingVoicePart && draft" class="voice-editor">
       <header>
         <div>
-          <span> EDITAR VOZ </span>
+          <span>EDITAR VOZ</span>
 
           <strong>
-            {{ editingPart.name }}
+            {{ editingVoicePart.name }}
           </strong>
 
           <small> Los cambios se aplicarán únicamente a esta voz al regenerarla. </small>
@@ -421,6 +441,10 @@ const props = defineProps<{
   playing: boolean;
 
   playingPartId: string | null;
+
+  noteEditingPartId: string | null;
+
+  noteEditingNoteId: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -430,6 +454,8 @@ const emit = defineEmits<{
 
   playPart: [partId: string];
 
+  editNote: [partId: string, noteId: string];
+
   stop: [];
 
   regenerate: [partId: string, request: GeneratedVoiceRequest];
@@ -437,7 +463,7 @@ const emit = defineEmits<{
   delete: [partId: string];
 }>();
 
-const editingPartId = ref<string | null>(null);
+const editingVoicePartId = ref<string | null>(null);
 
 const draft = ref<VoiceDraft | null>(null);
 
@@ -451,8 +477,8 @@ const totalBeats = computed(() => {
   return Math.max(1, ...allParts.map((part) => scorePartDurationBeats(part)));
 });
 
-const editingPart = computed(
-  () => props.parts.find((part) => part.id === editingPartId.value) ?? null,
+const editingVoicePart = computed(
+  () => props.parts.find((part) => part.id === editingVoicePartId.value) ?? null,
 );
 
 const rangeError = computed(() => {
@@ -556,7 +582,7 @@ function openEditor(part: ScorePart): void {
 
   const range = defaultRange(request.kind, request.placement);
 
-  editingPartId.value = part.id;
+  editingVoicePartId.value = part.id;
 
   draft.value = {
     id: request.id,
@@ -574,7 +600,7 @@ function openEditor(part: ScorePart): void {
 }
 
 function closeEditor(): void {
-  editingPartId.value = null;
+  editingVoicePartId.value = null;
 
   draft.value = null;
 }
@@ -592,14 +618,14 @@ function applyDefaultRange(): void {
 }
 
 function saveAndRegenerate(): void {
-  if (!editingPart.value || !draft.value || rangeError.value) {
+  if (!editingVoicePart.value || !draft.value || rangeError.value) {
     return;
   }
 
-  emit('regenerate', editingPart.value.id, {
+  emit('regenerate', editingVoicePart.value.id, {
     id: draft.value.id,
 
-    label: draft.value.label.trim() || editingPart.value.name,
+    label: draft.value.label.trim() || editingVoicePart.value.name,
 
     kind: draft.value.kind,
 
@@ -838,6 +864,7 @@ function defaultRange(
 }
 
 .manager-heading small {
+  max-width: 720px;
   color: #77748d;
   font-size: 6px;
 }
@@ -882,6 +909,9 @@ function defaultRange(
   background: #101e2c;
   border: 1px solid #293e53;
   border-radius: 8px;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
 }
 
 .voice-card.selected {
@@ -895,6 +925,10 @@ function defaultRange(
 
 .voice-card.editing {
   border-color: #22d3ee;
+}
+
+.voice-card.editing-note {
+  box-shadow: inset 0 0 0 1px rgb(34 211 238 / 18%);
 }
 
 .voice-card.solo {
@@ -954,13 +988,17 @@ function defaultRange(
   white-space: nowrap;
 }
 
-.playing-indicator {
+.playing-indicator,
+.editing-indicator {
   display: flex;
   align-items: center;
   gap: 3px;
-  color: #c4b5fd;
   font-size: 5px;
   white-space: nowrap;
+}
+
+.playing-indicator {
+  color: #c4b5fd;
 }
 
 .playing-indicator > span {
@@ -969,6 +1007,14 @@ function defaultRange(
   background: #a78bfa;
   border-radius: 50%;
   box-shadow: 0 0 6px rgb(167 139 250 / 60%);
+}
+
+.editing-indicator {
+  color: #67e8f9;
+}
+
+.editing-indicator .q-icon {
+  font-size: 10px;
 }
 
 .source-row {
