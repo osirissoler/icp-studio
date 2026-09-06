@@ -78,6 +78,12 @@
 
       <SheetMusicPanel v-else-if="activeMode === 'score'" />
 
+      <PianoPanel v-else-if="activeMode === 'piano'" />
+
+      <GuitarPanel v-else-if="activeMode === 'guitar'" />
+
+      <TunerPanel v-else-if="activeMode === 'tuner'" />
+
       <UpcomingModePanel v-else :mode="activeModeData" />
     </div>
   </q-page>
@@ -91,8 +97,13 @@ import { useRouter } from 'vue-router';
 import HarmonyPanel from './components/HarmonyPanel.vue';
 import NoteReferencePanel from './components/NoteReferencePanel.vue';
 import PitchDetectorPanel from './components/PitchDetectorPanel.vue';
-import SheetMusicPanel from './components/sheet-music/SheetMusicPanel.vue';
 import UpcomingModePanel from './components/UpcomingModePanel.vue';
+
+import GuitarPanel from './components/instruments/GuitarPanel.vue';
+import PianoPanel from './components/instruments/PianoPanel.vue';
+import TunerPanel from './components/instruments/TunerPanel.vue';
+
+import SheetMusicPanel from './components/sheet-music/SheetMusicPanel.vue';
 
 import { modes, type MusicalMode } from './shared/music';
 
@@ -101,7 +112,6 @@ const router = useRouter();
 const activeMode = ref<MusicalMode>('reference');
 
 const referenceNote = ref(0);
-
 const referenceOctave = ref(4);
 
 const activeModeData = computed(
@@ -114,13 +124,11 @@ function goBack(): void {
 
 function updateReference(value: { note: number; octave: number }): void {
   referenceNote.value = value.note;
-
   referenceOctave.value = value.octave;
 }
 
 function useDetectedReference(value: { note: number; octave: number }): void {
   referenceNote.value = value.note;
-
   referenceOctave.value = value.octave;
 
   activeMode.value = 'reference';
@@ -130,8 +138,8 @@ function useDetectedReference(value: { note: number; octave: number }): void {
 <style scoped>
 .music-page {
   min-height: 100%;
-  background: radial-gradient(circle at 80% 5%, rgb(244 114 182 / 8%), transparent 34%), #08111c;
   color: #e5edf7;
+  background: radial-gradient(circle at 80% 5%, rgb(244 114 182 / 8%), transparent 34%), #08111c;
 }
 
 .music-shell {
