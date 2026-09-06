@@ -7,8 +7,8 @@
         <h2>Partitura a piano y armonías</h2>
 
         <p>
-          Importa una partitura, conserva sus voces originales y genera nuevas líneas adicionales
-          sin modificar lo escrito en el archivo.
+          Conserva las voces originales, crea voces adicionales, corrige notas y analiza la
+          armonización sin modificar la partitura importada.
         </p>
       </div>
 
@@ -16,9 +16,9 @@
         <q-icon name="library_music" />
 
         <div>
-          <span> ETAPA ACTUAL </span>
+          <span>ETAPA ACTUAL</span>
 
-          <strong> Partitura multiparte + generación </strong>
+          <strong> Mezcla + armonización </strong>
         </div>
       </div>
     </header>
@@ -30,13 +30,11 @@
         </div>
 
         <div class="import-copy">
-          <span> IMPORTAR PARTITURA </span>
+          <span>IMPORTAR PARTITURA</span>
 
-          <strong> MusicXML / XML </strong>
+          <strong>MusicXML / XML</strong>
 
-          <small>
-            Lee partes, notas, compases, duraciones, silencios, tonalidad, claves y tempo.
-          </small>
+          <small> Lee partes, notas, compases, tonalidad, tempo y estructura musical. </small>
         </div>
 
         <q-btn
@@ -44,7 +42,7 @@
           no-caps
           icon="upload_file"
           label="Seleccionar archivo"
-          class="import-button"
+          class="primary-button"
           @click="openMusicXmlPicker"
         />
 
@@ -63,9 +61,7 @@
     <div v-if="parseError" class="error-message">
       <q-icon name="error_outline" />
 
-      <span>
-        {{ parseError }}
-      </span>
+      {{ parseError }}
     </div>
 
     <template v-if="score">
@@ -74,7 +70,7 @@
           <q-icon name="queue_music" />
 
           <div>
-            <span> PARTITURA CARGADA </span>
+            <span>PARTITURA CARGADA</span>
 
             <strong>
               {{ score.title }}
@@ -87,61 +83,53 @@
         </div>
 
         <div class="summary-grid">
-          <div>
+          <article>
             <span>Tonalidad</span>
+            <strong>{{ keyLabel }}</strong>
+          </article>
 
-            <strong>
-              {{ keyLabel }}
-            </strong>
-          </div>
-
-          <div>
+          <article>
             <span>Compás</span>
-
             <strong>
               {{ score.timeSignature.numerator }}/{{ score.timeSignature.denominator }}
             </strong>
-          </div>
+          </article>
 
-          <div>
+          <article>
             <span>Tempo</span>
+            <strong>{{ score.tempo }} BPM</strong>
+          </article>
 
-            <strong> {{ score.tempo }} BPM </strong>
-          </div>
-
-          <div>
+          <article>
             <span>Originales</span>
+            <strong>{{ originalParts.length }}</strong>
+          </article>
 
-            <strong>
-              {{ originalParts.length }}
-            </strong>
-          </div>
-
-          <div>
+          <article>
             <span>Generadas</span>
+            <strong>{{ generatedParts.length }}</strong>
+          </article>
 
-            <strong>
-              {{ generatedParts.length }}
-            </strong>
-          </div>
-
-          <div>
+          <article>
             <span>Duración</span>
+            <strong>{{ durationLabel }}</strong>
+          </article>
+        </div>
 
-            <strong>
-              {{ durationLabel }}
-            </strong>
-          </div>
+        <div v-if="sessionRestored" class="session-restored">
+          <q-icon name="restore" />
+
+          Sesión anterior restaurada: voces, correcciones, mezcla y tempo.
         </div>
       </section>
 
       <section class="tempo-card">
         <div>
-          <span> TEMPO DE REPRODUCCIÓN </span>
+          <span>TEMPO DE REPRODUCCIÓN</span>
 
-          <strong> {{ score.tempo }} BPM </strong>
+          <strong>{{ score.tempo }} BPM</strong>
 
-          <small> El mismo tempo se aplica a las voces originales y generadas. </small>
+          <small> Se guarda automáticamente para esta partitura. </small>
         </div>
 
         <div class="tempo-actions">
@@ -159,7 +147,6 @@
             :min="30"
             :max="220"
             :step="1"
-            class="tempo-slider"
             :disable="isPlaying"
             @update:model-value="setTempo"
           />
@@ -187,79 +174,38 @@
         @stop="stopPlayback"
       />
 
-      <section v-if="originalParts.length" class="timeline-section">
+      <section v-if="originalParts.length" class="original-reference">
         <header>
           <div>
-            <span> PARTITURA ORIGINAL </span>
+            <span>REFERENCIA ORIGINAL</span>
 
-            <strong> Notas originales de la partitura </strong>
+            <strong> Notas de la partitura </strong>
 
-            <small>
-              Esta tabla se mantiene únicamente como referencia detallada y para escuchar notas
-              originales individualmente. Las voces generadas ya no necesitan una tabla duplicada.
-            </small>
+            <small> Se conservan de solo lectura. Puedes escuchar una nota individualmente. </small>
           </div>
 
           <div
             v-if="playbackMode === 'originals' || playbackMode === 'combined'"
             class="playing-status"
           >
-            <span />
+            <i />
 
             Siguiendo reproducción
           </div>
         </header>
 
-        <div class="timeline-info">
-          <div>
-            <q-icon name="verified" />
-
-            <span>NOTAS</span>
-
-            <strong>
-              {{ originalNoteCount }}
-            </strong>
-          </div>
-
-          <div>
-            <q-icon name="groups" />
-
-            <span>VOCES</span>
-
-            <strong>
-              {{ originalParts.length }}
-            </strong>
-          </div>
-
-          <div>
-            <q-icon name="schedule" />
-
-            <span>POSICIONES</span>
-
-            <strong>
-              {{ originalTimelineRows.length }}
-            </strong>
-          </div>
-        </div>
-
-        <div ref="originalTimelineScroll" class="table-wrapper timeline-scroll">
-          <table class="score-table original-table">
+        <div ref="originalTimelineScroll" class="original-table-wrapper">
+          <table>
             <thead>
               <tr>
-                <th class="measure-column">Compás</th>
+                <th>Compás</th>
+                <th>Beat</th>
 
-                <th class="beat-column">Beat</th>
-
-                <th v-for="part in originalParts" :key="part.id" class="part-column">
-                  <div class="part-heading">
-                    <span>
-                      {{ part.abbreviation || 'VOZ' }}
-                    </span>
-
-                    <strong>
-                      {{ part.name }}
-                    </strong>
-                  </div>
+                <th v-for="part in originalParts" :key="part.id">
+                  {{ part.abbreviation || 'VOZ' }}
+                  <small>
+                    {{ part.name }}
+                  </small>
                 </th>
               </tr>
             </thead>
@@ -273,36 +219,28 @@
                   active: isTimelineRowActive(row.absoluteBeat),
                 }"
               >
-                <td class="measure-cell">
+                <td>
                   {{ row.measureNumber }}
                 </td>
 
-                <td class="beat-cell">
+                <td>
                   {{ formatBeat(row.startBeat) }}
                 </td>
 
-                <td v-for="part in originalParts" :key="part.id" class="original-note-cell">
-                  <div v-if="notesForPart(row, part.id).length" class="timeline-notes">
+                <td v-for="part in originalParts" :key="part.id">
+                  <div class="original-note-list">
                     <button
                       v-for="note in notesForPart(row, part.id)"
                       :key="note.id"
                       type="button"
-                      class="timeline-note"
                       :disabled="isPlaying"
                       @click="playSingleNote(note)"
                     >
-                      <strong>
-                        {{ noteLabel(note) }}
-                      </strong>
-
-                      <small>
-                        {{ formatBeat(note.durationBeats) }}
-                        t
-                      </small>
+                      {{ noteLabel(note) }}
                     </button>
-                  </div>
 
-                  <span v-else class="empty-note"> — </span>
+                    <span v-if="!notesForPart(row, part.id).length"> — </span>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -338,30 +276,21 @@
         @delete="removeGeneratedPart"
       />
 
-      <section v-if="editingGeneratedPart && editingGeneratedNote" class="generated-note-workspace">
+      <section v-if="editingGeneratedPart && editingGeneratedNote" class="note-workspace">
         <header>
           <div>
-            <span> CORRECCIÓN DE VOZ GENERADA </span>
-
-            <strong> Editando desde la pista musical </strong>
-
-            <small>
-              La nota seleccionada queda resaltada en su pista. Los cambios afectan únicamente a
-              esta voz adicional.
-            </small>
-          </div>
-
-          <div class="selected-note-chip">
-            <q-icon name="edit_note" />
-
-            <span>
-              {{ editingGeneratedPart.name }}
-            </span>
+            <span>CORRECCIÓN DIRECTA</span>
 
             <strong>
+              {{ editingGeneratedPart.name }}
+              ·
               {{ noteLabel(editingGeneratedNote) }}
             </strong>
+
+            <small> La nota seleccionada está resaltada en su pista. </small>
           </div>
+
+          <q-icon name="edit_note" />
         </header>
 
         <GeneratedNoteEditor
@@ -377,101 +306,61 @@
       </section>
 
       <section v-if="generatedParts.length" class="combined-playback">
-        <header>
-          <div>
-            <span> MEZCLA COMPLETA </span>
+        <div>
+          <span>MEZCLA COMPLETA</span>
 
-            <strong> Originales + generadas </strong>
+          <strong> Originales + generadas </strong>
 
-            <small> Reproduce simultáneamente las voces seleccionadas de ambos grupos. </small>
-          </div>
-
-          <q-icon name="groups" />
-        </header>
-
-        <div class="combined-summary">
-          <div>
-            <span> ORIGINALES </span>
-
-            <strong>
-              {{ selectedOriginalPartIds.length }}
-            </strong>
-          </div>
-
-          <q-icon name="add" />
-
-          <div>
-            <span> GENERADAS </span>
-
-            <strong>
-              {{ selectedGeneratedPartIds.length }}
-            </strong>
-          </div>
-
-          <q-icon name="drag_handle" />
-
-          <div>
-            <span>TOTAL</span>
-
-            <strong>
-              {{ combinedSelectedCount }}
-            </strong>
-          </div>
+          <small>
+            {{ selectedOriginalPartIds.length }}
+            originales +
+            {{ selectedGeneratedPartIds.length }}
+            generadas
+          </small>
         </div>
 
-        <q-btn
-          unelevated
-          no-caps
-          icon="groups"
-          :label="
-            playbackMode === 'combined' ? 'Reproduciendo combinación' : 'Escuchar combinación'
-          "
-          class="combined-button"
-          :disable="isPlaying || !combinedSelectedCount"
-          @click="playCombinedParts"
-        />
+        <div class="combined-actions">
+          <q-btn
+            unelevated
+            no-caps
+            icon="groups"
+            :label="
+              playbackMode === 'combined' ? 'Reproduciendo combinación' : 'Escuchar combinación'
+            "
+            class="primary-button"
+            :disable="isPlaying || !combinedSelectedCount"
+            @click="playCombinedParts"
+          />
+
+          <q-btn
+            v-if="playbackMode === 'combined' && isPlaying"
+            outline
+            no-caps
+            icon="stop"
+            label="Detener"
+            class="stop-button"
+            @click="stopPlayback"
+          />
+        </div>
       </section>
 
-      <section class="process-summary">
-        <article>
-          <q-icon name="description" />
+      <HarmonyDiagnosticsPanel
+        v-if="generatedParts.length"
+        :score="score"
+        :parts="generatedParts"
+      />
 
-          <span>1</span>
+      <section class="autosave-info">
+        <q-icon name="save" />
 
-          <strong> Originales </strong>
+        <div>
+          <strong> Guardado automático </strong>
 
-          <small> Se conservan exactamente como fueron importadas. </small>
-        </article>
-
-        <article>
-          <q-icon name="view_timeline" />
-
-          <span>2</span>
-
-          <strong> Pistas </strong>
-
-          <small> Cada voz original y generada tiene su propia pista sincronizada. </small>
-        </article>
-
-        <article>
-          <q-icon name="auto_awesome" />
-
-          <span>3</span>
-
-          <strong> Generador </strong>
-
-          <small> Tú decides cuántas voces adicionales crear. </small>
-        </article>
-
-        <article>
-          <q-icon name="edit_note" />
-
-          <span>4</span>
-
-          <strong> Corrección directa </strong>
-
-          <small> Haz clic en una nota generada para corregirla sin tocar las originales. </small>
-        </article>
+          <span>
+            ICP Studio conserva para esta partitura las voces generadas, correcciones manuales,
+            tempo, selección, volumen, Solo y Mute.
+          </span>
+        </div>
       </section>
     </template>
 
@@ -479,8 +368,6 @@
       <q-icon name="queue_music" />
 
       <strong> Carga una partitura para comenzar </strong>
-
-      <span> Puedes utilizar MusicXML, PDF, PNG, JPG, JPEG o WEBP. </span>
     </div>
   </section>
 </template>
@@ -506,6 +393,8 @@ import GeneratedVoiceBuilder from './GeneratedVoiceBuilder.vue';
 
 import GeneratedVoiceManager from './GeneratedVoiceManager.vue';
 
+import HarmonyDiagnosticsPanel from './HarmonyDiagnosticsPanel.vue';
+
 import {
   applyGeneratedNoteOverrides,
   generatedNoteIsOverridden,
@@ -525,7 +414,19 @@ import OpticalScoreImporter from './optical-score/OpticalScoreImporter.vue';
 
 import ScorePartsMixer from './ScorePartsMixer.vue';
 
+import {
+  restoreScoreMixerSnapshot,
+  scoreMixerSnapshot,
+  scoreMixerState,
+} from './score-mixer-store';
+
 import { ScorePianoPlayer } from './score-piano-player';
+
+import {
+  applySavedSessionToScore,
+  loadScoreSession,
+  saveScoreSession,
+} from './score-session-store';
 
 import { parseMusicXml } from './score-parser';
 
@@ -567,6 +468,10 @@ const editingGeneratedNoteId = ref<string | null>(null);
 
 const playbackMode = ref<'originals' | 'generated' | 'combined' | 'single' | null>(null);
 
+const sessionRestored = ref(false);
+
+const restoringSession = ref(false);
+
 const player = new ScorePianoPlayer();
 
 const originalParts = computed(() => {
@@ -601,14 +506,6 @@ const originalTimelineRows = computed<TimelineRow[]>(() =>
   buildTimelineRows(originalPartTimelines.value),
 );
 
-const originalNoteCount = computed(() =>
-  originalPartTimelines.value.reduce((total, item) => total + item.timeline.length, 0),
-);
-
-const combinedSelectedCount = computed(
-  () => selectedOriginalPartIds.value.length + selectedGeneratedPartIds.value.length,
-);
-
 const editingGeneratedPart = computed<ScorePart | null>(() => {
   if (!editingGeneratedPartId.value) {
     return null;
@@ -628,6 +525,10 @@ const editingGeneratedNote = computed<ScoreTimelineNote | null>(() => {
     ) ?? null
   );
 });
+
+const combinedSelectedCount = computed(
+  () => selectedOriginalPartIds.value.length + selectedGeneratedPartIds.value.length,
+);
 
 const durationLabel = computed(() => {
   if (!score.value) {
@@ -655,10 +556,24 @@ watch(activeBeat, (beat) => {
     return;
   }
 
-  void nextTick(() => {
-    followActiveTimeline();
-  });
+  void nextTick(followActiveTimeline);
 });
+
+watch(
+  [
+    score,
+    selectedOriginalPartIds,
+    selectedGeneratedPartIds,
+    generationSourcePartId,
+    () => scoreMixerState,
+  ],
+  () => {
+    persistCurrentSession();
+  },
+  {
+    deep: true,
+  },
+);
 
 function openMusicXmlPicker(): void {
   musicXmlInput.value?.click();
@@ -682,21 +597,9 @@ async function handleMusicXmlSelection(event: Event): Promise<void> {
   try {
     const text = await file.text();
 
-    const parsedScore = parseMusicXml(text, file.name);
-
-    loadScore(parsedScore);
+    loadScore(parseMusicXml(text, file.name));
   } catch (error) {
     score.value = null;
-
-    selectedOriginalPartIds.value = [];
-
-    selectedGeneratedPartIds.value = [];
-
-    generationSourcePartId.value = null;
-
-    playingGeneratedPartId.value = null;
-
-    closeGeneratedNoteEditor();
 
     parseError.value =
       error instanceof Error ? error.message : 'No fue posible interpretar la partitura.';
@@ -712,21 +615,78 @@ function handleOpticalScoreDetected(detectedScore: ScoreDocument): void {
 }
 
 function loadScore(newScore: ScoreDocument): void {
-  score.value = newScore;
+  restoringSession.value = true;
 
-  const originals = originalScoreParts(newScore);
+  sessionRestored.value = false;
 
-  selectedOriginalPartIds.value = originals.map((part) => part.id);
+  const session = loadScoreSession(newScore);
 
-  selectedGeneratedPartIds.value = [];
+  const resolvedScore = session ? applySavedSessionToScore(newScore, session) : newScore;
 
-  generationSourcePartId.value = originals[0]?.id ?? null;
+  score.value = resolvedScore;
+
+  const originals = originalScoreParts(resolvedScore);
+
+  const generated = generatedScoreParts(resolvedScore);
+
+  const originalIds = new Set(originals.map((part) => part.id));
+
+  const generatedIds = new Set(generated.map((part) => part.id));
+
+  if (session) {
+    selectedOriginalPartIds.value = session.selectedOriginalPartIds.filter((id) =>
+      originalIds.has(id),
+    );
+
+    selectedGeneratedPartIds.value = session.selectedGeneratedPartIds.filter((id) =>
+      generatedIds.has(id),
+    );
+
+    generationSourcePartId.value =
+      session.generationSourcePartId && originalIds.has(session.generationSourcePartId)
+        ? session.generationSourcePartId
+        : (originals[0]?.id ?? null);
+
+    restoreScoreMixerSnapshot(session.mixer);
+
+    sessionRestored.value = true;
+  } else {
+    selectedOriginalPartIds.value = originals.map((part) => part.id);
+
+    selectedGeneratedPartIds.value = [];
+
+    generationSourcePartId.value = originals[0]?.id ?? null;
+
+    restoreScoreMixerSnapshot({});
+  }
 
   playingGeneratedPartId.value = null;
 
   closeGeneratedNoteEditor();
 
   resetTimelineScrolls();
+
+  void nextTick(() => {
+    restoringSession.value = false;
+
+    persistCurrentSession();
+  });
+}
+
+function persistCurrentSession(): void {
+  if (restoringSession.value || !score.value) {
+    return;
+  }
+
+  saveScoreSession(score.value, {
+    selectedOriginalPartIds: selectedOriginalPartIds.value,
+
+    selectedGeneratedPartIds: selectedGeneratedPartIds.value,
+
+    generationSourcePartId: generationSourcePartId.value,
+
+    mixer: scoreMixerSnapshot(score.value.parts ?? []),
+  });
 }
 
 function changeTempo(change: number): void {
@@ -762,22 +722,18 @@ function handleGenerateVoices(sourcePartId: string, requests: GeneratedVoiceRequ
 
   const newParts = generateScoreParts(score.value, sourcePart, requests);
 
-  const existingParts = score.value.parts ?? [];
-
   const generatedIds = new Set(newParts.map((part) => part.id));
 
-  const preservedParts = existingParts.filter((part) => !generatedIds.has(part.id));
+  const preserved = (score.value.parts ?? []).filter((part) => !generatedIds.has(part.id));
 
   score.value = {
     ...score.value,
 
-    parts: [...preservedParts, ...newParts],
+    parts: [...preserved, ...newParts],
   };
 
-  const newSelectedIds = newParts.map((part) => part.id);
-
   selectedGeneratedPartIds.value = Array.from(
-    new Set([...selectedGeneratedPartIds.value, ...newSelectedIds]),
+    new Set([...selectedGeneratedPartIds.value, ...newParts.map((part) => part.id)]),
   );
 
   closeGeneratedNoteEditor();
@@ -788,21 +744,19 @@ function handleRegenerateGeneratedPart(partId: string, request: GeneratedVoiceRe
     return;
   }
 
-  const currentPart = generatedParts.value.find((part) => part.id === partId);
+  const current = generatedParts.value.find((part) => part.id === partId);
 
-  if (!currentPart) {
+  if (!current) {
     return;
   }
 
-  const sourcePart = originalParts.value.find(
-    (part) => part.id === currentPart.generatedFromPartId,
-  );
+  const source = originalParts.value.find((part) => part.id === current.generatedFromPartId);
 
-  if (!sourcePart) {
+  if (!source) {
     return;
   }
 
-  const regenerated = generateScorePart(score.value, sourcePart, request);
+  const regenerated = generateScorePart(score.value, source, request);
 
   const withOverrides = applyGeneratedNoteOverrides(
     {
@@ -810,7 +764,7 @@ function handleRegenerateGeneratedPart(partId: string, request: GeneratedVoiceRe
 
       id: partId,
     },
-    currentPart.generatedManualOverrides,
+    current.generatedManualOverrides,
   );
 
   score.value = {
@@ -838,10 +792,6 @@ function removeGeneratedPart(partId: string): void {
   };
 
   selectedGeneratedPartIds.value = selectedGeneratedPartIds.value.filter((id) => id !== partId);
-
-  if (playingGeneratedPartId.value === partId) {
-    playingGeneratedPartId.value = null;
-  }
 
   if (editingGeneratedPartId.value === partId) {
     closeGeneratedNoteEditor();
@@ -871,15 +821,58 @@ function saveGeneratedNote(midi: number): void {
 
   const partId = editingGeneratedPart.value.id;
 
-  const noteId = editingGeneratedNote.value.id;
-
-  const updatedPart = setGeneratedNoteOverride(editingGeneratedPart.value, noteId, midi);
+  const updated = setGeneratedNoteOverride(
+    editingGeneratedPart.value,
+    editingGeneratedNote.value.id,
+    midi,
+  );
 
   score.value = {
     ...score.value,
 
-    parts: score.value.parts?.map((part) => (part.id === partId ? updatedPart : part)) ?? [],
+    parts: score.value.parts?.map((part) => (part.id === partId ? updated : part)) ?? [],
   };
+}
+
+function resetGeneratedNote(): void {
+  if (!score.value || !editingGeneratedPart.value || !editingGeneratedNote.value) {
+    return;
+  }
+
+  const current = editingGeneratedPart.value;
+
+  const noteId = editingGeneratedNote.value.id;
+
+  const source = originalParts.value.find((part) => part.id === current.generatedFromPartId);
+
+  if (!source) {
+    return;
+  }
+
+  const request = generatedVoiceRequestFromPart(current);
+
+  const remainingOverrides = withoutGeneratedNoteOverride(current.generatedManualOverrides, noteId);
+
+  const regenerated = generateScorePart(score.value, source, request);
+
+  const restored = applyGeneratedNoteOverrides(
+    {
+      ...regenerated,
+
+      id: current.id,
+    },
+    remainingOverrides,
+  );
+
+  score.value = {
+    ...score.value,
+
+    parts: score.value.parts?.map((part) => (part.id === current.id ? restored : part)) ?? [],
+  };
+
+  editingGeneratedPartId.value = restored.id;
+
+  editingGeneratedNoteId.value = noteId;
 }
 
 async function previewGeneratedMidi(midi: number): Promise<void> {
@@ -889,8 +882,6 @@ async function previewGeneratedMidi(midi: number): Promise<void> {
 
   playbackMode.value = 'single';
 
-  playingGeneratedPartId.value = null;
-
   await player.playMidi(midi, 0.85);
 
   window.setTimeout(() => {
@@ -898,52 +889,6 @@ async function previewGeneratedMidi(midi: number): Promise<void> {
       finishPlayback();
     }
   }, 970);
-}
-
-function resetGeneratedNote(): void {
-  if (!score.value || !editingGeneratedPart.value || !editingGeneratedNote.value) {
-    return;
-  }
-
-  const currentPart = editingGeneratedPart.value;
-
-  const noteId = editingGeneratedNote.value.id;
-
-  const sourcePart = originalParts.value.find(
-    (part) => part.id === currentPart.generatedFromPartId,
-  );
-
-  if (!sourcePart) {
-    return;
-  }
-
-  const request = generatedVoiceRequestFromPart(currentPart);
-
-  const remainingOverrides = withoutGeneratedNoteOverride(
-    currentPart.generatedManualOverrides,
-    noteId,
-  );
-
-  const regenerated = generateScorePart(score.value, sourcePart, request);
-
-  const restored = applyGeneratedNoteOverrides(
-    {
-      ...regenerated,
-
-      id: currentPart.id,
-    },
-    remainingOverrides,
-  );
-
-  score.value = {
-    ...score.value,
-
-    parts: score.value.parts?.map((part) => (part.id === currentPart.id ? restored : part)) ?? [],
-  };
-
-  editingGeneratedPartId.value = restored.id;
-
-  editingGeneratedNoteId.value = noteId;
 }
 
 function generatedVoiceRequestFromPart(part: ScorePart): GeneratedVoiceRequest {
@@ -990,20 +935,18 @@ function parseGeneratedVoiceType(value: string | undefined): {
   const [rawKind, rawPlacement] = (value ?? '').split(':');
 
   const kind: GeneratedVoiceKind =
-    rawKind === 'second' ||
     rawKind === 'tenor' ||
     rawKind === 'baritone' ||
     rawKind === 'bass' ||
-    rawKind === 'custom'
+    rawKind === 'custom' ||
+    rawKind === 'second'
       ? rawKind
       : 'second';
-
-  const placement: GeneratedVoicePlacement = rawPlacement === 'below' ? 'below' : 'above';
 
   return {
     kind,
 
-    placement,
+    placement: rawPlacement === 'below' ? 'below' : 'above',
   };
 }
 
@@ -1016,10 +959,6 @@ function isGeneratedNoteOverridden(part: ScorePart, noteId: string): boolean {
 }
 
 async function playOriginalParts(): Promise<void> {
-  if (!score.value) {
-    return;
-  }
-
   const parts = originalParts.value.filter((part) =>
     selectedOriginalPartIds.value.includes(part.id),
   );
@@ -1028,15 +967,11 @@ async function playOriginalParts(): Promise<void> {
 }
 
 async function playGeneratedParts(): Promise<void> {
-  if (!score.value) {
-    return;
-  }
-
   const parts = generatedParts.value.filter((part) =>
     selectedGeneratedPartIds.value.includes(part.id),
   );
 
-  await playParts(parts, 'generated', null);
+  await playParts(parts, 'generated');
 }
 
 async function playGeneratedPart(partId: string): Promise<void> {
@@ -1050,10 +985,6 @@ async function playGeneratedPart(partId: string): Promise<void> {
 }
 
 async function playCombinedParts(): Promise<void> {
-  if (!score.value) {
-    return;
-  }
-
   const originals = originalParts.value.filter((part) =>
     selectedOriginalPartIds.value.includes(part.id),
   );
@@ -1106,8 +1037,6 @@ async function playSingleNote(note: ScoreTimelineNote): Promise<void> {
 
   playbackMode.value = 'single';
 
-  playingGeneratedPartId.value = null;
-
   const durationSeconds = Math.min(1.8, Math.max(0.25, note.durationMs / 1000));
 
   await player.playMidi(note.midi, durationSeconds);
@@ -1147,17 +1076,15 @@ function followActiveTimeline(): void {
     return;
   }
 
-  const beatKey = timelinePositionKey(activeBeat.value);
+  const key = timelinePositionKey(activeBeat.value);
 
-  scrollTimelineToBeat(originalTimelineScroll.value, beatKey);
-}
+  const container = originalTimelineScroll.value;
 
-function scrollTimelineToBeat(container: HTMLElement | null, beatKey: string): void {
   if (!container) {
     return;
   }
 
-  const row = container.querySelector<HTMLElement>(`[data-timeline-beat="${beatKey}"]`);
+  const row = container.querySelector<HTMLElement>(`[data-timeline-beat="${key}"]`);
 
   if (!row) {
     return;
@@ -1167,19 +1094,15 @@ function scrollTimelineToBeat(container: HTMLElement | null, beatKey: string): v
 
   const containerRect = container.getBoundingClientRect();
 
-  const desiredTop =
+  const top =
     container.scrollTop +
     rowRect.top -
     containerRect.top -
     container.clientHeight / 2 +
     rowRect.height / 2;
 
-  const maximumTop = Math.max(0, container.scrollHeight - container.clientHeight);
-
-  const nextTop = Math.min(maximumTop, Math.max(0, desiredTop));
-
   container.scrollTo({
-    top: nextTop,
+    top: Math.max(0, top),
 
     behavior: 'smooth',
   });
@@ -1187,15 +1110,13 @@ function scrollTimelineToBeat(container: HTMLElement | null, beatKey: string): v
 
 function resetTimelineScrolls(): void {
   void nextTick(() => {
-    const container = originalTimelineScroll.value;
-
-    if (!container) {
+    if (!originalTimelineScroll.value) {
       return;
     }
 
-    container.scrollTop = 0;
+    originalTimelineScroll.value.scrollTop = 0;
 
-    container.scrollLeft = 0;
+    originalTimelineScroll.value.scrollLeft = 0;
   });
 }
 
@@ -1224,7 +1145,7 @@ function buildTimelineRows(
 
           startBeat: note.startBeat,
 
-          partNotes: new Map<string, ScoreTimelineNote[]>(),
+          partNotes: new Map(),
         };
 
         rows.set(key, row);
@@ -1233,8 +1154,6 @@ function buildTimelineRows(
       const partNotes = row.partNotes.get(part.id) ?? [];
 
       partNotes.push(note);
-
-      partNotes.sort((left, right) => left.midi - right.midi);
 
       row.partNotes.set(part.id, partNotes);
     });
@@ -1254,11 +1173,7 @@ function noteLabel(note: ScoreTimelineNote): string {
 }
 
 function isTimelineRowActive(absoluteBeat: number): boolean {
-  if (activeBeat.value === null) {
-    return false;
-  }
-
-  return Math.abs(activeBeat.value - absoluteBeat) < 0.0001;
+  return activeBeat.value !== null && Math.abs(activeBeat.value - absoluteBeat) < 0.0001;
 }
 
 function timelinePositionKey(absoluteBeat: number): string {
@@ -1266,11 +1181,9 @@ function timelinePositionKey(absoluteBeat: number): string {
 }
 
 function formatBeat(value: number): string {
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-
-  return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function formatMilliseconds(milliseconds: number): string {
@@ -1284,6 +1197,8 @@ function formatMilliseconds(milliseconds: number): string {
 }
 
 onBeforeUnmount(() => {
+  persistCurrentSession();
+
   void player.destroy();
 });
 </script>
@@ -1298,20 +1213,23 @@ onBeforeUnmount(() => {
 
 .score-heading {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
-.kicker {
+.kicker,
+.score-summary span,
+.tempo-card span,
+.original-reference header span,
+.combined-playback span,
+.note-workspace header span {
   color: #22d3ee;
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.12em;
+  font-size: 7px;
+  font-weight: 700;
 }
 
 .score-heading h2 {
-  margin: 3px 0 4px;
+  margin: 3px 0;
   color: #edf4fb;
   font-size: 18px;
 }
@@ -1320,691 +1238,397 @@ onBeforeUnmount(() => {
   max-width: 760px;
   margin: 0;
   color: #71859a;
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 9px;
 }
 
 .stage-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 195px;
-  padding: 9px 11px;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #a5f3fc;
   background: rgb(34 211 238 / 6%);
   border: 1px solid rgb(34 211 238 / 16%);
-  border-radius: 9px;
-}
-
-.stage-chip > .q-icon {
-  color: #22d3ee;
-  font-size: 20px;
+  border-radius: 8px;
 }
 
 .stage-chip > div,
 .import-copy,
 .summary-title > div,
-.tempo-card > div:first-child {
+.tempo-card > div:first-child,
+.original-reference header > div:first-child,
+.combined-playback > div:first-child,
+.note-workspace header > div:first-child {
   display: flex;
   flex-direction: column;
 }
 
 .stage-chip span {
   color: #5c8690;
-  font-size: 6px;
+  font-size: 5px;
 }
 
 .stage-chip strong {
-  color: #a5f3fc;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .import-area {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 13px;
 }
 
 .import-card {
   display: grid;
-  grid-template-columns: 42px 1fr auto;
+  grid-template-columns: 38px 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 11px;
+  gap: 8px;
+  padding: 10px;
   background: #101e2c;
   border: 1px solid #293e53;
-  border-radius: 10px;
-}
-
-.active-import {
-  border-color: rgb(34 211 238 / 22%);
+  border-radius: 9px;
 }
 
 .import-icon {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   color: #22d3ee;
   background: rgb(34 211 238 / 7%);
-  border-radius: 9px;
-}
-
-.import-icon .q-icon {
-  font-size: 22px;
-}
-
-.import-copy {
-  min-width: 0;
+  border-radius: 8px;
 }
 
 .import-copy span {
   color: #22d3ee;
   font-size: 6px;
-  font-weight: 700;
 }
 
 .import-copy strong {
-  color: #d9e4ef;
-  font-size: 10px;
+  color: #d8e6ef;
+  font-size: 9px;
 }
 
 .import-copy small {
-  color: #65798f;
-  font-size: 7px;
+  color: #687d90;
+  font-size: 6px;
 }
 
-.import-button,
-.combined-button {
+.primary-button {
   color: white;
   background: #16738a;
-  border-radius: 8px;
+}
+
+.stop-button {
+  color: #fda4af;
 }
 
 .error-message {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  padding: 9px 10px;
+  margin-top: 8px;
+  padding: 8px;
   color: #fecdd3;
-  background: rgb(251 113 133 / 6%);
-  border: 1px solid rgb(251 113 133 / 16%);
-  border-radius: 8px;
-  font-size: 8px;
+  background: rgb(244 63 94 / 5%);
+  border: 1px solid rgb(244 63 94 / 15%);
+  border-radius: 7px;
 }
 
-.score-summary {
-  margin-top: 12px;
-  padding: 12px;
-  background: #0d1b29;
-  border: 1px solid #263b50;
-  border-radius: 10px;
+.score-summary,
+.tempo-card,
+.original-reference,
+.combined-playback,
+.note-workspace,
+.autosave-info {
+  margin-top: 10px;
+  padding: 10px;
+  background: #0d1a27;
+  border: 1px solid #24394d;
+  border-radius: 9px;
 }
 
 .summary-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
-.summary-title > .q-icon {
+.summary-title .q-icon {
   color: #22d3ee;
-  font-size: 22px;
-}
-
-.summary-title span {
-  color: #22d3ee;
-  font-size: 6px;
-  font-weight: 700;
+  font-size: 20px;
 }
 
 .summary-title strong {
   color: #dce7f2;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .summary-title small {
   color: #60758b;
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  margin-top: 9px;
+  gap: 5px;
+  margin-top: 8px;
 }
 
-.summary-grid > div {
+.summary-grid article {
   display: flex;
   flex-direction: column;
-  padding: 7px 8px;
+  padding: 6px;
   background: #101f2e;
-  border-radius: 7px;
+  border-radius: 6px;
 }
 
-.summary-grid span {
-  color: #5e7389;
+.summary-grid article span {
+  color: #60758a;
+  font-size: 5px;
+}
+
+.summary-grid article strong {
+  color: #bbcad8;
+  font-size: 8px;
+}
+
+.session-restored {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  color: #86efac;
   font-size: 6px;
-  text-transform: uppercase;
-}
-
-.summary-grid strong {
-  color: #b9c9d8;
-  font-size: 9px;
 }
 
 .tempo-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: rgb(167 139 250 / 4%);
-  border: 1px solid rgb(167 139 250 / 12%);
-  border-radius: 9px;
-}
-
-.tempo-card span {
-  color: #a78bfa;
-  font-size: 6px;
-  font-weight: 700;
 }
 
 .tempo-card strong {
   color: #ddd6fe;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .tempo-card small {
   color: #746f8c;
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .tempo-actions {
   display: flex;
-  width: 340px;
+  width: 330px;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
 }
 
-.tempo-slider {
+.tempo-actions .q-slider {
   flex: 1;
 }
 
-.timeline-section,
-.combined-playback,
-.generated-note-workspace {
-  margin-top: 11px;
-  padding: 12px;
-  background: #0d1a27;
-  border: 1px solid #24394d;
-  border-radius: 10px;
-}
-
-.timeline-section > header,
-.combined-playback > header,
-.generated-note-workspace > header {
+.original-reference header,
+.note-workspace header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 
-.timeline-section > header > div:first-child,
-.combined-playback > header > div:first-child,
-.generated-note-workspace > header > div:first-child {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-section > header span,
-.combined-playback > header span,
-.generated-note-workspace > header span {
-  color: #22d3ee;
-  font-size: 7px;
-  font-weight: 700;
-}
-
-.timeline-section > header strong,
-.combined-playback > header strong,
-.generated-note-workspace > header strong {
+.original-reference header strong,
+.note-workspace header strong {
   color: #c7d6e5;
-  font-size: 10px;
+  font-size: 9px;
 }
 
-.timeline-section > header small,
-.combined-playback > header small,
-.generated-note-workspace > header small {
-  max-width: 680px;
-  color: #65798f;
-  font-size: 7px;
-  line-height: 1.5;
-}
-
-.generated-note-workspace {
-  padding: 10px;
-  background: radial-gradient(circle at 100% 0%, rgb(34 211 238 / 5%), transparent 32%), #0d1a27;
-  border-color: rgb(34 211 238 / 18%);
-}
-
-.selected-note-chip {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 8px;
-  color: #67e8f9;
-  background: rgb(34 211 238 / 6%);
-  border: 1px solid rgb(34 211 238 / 16%);
-  border-radius: 7px;
-}
-
-.selected-note-chip .q-icon {
-  font-size: 14px;
-}
-
-.selected-note-chip span {
-  color: #7898a5;
+.original-reference header small,
+.note-workspace header small {
+  color: #687c90;
   font-size: 6px;
-}
-
-.selected-note-chip strong {
-  color: #cffafe;
-  font-size: 8px;
 }
 
 .playing-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   color: #67e8f9;
-  font-size: 7px;
-  white-space: nowrap;
+  font-size: 6px;
 }
 
-.playing-status > span {
+.playing-status i {
   width: 6px;
   height: 6px;
   background: #22d3ee;
   border-radius: 50%;
-  box-shadow: 0 0 8px rgb(34 211 238 / 60%);
 }
 
-.timeline-info {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.timeline-info > div {
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  padding: 7px 8px;
-  background: #101f2e;
-  border: 1px solid #22394c;
-  border-radius: 7px;
-}
-
-.timeline-info .q-icon {
-  grid-row: 1 / 3;
-  align-self: center;
-  color: #22d3ee;
-  font-size: 16px;
-}
-
-.timeline-info span {
-  color: #5f7489;
-  font-size: 6px;
-}
-
-.timeline-info strong {
-  color: #b7c8d8;
-  font-size: 8px;
-}
-
-.table-wrapper {
+.original-table-wrapper {
+  max-height: 260px;
   margin-top: 8px;
   overflow: auto;
   background: #08131e;
-  border: 1px solid #21364a;
-  border-radius: 9px;
-}
-
-.timeline-scroll {
-  position: relative;
-  max-height: 300px;
-  scrollbar-color: #315b70 #0a1722;
-  scrollbar-width: thin;
-  scroll-behavior: smooth;
-}
-
-.timeline-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.timeline-scroll::-webkit-scrollbar-track {
-  background: #0a1722;
-}
-
-.timeline-scroll::-webkit-scrollbar-thumb {
-  background: #315b70;
-  border: 2px solid #0a1722;
-  border-radius: 8px;
-}
-
-.score-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.original-table {
-  min-width: 760px;
-}
-
-.score-table th {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  padding: 8px 7px;
-  color: #8da2b4;
-  font-size: 7px;
-  text-align: center;
-  background: #0b1926;
-  border-bottom: 1px solid #29465d;
-}
-
-.score-table td {
-  padding: 6px;
-  color: #70859a;
-  font-size: 7px;
-  text-align: center;
-  background: #08131e;
-  border-bottom: 1px solid #172a3c;
-}
-
-.score-table tr.active td {
-  background: rgb(34 211 238 / 10%);
-  box-shadow:
-    inset 0 1px 0 rgb(34 211 238 / 17%),
-    inset 0 -1px 0 rgb(34 211 238 / 17%);
-}
-
-.measure-column,
-.measure-cell,
-.beat-column,
-.beat-cell {
-  width: 68px;
-}
-
-.measure-cell {
-  color: #8fa5b8 !important;
-  font-weight: 700;
-}
-
-.part-column {
-  min-width: 135px;
-}
-
-.part-heading {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-}
-
-.part-heading span {
-  color: #22d3ee;
-  font-size: 6px;
-}
-
-.part-heading strong {
-  max-width: 150px;
-  overflow: hidden;
-  color: #b8c9d9;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.original-note-cell {
-  min-width: 135px;
-}
-
-.timeline-notes {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.timeline-note {
-  display: inline-flex;
-  min-width: 54px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 5px 7px;
-  color: #b9d8e2;
-  background: #102030;
-  border: 1px solid #2a4257;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.timeline-note:hover:not(:disabled) {
-  color: #67e8f9;
-  border-color: #22d3ee;
-}
-
-.timeline-note:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.timeline-note strong {
-  color: #d6e7ef;
-  font-size: 8px;
-}
-
-.timeline-note small {
-  color: #647f91;
-  font-size: 6px;
-}
-
-.empty-note {
-  color: #30495d !important;
-}
-
-.combined-playback {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 14px;
-}
-
-.combined-playback > header > .q-icon {
-  display: none;
-}
-
-.combined-summary {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.combined-summary > div {
-  display: flex;
-  min-width: 72px;
-  flex-direction: column;
-  padding: 6px 8px;
-  background: #101f2e;
+  border: 1px solid #20364a;
   border-radius: 7px;
 }
 
-.combined-summary span {
-  color: #5f7489;
+.original-table-wrapper table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.original-table-wrapper th {
+  position: sticky;
+  top: 0;
+  padding: 6px;
+  color: #8ca3b4;
   font-size: 6px;
+  background: #0c1a27;
+  border-bottom: 1px solid #29465d;
 }
 
-.combined-summary strong {
-  color: #c0d0df;
-  font-size: 9px;
+.original-table-wrapper th small {
+  display: block;
+  color: #61788c;
+  font-size: 5px;
 }
 
-.combined-summary > .q-icon {
-  color: #486178;
-  font-size: 14px;
-}
-
-.process-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.process-summary article {
-  position: relative;
-  display: flex;
-  min-height: 80px;
-  flex-direction: column;
-  padding: 9px;
-  background: #0d1a27;
-  border: 1px solid #21364a;
-  border-radius: 8px;
-}
-
-.process-summary article > .q-icon {
-  color: #22d3ee;
-  font-size: 18px;
-}
-
-.process-summary article > span {
-  position: absolute;
-  top: 7px;
-  right: 8px;
-  color: #405b75;
-  font-size: 7px;
-}
-
-.process-summary strong {
-  margin-top: 6px;
-  color: #aebfd0;
-  font-size: 8px;
-}
-
-.process-summary small {
-  margin-top: 2px;
-  color: #61758a;
+.original-table-wrapper td {
+  padding: 5px;
+  color: #778c9d;
   font-size: 6px;
-  line-height: 1.4;
+  text-align: center;
+  border-bottom: 1px solid #172a3b;
 }
 
-.empty-state {
+.original-table-wrapper tr.active td {
+  background: rgb(34 211 238 / 8%);
+}
+
+.original-note-list {
   display: flex;
-  min-height: 180px;
-  align-items: center;
   justify-content: center;
-  flex-direction: column;
-  margin-top: 13px;
-  color: #526a80;
-  border: 1px dashed #294054;
-  border-radius: 11px;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
-.empty-state > .q-icon {
-  color: #22d3ee;
-  font-size: 34px;
+.original-note-list button {
+  padding: 3px 5px;
+  color: #c9e4eb;
+  background: #102230;
+  border: 1px solid #2b4658;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.empty-state strong {
-  margin-top: 7px;
-  color: #8095a9;
+.original-note-list button:disabled {
+  opacity: 0.5;
+}
+
+.note-workspace {
+  border-color: rgb(34 211 238 / 20%);
+}
+
+.note-workspace header > .q-icon {
+  color: #67e8f9;
+  font-size: 22px;
+}
+
+.combined-playback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.combined-playback strong {
+  color: #c7d6e5;
   font-size: 10px;
 }
 
-.empty-state span {
-  margin-top: 3px;
-  color: #5f7489;
-  font-size: 8px;
+.combined-playback small {
+  color: #677b8e;
+  font-size: 6px;
 }
 
-@media (max-width: 1100px) {
+.combined-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.autosave-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #748a9d;
+}
+
+.autosave-info > .q-icon {
+  color: #86efac;
+  font-size: 20px;
+}
+
+.autosave-info > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.autosave-info strong {
+  color: #a9c7b4;
+  font-size: 7px;
+}
+
+.autosave-info span {
+  font-size: 6px;
+}
+
+.empty-state {
+  display: grid;
+  min-height: 160px;
+  margin-top: 12px;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  color: #70869a;
+  border: 1px dashed #294054;
+  border-radius: 10px;
+}
+
+.empty-state .q-icon {
+  color: #22d3ee;
+  font-size: 30px;
+}
+
+@media (max-width: 900px) {
   .summary-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .process-summary {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .combined-playback {
+  .import-area {
     grid-template-columns: 1fr;
-  }
-
-  .combined-button {
-    justify-self: end;
   }
 }
 
-@media (max-width: 750px) {
+@media (max-width: 700px) {
   .score-heading,
   .tempo-card,
-  .generated-note-workspace > header {
+  .combined-playback {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .import-area {
-    grid-template-columns: 1fr;
   }
 
   .tempo-actions {
     width: 100%;
   }
 
-  .summary-grid,
-  .timeline-info,
-  .process-summary {
+  .summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
 
-@media (max-width: 520px) {
-  .summary-grid,
-  .timeline-info,
-  .process-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .import-card {
-    grid-template-columns: 42px 1fr;
-  }
-
-  .import-card .q-btn {
-    grid-column: 1 / -1;
-  }
-
-  .combined-summary {
+  .combined-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .combined-summary > .q-icon {
-    display: none;
-  }
-
-  .combined-button {
-    width: 100%;
-  }
-
-  .timeline-scroll {
-    max-height: 260px;
   }
 }
 </style>

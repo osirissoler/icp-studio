@@ -10,6 +10,8 @@ export interface ScoreMixerChannelSettings {
   solo: boolean;
 }
 
+export type ScoreMixerSnapshot = Record<string, ScoreMixerChannelSettings>;
+
 export interface ScoreMixerResolvedChannel {
   part: ScorePart;
 
@@ -18,7 +20,7 @@ export interface ScoreMixerResolvedChannel {
 
 const DEFAULT_VOLUME = 80;
 
-export const scoreMixerState = reactive<Record<string, ScoreMixerChannelSettings>>({});
+export const scoreMixerState = reactive<ScoreMixerSnapshot>({});
 
 export function ensureScoreMixerChannel(partId: string): ScoreMixerChannelSettings {
   const existing = scoreMixerState[partId];
@@ -82,6 +84,64 @@ export function removeScoreMixerChannel(partId: string): void {
   delete scoreMixerState[partId];
 }
 
+export function clearScoreMixer(): void {
+  Object.keys(scoreMixerState).forEach((partId) => {
+    delete scoreMixerState[partId];
+  });
+}
+
+export function scoreMixerSnapshot(parts?: ScorePart[]): ScoreMixerSnapshot {
+  const partIds = parts ? new Set(parts.map((part) => part.id)) : null;
+
+  const result: ScoreMixerSnapshot = {};
+
+  Object.entries(scoreMixerState).forEach(([partId, settings]) => {
+    if (partIds && !partIds.has(partId)) {
+      return;
+    }
+
+    result[partId] = {
+      volume: settings.volume,
+
+      muted: settings.muted,
+
+      solo: settings.solo,
+    };
+  });
+
+  if (parts) {
+    parts.forEach((part) => {
+      if (!result[part.id]) {
+        const channel = ensureScoreMixerChannel(part.id);
+
+        result[part.id] = {
+          volume: channel.volume,
+
+          muted: channel.muted,
+
+          solo: channel.solo,
+        };
+      }
+    });
+  }
+
+  return result;
+}
+
+export function restoreScoreMixerSnapshot(snapshot: ScoreMixerSnapshot): void {
+  clearScoreMixer();
+
+  Object.entries(snapshot).forEach(([partId, settings]) => {
+    scoreMixerState[partId] = {
+      volume: normalizeVolume(settings.volume),
+
+      muted: Boolean(settings.muted),
+
+      solo: Boolean(settings.solo),
+    };
+  });
+}
+
 export function resolveScoreMixerChannels(parts: ScorePart[]): ScoreMixerResolvedChannel[] {
   if (!parts.length) {
     return [];
@@ -94,10 +154,9 @@ export function resolveScoreMixerChannels(parts: ScorePart[]): ScoreMixerResolve
   }));
 
   /*
-   * Cuando el usuario reproduce una sola parte,
-   * queremos que "Escuchar" funcione como audición
-   * directa aunque ese canal esté silenciado en
-   * la mezcla general.
+   * "Escuchar" una sola voz es una audición
+   * directa. Debe escucharse incluso si el
+   * canal está silenciado en la mezcla general.
    */
   if (channels.length === 1) {
     return channels;

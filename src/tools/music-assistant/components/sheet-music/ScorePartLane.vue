@@ -36,7 +36,7 @@
 
         <span>PISTA</span>
 
-        <small v-if="interactive"> · clic en una nota para corregir </small>
+        <small v-if="interactive"> · clic para corregir </small>
       </div>
 
       <span>
@@ -72,7 +72,9 @@
           class="lane-note"
           :class="{
             manual: isManual(note.id),
+
             selected: selectedNoteId === note.id,
+
             clickable: interactive && !disabled,
           }"
           :style="noteStyle(note)"
@@ -167,15 +169,10 @@ const props = withDefaults(
   }>(),
   {
     activeBeat: null,
-
     accent: 'original',
-
     compact: false,
-
     interactive: false,
-
     disabled: false,
-
     selectedNoteId: null,
   },
 );
@@ -316,7 +313,7 @@ watch(effectiveActiveBeat, (value) => {
   }
 
   void nextTick(() => {
-    followPlayhead(value);
+    centerBeat(value);
   });
 });
 
@@ -327,14 +324,14 @@ watch(
       return;
     }
 
-    const note = timelineNotes.value.find((item) => item.id === noteId);
+    const note = timelineNotes.value.find((candidate) => candidate.id === noteId);
 
     if (!note) {
       return;
     }
 
     void nextTick(() => {
-      centerNote(note.absoluteBeat);
+      centerBeat(note.absoluteBeat);
     });
   },
 );
@@ -417,7 +414,7 @@ function previousMeasureBeats(measureNumber: number): number {
   return props.part.measures.find((measure) => measure.number === measureNumber)?.beats ?? 4;
 }
 
-function centerNote(absoluteBeat: number): void {
+function centerBeat(absoluteBeat: number): void {
   const container = scrollContainer.value;
 
   if (!container) {
@@ -435,10 +432,6 @@ function centerNote(absoluteBeat: number): void {
 
     behavior: 'smooth',
   });
-}
-
-function followPlayhead(absoluteBeat: number): void {
-  centerNote(absoluteBeat);
 }
 
 function formatBeat(value: number): string {
@@ -499,7 +492,7 @@ function formatBeat(value: number): string {
 }
 
 .compact-heading small {
-  color: #655d78;
+  color: #6d647f;
   font-size: 5px;
 }
 
@@ -598,8 +591,7 @@ function formatBeat(value: number): string {
   transition:
     border-color 0.12s ease,
     background 0.12s ease,
-    box-shadow 0.12s ease,
-    transform 0.12s ease;
+    box-shadow 0.12s ease;
 }
 
 .lane-note.clickable {
@@ -609,12 +601,7 @@ function formatBeat(value: number): string {
 .lane-note.clickable:hover {
   z-index: 4;
   border-color: #67e8f9;
-  box-shadow: 0 0 0 1px rgb(34 211 238 / 20%);
-  transform: translateY(-1px);
-}
-
-.lane-note:disabled {
-  cursor: default;
+  box-shadow: 0 0 0 1px rgb(34 211 238 / 22%);
 }
 
 .part-lane--compact .lane-note {
@@ -636,8 +623,8 @@ function formatBeat(value: number): string {
   border-color: rgb(167 139 250 / 20%);
 }
 
-.part-lane--generated .lane-heading > div:first-child,
-.part-lane--generated .compact-heading > div:first-child {
+.part-lane--generated .compact-heading > div:first-child,
+.part-lane--generated .lane-heading > div:first-child {
   color: #c4b5fd;
 }
 
@@ -647,23 +634,16 @@ function formatBeat(value: number): string {
   border-color: rgb(167 139 250 / 52%);
 }
 
-.part-lane--generated .lane-note.clickable:hover {
-  border-color: #c4b5fd;
-  box-shadow: 0 0 0 1px rgb(167 139 250 / 28%);
-}
-
 .part-lane--generated .lane-note.manual {
   color: #fff7ed;
   background: rgb(245 158 11 / 35%);
   border-color: rgb(251 191 36 / 70%);
-  box-shadow: 0 0 5px rgb(245 158 11 / 16%);
 }
 
 .lane-note.selected {
   z-index: 4;
-  color: white;
   border-color: #22d3ee !important;
-  box-shadow: 0 0 0 2px rgb(34 211 238 / 26%);
+  box-shadow: 0 0 0 2px rgb(34 211 238 / 28%);
 }
 
 .manual-icon {
@@ -693,12 +673,6 @@ function formatBeat(value: number): string {
   height: 7px;
   background: #f8fafc;
   border-radius: 50%;
-}
-
-.part-lane--compact .playhead span {
-  left: -2px;
-  width: 5px;
-  height: 5px;
 }
 
 .lane-footer {
