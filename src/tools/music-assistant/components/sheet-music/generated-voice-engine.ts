@@ -7,6 +7,14 @@ import type {
   ScorePitch,
 } from '../../shared/score';
 
+import {
+  analyzeHarmonicContexts,
+  chordToneDistance,
+  harmonicContextAtBeat,
+  isChordTone,
+  type HarmonicContext,
+} from './harmonic-context-engine';
+
 export type GeneratedVoiceKind = 'second' | 'tenor' | 'baritone' | 'bass' | 'custom';
 
 export type GeneratedVoicePlacement = 'above' | 'below';
@@ -37,6 +45,18 @@ interface GeneratedVoiceProfile {
   minMidi: number;
 
   maxMidi: number;
+
+  chordToneWeight: number;
+
+  voiceLeadingWeight: number;
+
+  targetWeight: number;
+}
+
+interface VoiceGenerationState {
+  previousGeneratedMidi: number | undefined;
+
+  previousSourceMidi: number | undefined;
 }
 
 export function generateScoreParts(
@@ -44,7 +64,11 @@ export function generateScoreParts(
   sourcePart: ScorePart,
   requests: GeneratedVoiceRequest[],
 ): ScorePart[] {
-  return requests.map((request, index) => generateScorePart(score, sourcePart, request, index));
+  const harmonicContexts = analyzeHarmonicContexts(score);
+
+  return requests.map((request, index) =>
+    generateScorePartWithContexts(score, sourcePart, request, harmonicContexts, index),
+  );
 }
 
 export function generateScorePart(
@@ -53,18 +77,30 @@ export function generateScorePart(
   request: GeneratedVoiceRequest,
   requestIndex = 0,
 ): ScorePart {
+  const harmonicContexts = analyzeHarmonicContexts(score);
+
+  return generateScorePartWithContexts(score, sourcePart, request, harmonicContexts, requestIndex);
+}
+
+function generateScorePartWithContexts(
+  score: ScoreDocument,
+  sourcePart: ScorePart,
+  request: GeneratedVoiceRequest,
+  harmonicContexts: HarmonicContext[],
+  requestIndex: number,
+): ScorePart {
   const profile = resolveProfile(request);
 
-  let previousMidi: number | undefined;
+  const state: VoiceGenerationState = {
+    previousGeneratedMidi: undefined,
+
+    previousSourceMidi: undefined,
+  };
 
   const measures = sourcePart.measures.map((measure) => {
     const keySignature = measure.keySignature ?? score.keySignature;
 
-    const generatedMeasure = generateMeasure(measure, keySignature, request, profile, previousMidi);
-
-    previousMidi = generatedMeasure.lastMidi;
-
-    return generatedMeasure.measure;
+    return generateMeasure(measure, keySignature, request, profile, harmonicContexts, state);
   });
 
   return {
@@ -93,13 +129,9 @@ function generateMeasure(
   keySignature: ScoreKeySignature,
   request: GeneratedVoiceRequest,
   profile: GeneratedVoiceProfile,
-  previousMidi: number | undefined,
-): {
-  measure: ScoreMeasure;
-  lastMidi: number | undefined;
-} {
-  let currentPreviousMidi = previousMidi;
-
+  harmonicContexts: HarmonicContext[],
+  state: VoiceGenerationState,
+): ScoreMeasure {
   const events = measure.events.map((event) => {
     if (event.type !== 'note') {
       return {
@@ -107,39 +139,40 @@ function generateMeasure(
       };
     }
 
+    const context = harmonicContextAtBeat(harmonicContexts, event.absoluteBeat);
+
     const generatedMidi = chooseGeneratedMidi(
       event.pitch.midi,
       keySignature,
-      request.placement,
+      request,
       profile,
-      currentPreviousMidi,
+      context,
+      state,
     );
 
-    currentPreviousMidi = generatedMidi;
+    state.previousSourceMidi = event.pitch.midi;
+
+    state.previousGeneratedMidi = generatedMidi;
 
     return generateNoteEvent(event, generatedMidi, request);
   });
 
   return {
-    measure: {
-      ...measure,
+    ...measure,
 
-      timeSignature: measure.timeSignature
-        ? {
-            ...measure.timeSignature,
-          }
-        : undefined,
+    timeSignature: measure.timeSignature
+      ? {
+          ...measure.timeSignature,
+        }
+      : undefined,
 
-      keySignature: measure.keySignature
-        ? {
-            ...measure.keySignature,
-          }
-        : undefined,
+    keySignature: measure.keySignature
+      ? {
+          ...measure.keySignature,
+        }
+      : undefined,
 
-      events,
-    },
-
-    lastMidi: currentPreviousMidi,
+    events,
   };
 }
 
@@ -160,12 +193,52 @@ function generateNoteEvent(
 function chooseGeneratedMidi(
   sourceMidi: number,
   keySignature: ScoreKeySignature,
-  placement: GeneratedVoicePlacement,
+  request: GeneratedVoiceRequest,
   profile: GeneratedVoiceProfile,
-  previousMidi: number | undefined,
+  context: HarmonicContext | null,
+  state: VoiceGenerationState,
 ): number {
   const scalePitchClasses = getScalePitchClasses(keySignature.rootNote, keySignature.scaleMode);
 
+  const targetMidi = calculateTargetMidi(sourceMidi, scalePitchClasses, request, profile);
+
+  const candidates = buildCandidates(scalePitchClasses, context, profile.minMidi, profile.maxMidi);
+
+  if (!candidates.length) {
+    return clamp(targetMidi, profile.minMidi, profile.maxMidi);
+  }
+
+  let bestMidi = candidates[0] ?? clamp(targetMidi, profile.minMidi, profile.maxMidi);
+
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  candidates.forEach((candidate) => {
+    const score = scoreCandidate(
+      candidate,
+      sourceMidi,
+      targetMidi,
+      request,
+      profile,
+      context,
+      state,
+    );
+
+    if (score < bestScore) {
+      bestScore = score;
+
+      bestMidi = candidate;
+    }
+  });
+
+  return bestMidi;
+}
+
+function calculateTargetMidi(
+  sourceMidi: number,
+  scalePitchClasses: number[],
+  request: GeneratedVoiceRequest,
+  profile: GeneratedVoiceProfile,
+): number {
   const sourcePitchClass = normalizeNote(sourceMidi);
 
   const sourceScalePosition = scalePitchClasses.indexOf(sourcePitchClass);
@@ -177,62 +250,201 @@ function chooseGeneratedMidi(
 
     const octaveShift = Math.floor(targetScalePosition / scalePitchClasses.length);
 
-    const wrappedScalePosition =
-      ((targetScalePosition % scalePitchClasses.length) + scalePitchClasses.length) %
-      scalePitchClasses.length;
+    const wrappedScalePosition = wrapIndex(targetScalePosition, scalePitchClasses.length);
 
     const targetPitchClass = scalePitchClasses[wrappedScalePosition] ?? normalizeNote(targetMidi);
 
-    const sourceOctave = Math.floor(sourceMidi / 12);
+    const sourceOctaveBase = Math.floor(sourceMidi / 12) * 12;
 
-    targetMidi = sourceOctave * 12 + targetPitchClass + octaveShift * 12;
+    targetMidi = sourceOctaveBase + targetPitchClass + octaveShift * 12;
   }
 
-  while (placement === 'above' && targetMidi <= sourceMidi) {
+  while (request.placement === 'above' && targetMidi <= sourceMidi) {
     targetMidi += 12;
   }
 
-  while (placement === 'below' && targetMidi >= sourceMidi) {
+  while (request.placement === 'below' && targetMidi >= sourceMidi) {
     targetMidi -= 12;
   }
 
-  const candidates = buildCandidates(scalePitchClasses, profile.minMidi, profile.maxMidi);
+  return targetMidi;
+}
 
-  if (!candidates.length) {
-    return clamp(targetMidi, profile.minMidi, profile.maxMidi);
+function scoreCandidate(
+  candidate: number,
+  sourceMidi: number,
+  targetMidi: number,
+  request: GeneratedVoiceRequest,
+  profile: GeneratedVoiceProfile,
+  context: HarmonicContext | null,
+  state: VoiceGenerationState,
+): number {
+  let score = 0;
+
+  score += Math.abs(candidate - targetMidi) * profile.targetWeight;
+
+  score += placementPenalty(candidate, sourceMidi, request.placement);
+
+  score += harmonyPenalty(candidate, sourceMidi, request, profile, context);
+
+  score += voiceLeadingPenalty(candidate, sourceMidi, profile, state);
+
+  score += rangeEdgePenalty(candidate, profile.minMidi, profile.maxMidi);
+
+  return score;
+}
+
+function placementPenalty(
+  candidate: number,
+  sourceMidi: number,
+  placement: GeneratedVoicePlacement,
+): number {
+  if (candidate === sourceMidi) {
+    return 40;
   }
 
-  let bestMidi = candidates[0] ?? clamp(targetMidi, profile.minMidi, profile.maxMidi);
+  if (placement === 'above' && candidate <= sourceMidi) {
+    return 34 + Math.abs(candidate - sourceMidi);
+  }
 
-  let bestScore = Number.POSITIVE_INFINITY;
+  if (placement === 'below' && candidate >= sourceMidi) {
+    return 34 + Math.abs(candidate - sourceMidi);
+  }
 
-  candidates.forEach((candidate) => {
-    let candidateScore = Math.abs(candidate - targetMidi);
+  return 0;
+}
 
-    if (previousMidi !== undefined) {
-      candidateScore += Math.abs(candidate - previousMidi) * 0.65;
+function harmonyPenalty(
+  candidate: number,
+  sourceMidi: number,
+  request: GeneratedVoiceRequest,
+  profile: GeneratedVoiceProfile,
+  context: HarmonicContext | null,
+): number {
+  if (!context) {
+    return 0;
+  }
+
+  let penalty = chordToneDistance(candidate, context) * profile.chordToneWeight;
+
+  if (isChordTone(candidate, context)) {
+    penalty -= 3;
+  }
+
+  const interval = Math.abs(candidate - sourceMidi);
+
+  const intervalClass = interval % 12;
+
+  if (intervalClass === 1) {
+    penalty += 8;
+  }
+
+  if (intervalClass === 2) {
+    penalty += 4;
+  }
+
+  if (intervalClass === 6) {
+    penalty += 6;
+  }
+
+  if (
+    request.kind === 'second' &&
+    (intervalClass === 3 || intervalClass === 4 || intervalClass === 8 || intervalClass === 9)
+  ) {
+    penalty -= 3;
+  }
+
+  if (request.kind === 'bass') {
+    const pitchClass = normalizeNote(candidate);
+
+    if (pitchClass === context.chordRoot) {
+      penalty -= 6;
+    } else if (context.chordPitchClasses.includes(pitchClass)) {
+      penalty -= 2;
+    } else {
+      penalty += 7;
+    }
+  }
+
+  if (context.confidence < 0.5) {
+    penalty *= 0.7;
+  }
+
+  return penalty;
+}
+
+function voiceLeadingPenalty(
+  candidate: number,
+  sourceMidi: number,
+  profile: GeneratedVoiceProfile,
+  state: VoiceGenerationState,
+): number {
+  const previousGeneratedMidi = state.previousGeneratedMidi;
+
+  if (previousGeneratedMidi === undefined) {
+    return 0;
+  }
+
+  const movement = candidate - previousGeneratedMidi;
+
+  const movementSize = Math.abs(movement);
+
+  let penalty = movementSize * profile.voiceLeadingWeight;
+
+  if (movementSize <= 2) {
+    penalty -= 1.5;
+  }
+
+  if (movementSize > 7) {
+    penalty += (movementSize - 7) * 1.2;
+  }
+
+  if (movementSize > 12) {
+    penalty += 14;
+  }
+
+  if (state.previousSourceMidi !== undefined) {
+    const previousInterval = Math.abs(previousGeneratedMidi - state.previousSourceMidi) % 12;
+
+    const currentInterval = Math.abs(candidate - sourceMidi) % 12;
+
+    const sourceMotion = sourceMidi - state.previousSourceMidi;
+
+    const generatedMotion = candidate - previousGeneratedMidi;
+
+    if (
+      isPerfectInterval(previousInterval) &&
+      isPerfectInterval(currentInterval) &&
+      previousInterval === currentInterval &&
+      movesInSameDirection(sourceMotion, generatedMotion)
+    ) {
+      penalty += 7;
     }
 
-    if (placement === 'above' && candidate <= sourceMidi) {
-      candidateScore += 24;
+    if (
+      sourceMotion !== 0 &&
+      generatedMotion !== 0 &&
+      Math.sign(sourceMotion) !== Math.sign(generatedMotion)
+    ) {
+      penalty -= 0.7;
     }
+  }
 
-    if (placement === 'below' && candidate >= sourceMidi) {
-      candidateScore += 24;
-    }
+  return penalty;
+}
 
-    if (candidate === sourceMidi) {
-      candidateScore += 18;
-    }
+function rangeEdgePenalty(midi: number, minimum: number, maximum: number): number {
+  const distanceFromMinimum = midi - minimum;
 
-    if (candidateScore < bestScore) {
-      bestScore = candidateScore;
+  const distanceFromMaximum = maximum - midi;
 
-      bestMidi = candidate;
-    }
-  });
+  const nearestEdge = Math.min(distanceFromMinimum, distanceFromMaximum);
 
-  return bestMidi;
+  if (nearestEdge >= 5) {
+    return 0;
+  }
+
+  return (5 - nearestEdge) * 0.4;
 }
 
 function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
@@ -240,15 +452,33 @@ function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
     return request.placement === 'above'
       ? {
           diatonicOffset: 2,
+
           preferredSemitoneOffset: 4,
+
           minMidi: request.minMidi ?? 55,
+
           maxMidi: request.maxMidi ?? 88,
+
+          chordToneWeight: 2.6,
+
+          voiceLeadingWeight: 0.72,
+
+          targetWeight: 1,
         }
       : {
           diatonicOffset: -2,
+
           preferredSemitoneOffset: -4,
+
           minMidi: request.minMidi ?? 48,
+
           maxMidi: request.maxMidi ?? 79,
+
+          chordToneWeight: 2.6,
+
+          voiceLeadingWeight: 0.72,
+
+          targetWeight: 1,
         };
   }
 
@@ -256,15 +486,33 @@ function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
     return request.placement === 'above'
       ? {
           diatonicOffset: 3,
+
           preferredSemitoneOffset: 5,
+
           minMidi: request.minMidi ?? 52,
+
           maxMidi: request.maxMidi ?? 79,
+
+          chordToneWeight: 2.8,
+
+          voiceLeadingWeight: 0.88,
+
+          targetWeight: 0.85,
         }
       : {
           diatonicOffset: -3,
+
           preferredSemitoneOffset: -5,
+
           minMidi: request.minMidi ?? 45,
+
           maxMidi: request.maxMidi ?? 74,
+
+          chordToneWeight: 2.8,
+
+          voiceLeadingWeight: 0.88,
+
+          targetWeight: 0.85,
         };
   }
 
@@ -272,15 +520,33 @@ function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
     return request.placement === 'above'
       ? {
           diatonicOffset: 5,
+
           preferredSemitoneOffset: 9,
+
           minMidi: request.minMidi ?? 48,
+
           maxMidi: request.maxMidi ?? 74,
+
+          chordToneWeight: 3,
+
+          voiceLeadingWeight: 0.95,
+
+          targetWeight: 0.78,
         }
       : {
           diatonicOffset: -5,
+
           preferredSemitoneOffset: -9,
+
           minMidi: request.minMidi ?? 40,
+
           maxMidi: request.maxMidi ?? 69,
+
+          chordToneWeight: 3,
+
+          voiceLeadingWeight: 0.95,
+
+          targetWeight: 0.78,
         };
   }
 
@@ -288,15 +554,33 @@ function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
     return request.placement === 'above'
       ? {
           diatonicOffset: 7,
+
           preferredSemitoneOffset: 12,
+
           minMidi: request.minMidi ?? 43,
+
           maxMidi: request.maxMidi ?? 69,
+
+          chordToneWeight: 3.5,
+
+          voiceLeadingWeight: 1,
+
+          targetWeight: 0.65,
         }
       : {
           diatonicOffset: -7,
+
           preferredSemitoneOffset: -12,
+
           minMidi: request.minMidi ?? 32,
+
           maxMidi: request.maxMidi ?? 60,
+
+          chordToneWeight: 3.5,
+
+          voiceLeadingWeight: 1,
+
+          targetWeight: 0.65,
         };
   }
 
@@ -314,14 +598,29 @@ function resolveProfile(request: GeneratedVoiceRequest): GeneratedVoiceProfile {
     minMidi: request.minMidi ?? 36,
 
     maxMidi: request.maxMidi ?? 88,
+
+    chordToneWeight: 2.5,
+
+    voiceLeadingWeight: 0.8,
+
+    targetWeight: 1,
   };
 }
 
-function buildCandidates(scalePitchClasses: number[], minimum: number, maximum: number): number[] {
+function buildCandidates(
+  scalePitchClasses: number[],
+  context: HarmonicContext | null,
+  minimum: number,
+  maximum: number,
+): number[] {
+  const allowedPitchClasses = new Set<number>(scalePitchClasses);
+
+  context?.chordPitchClasses.forEach((pitchClass) => allowedPitchClasses.add(pitchClass));
+
   const candidates: number[] = [];
 
   for (let midi = minimum; midi <= maximum; midi += 1) {
-    if (scalePitchClasses.includes(normalizeNote(midi))) {
+    if (allowedPitchClasses.has(normalizeNote(midi))) {
       candidates.push(midi);
     }
   }
@@ -356,11 +655,11 @@ function buildGeneratedPartId(
       .replace(/[^a-zA-Z0-9-_]/g, '-')
       .replace(/-+/g, '-') || `voice-${requestIndex + 1}`;
 
-  return `generated-${sourcePartId}-${safeRequestId}`;
+  return `generated-` + `${sourcePartId}-` + safeRequestId;
 }
 
 function buildGeneratedVoiceType(request: GeneratedVoiceRequest): string {
-  return `${request.kind}:${request.placement}`;
+  return `${request.kind}:` + request.placement;
 }
 
 function buildAbbreviation(request: GeneratedVoiceRequest): string {
@@ -383,8 +682,24 @@ function buildAbbreviation(request: GeneratedVoiceRequest): string {
   return 'V';
 }
 
+function isPerfectInterval(intervalClass: number): boolean {
+  return intervalClass === 0 || intervalClass === 7;
+}
+
+function movesInSameDirection(leftMovement: number, rightMovement: number): boolean {
+  if (leftMovement === 0 || rightMovement === 0) {
+    return false;
+  }
+
+  return Math.sign(leftMovement) === Math.sign(rightMovement);
+}
+
 function normalizeNote(note: number): number {
   return ((note % 12) + 12) % 12;
+}
+
+function wrapIndex(value: number, length: number): number {
+  return ((value % length) + length) % length;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

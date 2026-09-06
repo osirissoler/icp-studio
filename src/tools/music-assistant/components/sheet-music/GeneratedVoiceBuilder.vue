@@ -12,7 +12,9 @@
         </small>
       </div>
 
-      <q-icon name="account_tree" />
+      <div class="heading-icon">
+        <q-icon name="account_tree" />
+      </div>
     </header>
 
     <div class="source-section">
@@ -20,6 +22,8 @@
         <span>VOZ DE REFERENCIA</span>
 
         <strong> La voz que servirá como principal para esta generación </strong>
+
+        <small> Esta voz original no será modificada. </small>
       </div>
 
       <q-select
@@ -29,11 +33,18 @@
         map-options
         dense
         outlined
+        dark
+        color="cyan-4"
         options-dense
-        class="source-select"
+        popup-content-class="icp-voice-select-menu"
+        class="source-select generator-control"
         :disable="disabled || !parts.length"
         @update:model-value="updateSourcePart"
-      />
+      >
+        <template #prepend>
+          <q-icon name="music_note" />
+        </template>
+      </q-select>
     </div>
 
     <div class="request-heading">
@@ -47,7 +58,7 @@
       </div>
 
       <q-btn
-        outline
+        unelevated
         no-caps
         dense
         icon="add"
@@ -69,10 +80,17 @@
             :model-value="request.label"
             dense
             outlined
+            dark
+            color="cyan-4"
             label="Nombre"
+            class="generator-control"
             :disable="disabled"
             @update:model-value="updateRequestLabel(request.id, String($event ?? ''))"
-          />
+          >
+            <template #prepend>
+              <q-icon name="badge" />
+            </template>
+          </q-input>
 
           <q-select
             :model-value="request.kind"
@@ -81,11 +99,19 @@
             map-options
             dense
             outlined
+            dark
+            color="cyan-4"
             options-dense
             label="Tipo"
+            popup-content-class="icp-voice-select-menu"
+            class="generator-control"
             :disable="disabled"
             @update:model-value="updateRequestKind(request.id, $event)"
-          />
+          >
+            <template #prepend>
+              <q-icon :name="requestIcon(request.kind)" />
+            </template>
+          </q-select>
 
           <q-select
             :model-value="request.placement"
@@ -94,15 +120,25 @@
             map-options
             dense
             outlined
+            dark
+            color="cyan-4"
             options-dense
             label="Posición"
+            popup-content-class="icp-voice-select-menu"
+            class="generator-control"
             :disable="disabled"
             @update:model-value="updateRequestPlacement(request.id, $event)"
-          />
+          >
+            <template #prepend>
+              <q-icon :name="request.placement === 'above' ? 'arrow_upward' : 'arrow_downward'" />
+            </template>
+          </q-select>
         </div>
 
         <div class="request-description">
-          <q-icon :name="requestIcon(request.kind)" />
+          <div class="description-icon">
+            <q-icon :name="requestIcon(request.kind)" />
+          </div>
 
           <span>
             {{ requestDescription(request) }}
@@ -117,12 +153,16 @@
           class="delete-button"
           :disable="disabled"
           @click="removeRequest(request.id)"
-        />
+        >
+          <q-tooltip>Eliminar esta voz</q-tooltip>
+        </q-btn>
       </article>
     </div>
 
     <div v-else class="empty-requests">
-      <q-icon name="add_circle_outline" />
+      <div class="empty-icon">
+        <q-icon name="add_circle_outline" />
+      </div>
 
       <div>
         <strong> Todavía no has solicitado ninguna voz </strong>
@@ -132,15 +172,20 @@
     </div>
 
     <div class="quick-add">
-      <span>AGREGAR RÁPIDO</span>
+      <div class="quick-heading">
+        <span>AGREGAR RÁPIDO</span>
 
-      <div>
+        <small> Puedes agregar varias voces del mismo tipo. </small>
+      </div>
+
+      <div class="quick-buttons">
         <button
           type="button"
           :disabled="disabled || !sourcePartId"
           @click="addPreset('second', 'above')"
         >
-          2ª arriba
+          <q-icon name="north_east" />
+          <span>2ª arriba</span>
         </button>
 
         <button
@@ -148,7 +193,8 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('second', 'below')"
         >
-          2ª abajo
+          <q-icon name="south_east" />
+          <span>2ª abajo</span>
         </button>
 
         <button
@@ -156,7 +202,8 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('tenor', 'above')"
         >
-          Tenor arriba
+          <q-icon name="graphic_eq" />
+          <span>Tenor arriba</span>
         </button>
 
         <button
@@ -164,7 +211,8 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('tenor', 'below')"
         >
-          Tenor abajo
+          <q-icon name="graphic_eq" />
+          <span>Tenor abajo</span>
         </button>
 
         <button
@@ -172,7 +220,8 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('baritone', 'above')"
         >
-          Barítono arriba
+          <q-icon name="equalizer" />
+          <span>Barítono arriba</span>
         </button>
 
         <button
@@ -180,7 +229,8 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('baritone', 'below')"
         >
-          Barítono abajo
+          <q-icon name="equalizer" />
+          <span>Barítono abajo</span>
         </button>
 
         <button
@@ -188,16 +238,21 @@
           :disabled="disabled || !sourcePartId"
           @click="addPreset('bass', 'below')"
         >
-          Bajo
+          <q-icon name="volume_down" />
+          <span>Bajo</span>
         </button>
       </div>
     </div>
 
     <footer class="generator-actions">
-      <div>
-        <q-icon name="info_outline" />
+      <div class="generator-info">
+        <q-icon name="verified_user" />
 
-        <span> Las voces originales nunca se modifican. </span>
+        <div>
+          <strong>Original protegido</strong>
+
+          <span> Las voces originales nunca se modifican. </span>
+        </div>
       </div>
 
       <q-btn
@@ -470,10 +525,12 @@ function requestDescription(request: GeneratedVoiceRequest): string {
 <style scoped>
 .generator-panel {
   margin-top: 11px;
-  padding: 12px;
-  background: radial-gradient(circle at 100% 0%, rgb(167 139 250 / 8%), transparent 34%), #0d1a27;
-  border: 1px solid rgb(167 139 250 / 19%);
-  border-radius: 10px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(34 211 238 / 7%), transparent 30%),
+    radial-gradient(circle at 0% 100%, rgb(167 139 250 / 7%), transparent 34%), #0d1a27;
+  border: 1px solid #284359;
+  border-radius: 11px;
 }
 
 .generator-heading {
@@ -483,42 +540,57 @@ function requestDescription(request: GeneratedVoiceRequest): string {
   gap: 12px;
 }
 
-.generator-heading > div {
+.generator-heading > div:first-child {
   display: flex;
   flex-direction: column;
 }
 
 .generator-heading span {
-  color: #a78bfa;
+  color: #22d3ee;
   font-size: 7px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: 0.08em;
 }
 
 .generator-heading strong {
-  color: #ddd6fe;
-  font-size: 10px;
+  color: #e3edf7;
+  font-size: 11px;
 }
 
 .generator-heading small {
-  color: #756f8f;
+  max-width: 720px;
+  margin-top: 2px;
+  color: #7c91a5;
   font-size: 7px;
+  line-height: 1.5;
 }
 
-.generator-heading > .q-icon {
-  color: #a78bfa;
-  font-size: 23px;
+.heading-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #67e8f9;
+  background: rgb(34 211 238 / 8%);
+  border: 1px solid rgb(34 211 238 / 20%);
+  border-radius: 9px;
+}
+
+.heading-icon .q-icon {
+  font-size: 20px;
 }
 
 .source-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  margin-top: 10px;
-  padding: 9px 10px;
-  background: #101c2a;
-  border: 1px solid #26394d;
-  border-radius: 8px;
+  gap: 18px;
+  margin-top: 12px;
+  padding: 11px;
+  background: #101f2e;
+  border: 1px solid #2b465d;
+  border-radius: 9px;
 }
 
 .source-copy {
@@ -530,16 +602,23 @@ function requestDescription(request: GeneratedVoiceRequest): string {
 .source-copy span {
   color: #22d3ee;
   font-size: 6px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: 0.06em;
 }
 
 .source-copy strong {
-  color: #b8c9da;
+  color: #d2deea;
   font-size: 8px;
 }
 
+.source-copy small {
+  margin-top: 2px;
+  color: #70869b;
+  font-size: 7px;
+}
+
 .source-select {
-  width: 260px;
+  width: 285px;
   max-width: 100%;
 }
 
@@ -548,7 +627,7 @@ function requestDescription(request: GeneratedVoiceRequest): string {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 11px;
+  margin-top: 13px;
 }
 
 .request-heading > div {
@@ -557,187 +636,375 @@ function requestDescription(request: GeneratedVoiceRequest): string {
 }
 
 .request-heading span {
-  color: #7c718e;
+  color: #6d8398;
   font-size: 6px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: 0.06em;
 }
 
 .request-heading strong {
-  color: #bdb3d1;
+  color: #c9d6e2;
   font-size: 8px;
 }
 
 .add-button {
-  color: #b7a6e5;
+  min-height: 30px;
+  padding: 0 11px;
+  color: #d9fbff;
+  background: #155e75;
+  border: 1px solid #1d7d94;
+  border-radius: 7px;
+}
+
+.add-button:hover {
+  background: #176d85;
+  border-color: #22d3ee;
 }
 
 .request-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   margin-top: 8px;
 }
 
 .request-card {
   display: grid;
   grid-template-columns:
-    28px
+    30px
     minmax(0, 1fr)
-    minmax(150px, 0.55fr)
-    32px;
+    minmax(160px, 0.52fr)
+    34px;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: #101e2c;
-  border: 1px solid #293e53;
-  border-radius: 8px;
+  gap: 9px;
+  padding: 9px;
+  background: #101f2e;
+  border: 1px solid #29445a;
+  border-radius: 9px;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.request-card:hover {
+  background: #112335;
+  border-color: #365d78;
 }
 
 .request-number {
   display: grid;
-  width: 25px;
-  height: 25px;
+  width: 27px;
+  height: 27px;
   place-items: center;
-  color: #c4b5fd;
-  background: rgb(167 139 250 / 9%);
-  border-radius: 6px;
+  color: #cffafe;
+  background: rgb(34 211 238 / 9%);
+  border: 1px solid rgb(34 211 238 / 18%);
+  border-radius: 7px;
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .request-fields {
   display: grid;
   min-width: 0;
   grid-template-columns:
-    minmax(150px, 1.2fr)
-    minmax(120px, 0.8fr)
-    minmax(110px, 0.65fr);
-  gap: 6px;
+    minmax(170px, 1.2fr)
+    minmax(130px, 0.8fr)
+    minmax(120px, 0.65fr);
+  gap: 7px;
 }
 
 .request-description {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #647a8e;
+  gap: 7px;
+  color: #7e93a7;
   font-size: 7px;
+  line-height: 1.4;
 }
 
-.request-description .q-icon {
+.description-icon {
+  display: grid;
+  width: 27px;
+  height: 27px;
   flex: 0 0 auto;
-  color: #8b7ab8;
-  font-size: 15px;
+  place-items: center;
+  color: #a5f3fc;
+  background: #12283a;
+  border: 1px solid #28475e;
+  border-radius: 7px;
+}
+
+.description-icon .q-icon {
+  font-size: 14px;
 }
 
 .delete-button {
-  color: #8c7486;
+  color: #cc8997;
+  background: rgb(244 63 94 / 5%);
+}
+
+.delete-button:hover {
+  color: #fda4af;
+  background: rgb(244 63 94 / 10%);
 }
 
 .empty-requests {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 72px;
+  gap: 10px;
+  min-height: 82px;
   margin-top: 8px;
-  padding: 10px;
-  background: #101c29;
-  border: 1px dashed #304154;
-  border-radius: 8px;
+  padding: 12px;
+  background: #0f1e2c;
+  border: 1px dashed #355168;
+  border-radius: 9px;
 }
 
-.empty-requests > .q-icon {
-  color: #6f6583;
+.empty-icon {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #67e8f9;
+  background: rgb(34 211 238 / 6%);
+  border-radius: 50%;
+}
+
+.empty-icon .q-icon {
   font-size: 21px;
 }
 
-.empty-requests > div {
+.empty-requests > div:last-child {
   display: flex;
   flex-direction: column;
 }
 
 .empty-requests strong {
-  color: #8f879f;
+  color: #a9bbca;
   font-size: 8px;
 }
 
 .empty-requests span {
-  color: #655f70;
+  margin-top: 2px;
+  color: #6d8296;
   font-size: 7px;
 }
 
 .quick-add {
-  margin-top: 10px;
+  margin-top: 11px;
+  padding: 10px;
+  background: #0c1926;
+  border: 1px solid #223c51;
+  border-radius: 9px;
 }
 
-.quick-add > span {
-  color: #6e657d;
+.quick-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quick-heading > span {
+  color: #6d8297;
   font-size: 6px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: 0.07em;
 }
 
-.quick-add > div {
+.quick-heading small {
+  color: #526b81;
+  font-size: 6px;
+}
+
+.quick-buttons {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.quick-buttons button {
+  display: inline-flex;
+  min-height: 29px;
+  align-items: center;
   gap: 5px;
-  margin-top: 5px;
-}
-
-.quick-add button {
-  padding: 5px 8px;
-  color: #9f93bb;
-  background: #121e2c;
-  border: 1px solid #314054;
-  border-radius: 6px;
+  padding: 5px 9px;
+  color: #a9c9d4;
+  background: #112333;
+  border: 1px solid #315069;
+  border-radius: 7px;
   cursor: pointer;
+  font: inherit;
   font-size: 7px;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
-.quick-add button:hover:not(:disabled) {
-  color: #ddd6fe;
-  border-color: rgb(167 139 250 / 45%);
+.quick-buttons button .q-icon {
+  color: #5ee3f2;
+  font-size: 13px;
 }
 
-.quick-add button:disabled {
+.quick-buttons button:hover:not(:disabled) {
+  color: #ecfeff;
+  background: #143044;
+  border-color: #22d3ee;
+}
+
+.quick-buttons button:disabled {
   cursor: default;
-  opacity: 0.4;
+  opacity: 0.38;
 }
 
 .generator-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px solid #243449;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid #284054;
 }
 
-.generator-actions > div {
+.generator-info {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: #667789;
+  gap: 7px;
+}
+
+.generator-info > .q-icon {
+  color: #67e8f9;
+  font-size: 16px;
+}
+
+.generator-info > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.generator-info strong {
+  color: #a9c7d3;
   font-size: 7px;
 }
 
-.generator-actions > div .q-icon {
-  color: #7f73a0;
-  font-size: 14px;
+.generator-info span {
+  color: #647b90;
+  font-size: 6px;
 }
 
 .generate-button {
-  color: white;
-  background: #7159a6;
+  min-height: 33px;
+  padding: 0 14px;
+  color: #ecfeff;
+  background: linear-gradient(135deg, #0e7490, #256b82);
+  border: 1px solid #2492aa;
   border-radius: 8px;
+  box-shadow: 0 5px 18px rgb(8 145 178 / 10%);
+}
+
+.generate-button:hover {
+  background: linear-gradient(135deg, #0f829e, #2b7790);
+}
+
+.generator-control {
+  --field-border: #365a72;
+  --field-border-focus: #22d3ee;
+}
+
+.generator-control :deep(.q-field__control) {
+  min-height: 40px;
+  color: #d9edf4;
+  background: #0a1723;
+  border-radius: 7px;
+}
+
+.generator-control :deep(.q-field__control::before) {
+  border-color: var(--field-border) !important;
+}
+
+.generator-control:hover :deep(.q-field__control::before) {
+  border-color: #4b7189 !important;
+}
+
+.generator-control.q-field--focused :deep(.q-field__control::before),
+.generator-control.q-field--focused :deep(.q-field__control::after) {
+  border-color: var(--field-border-focus) !important;
+}
+
+.generator-control :deep(.q-field__native),
+.generator-control :deep(.q-field__input) {
+  color: #e4f4fa !important;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.generator-control :deep(.q-field__label) {
+  color: #7891a5 !important;
+  font-size: 8px;
+}
+
+.generator-control.q-field--focused :deep(.q-field__label) {
+  color: #67e8f9 !important;
+}
+
+.generator-control :deep(.q-field__marginal) {
+  color: #68aebe !important;
+}
+
+.generator-control :deep(.q-field__prepend) {
+  padding-right: 7px;
+}
+
+.generator-control :deep(.q-field__prepend .q-icon) {
+  color: #5cc7d7;
+  font-size: 15px;
+}
+
+.generator-control.q-field--disabled {
+  opacity: 0.45;
+}
+
+:global(.icp-voice-select-menu) {
+  color: #dcebf3 !important;
+  background: #0c1b28 !important;
+  border: 1px solid #35566d !important;
+  border-radius: 8px !important;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 38%) !important;
+}
+
+:global(.icp-voice-select-menu .q-item) {
+  min-height: 34px !important;
+  color: #c7dce7 !important;
+  font-size: 9px !important;
+}
+
+:global(.icp-voice-select-menu .q-item:hover) {
+  color: #ecfeff !important;
+  background: rgb(34 211 238 / 9%) !important;
+}
+
+:global(.icp-voice-select-menu .q-item.q-manual-focusable--focused) {
+  color: #ecfeff !important;
+  background: rgb(34 211 238 / 11%) !important;
+}
+
+:global(.icp-voice-select-menu .q-item--active) {
+  color: #67e8f9 !important;
+  background: rgb(34 211 238 / 8%) !important;
 }
 
 @media (max-width: 1000px) {
   .request-card {
     grid-template-columns:
-      28px
+      30px
       minmax(0, 1fr)
-      32px;
+      34px;
   }
 
   .request-description {
@@ -763,11 +1030,16 @@ function requestDescription(request: GeneratedVoiceRequest): string {
   .request-card {
     align-items: start;
   }
+
+  .quick-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 520px) {
   .request-card {
-    grid-template-columns: 28px 1fr 32px;
+    grid-template-columns: 30px 1fr 34px;
   }
 
   .request-description {

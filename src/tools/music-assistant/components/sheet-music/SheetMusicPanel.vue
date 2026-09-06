@@ -186,9 +186,12 @@
             </small>
           </div>
 
-          <div v-if="playbackMode === 'originals'" class="playing-status">
+          <div
+            v-if="playbackMode === 'originals' || playbackMode === 'combined'"
+            class="playing-status"
+          >
             <span></span>
-            Reproduciendo originales
+            Siguiendo reproducción
           </div>
         </header>
 
@@ -224,7 +227,7 @@
           </div>
         </div>
 
-        <div class="table-wrapper">
+        <div ref="originalTimelineScroll" class="table-wrapper timeline-scroll">
           <table class="score-table original-table">
             <thead>
               <tr>
@@ -250,6 +253,7 @@
               <tr
                 v-for="row in originalTimelineRows"
                 :key="row.key"
+                :data-timeline-beat="timelinePositionKey(row.absoluteBeat)"
                 :class="{
                   active: isTimelineRowActive(row.absoluteBeat),
                 }"
@@ -406,9 +410,12 @@
             </small>
           </div>
 
-          <div v-if="playbackMode === 'generated'" class="playing-status generated-status">
+          <div
+            v-if="playbackMode === 'generated' || playbackMode === 'combined'"
+            class="playing-status generated-status"
+          >
             <span></span>
-            Reproduciendo generadas
+            Siguiendo reproducción
           </div>
         </header>
 
@@ -444,7 +451,7 @@
           </div>
         </div>
 
-        <div class="table-wrapper">
+        <div ref="generatedTimelineScroll" class="table-wrapper timeline-scroll generated-scroll">
           <table class="score-table generated-table">
             <thead>
               <tr>
@@ -470,6 +477,7 @@
               <tr
                 v-for="row in generatedTimelineRows"
                 :key="row.key"
+                :data-timeline-beat="timelinePositionKey(row.absoluteBeat)"
                 :class="{
                   active: isTimelineRowActive(row.absoluteBeat),
                 }"
@@ -618,7 +626,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { notes } from '../../shared/music';
 
@@ -657,6 +665,10 @@ interface TimelineRow {
 }
 
 const musicXmlInput = ref<HTMLInputElement | null>(null);
+
+const originalTimelineScroll = ref<HTMLElement | null>(null);
+
+const generatedTimelineScroll = ref<HTMLElement | null>(null);
 
 const score = ref<ScoreDocument | null>(null);
 
@@ -757,6 +769,16 @@ const keyLabel = computed(() => {
   }`;
 });
 
+watch(activeBeat, (beat) => {
+  if (beat === null) {
+    return;
+  }
+
+  void nextTick(() => {
+    followActiveTimeline();
+  });
+});
+
 function openMusicXmlPicker(): void {
   musicXmlInput.value?.click();
 }
@@ -814,6 +836,8 @@ function loadScore(newScore: ScoreDocument): void {
   selectedGeneratedPartIds.value = [];
 
   generationSourcePartId.value = originals[0]?.id ?? null;
+
+  resetTimelineScrolls();
 }
 
 function changeTempo(change: number): void {
@@ -866,6 +890,13 @@ function handleGenerateVoices(sourcePartId: string, requests: GeneratedVoiceRequ
   selectedGeneratedPartIds.value = Array.from(
     new Set([...selectedGeneratedPartIds.value, ...newSelectedIds]),
   );
+
+  void nextTick(() => {
+    if (generatedTimelineScroll.value) {
+      generatedTimelineScroll.value.scrollTop = 0;
+      generatedTimelineScroll.value.scrollLeft = 0;
+    }
+  });
 }
 
 function removeGeneratedPart(partId: string): void {
@@ -942,6 +973,8 @@ async function playParts(
 
   stopPlayback();
 
+  resetTimelineScrolls();
+
   isPlaying.value = true;
 
   activeBeat.value = null;
@@ -994,6 +1027,58 @@ function finishPlayback(): void {
   activeBeat.value = null;
 
   playbackMode.value = null;
+}
+
+function followActiveTimeline(): void {
+  if (activeBeat.value === null || playbackMode.value === 'single') {
+    return;
+  }
+
+  const beatKey = timelinePositionKey(activeBeat.value);
+
+  if (playbackMode.value === 'originals' || playbackMode.value === 'combined') {
+    scrollTimelineToBeat(originalTimelineScroll.value, beatKey);
+  }
+
+  if (playbackMode.value === 'generated' || playbackMode.value === 'combined') {
+    scrollTimelineToBeat(generatedTimelineScroll.value, beatKey);
+  }
+}
+
+function scrollTimelineToBeat(container: HTMLElement | null, beatKey: string): void {
+  if (!container) {
+    return;
+  }
+
+  const row = container.querySelector<HTMLElement>(`[data-timeline-beat="${beatKey}"]`);
+
+  if (!row) {
+    return;
+  }
+
+  const desiredTop = row.offsetTop - container.clientHeight / 2 + row.offsetHeight / 2;
+
+  const maximumTop = Math.max(0, container.scrollHeight - container.clientHeight);
+
+  const nextTop = Math.min(maximumTop, Math.max(0, desiredTop));
+
+  container.scrollTo({
+    top: nextTop,
+    behavior: 'smooth',
+  });
+}
+
+function resetTimelineScrolls(): void {
+  void nextTick(() => {
+    [originalTimelineScroll.value, generatedTimelineScroll.value].forEach((container) => {
+      if (!container) {
+        return;
+      }
+
+      container.scrollTop = 0;
+      container.scrollLeft = 0;
+    });
+  });
 }
 
 function buildTimelineRows(
@@ -1431,6 +1516,7 @@ onBeforeUnmount(() => {
   height: 6px;
   background: #22d3ee;
   border-radius: 50%;
+  box-shadow: 0 0 8px rgb(34 211 238 / 60%);
 }
 
 .generated-status {
@@ -1439,6 +1525,7 @@ onBeforeUnmount(() => {
 
 .generated-status > span {
   background: #a78bfa;
+  box-shadow: 0 0 8px rgb(167 139 250 / 55%);
 }
 
 .timeline-info {
@@ -1476,15 +1563,56 @@ onBeforeUnmount(() => {
 
 .table-wrapper {
   margin-top: 8px;
-  overflow-x: auto;
+  overflow: auto;
   background: #08131e;
   border: 1px solid #21364a;
   border-radius: 9px;
 }
 
+.timeline-scroll {
+  position: relative;
+  max-height: 365px;
+  scrollbar-color: #315b70 #0a1722;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+
+.timeline-scroll::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.timeline-scroll::-webkit-scrollbar-track {
+  background: #0a1722;
+  border-radius: 8px;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb {
+  background: #315b70;
+  border: 2px solid #0a1722;
+  border-radius: 8px;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #3d758c;
+}
+
+.generated-scroll {
+  scrollbar-color: #65588c #0a1722;
+}
+
+.generated-scroll::-webkit-scrollbar-thumb {
+  background: #65588c;
+}
+
+.generated-scroll::-webkit-scrollbar-thumb:hover {
+  background: #7969a6;
+}
+
 .score-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .original-table,
@@ -1493,12 +1621,16 @@ onBeforeUnmount(() => {
 }
 
 .score-table th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   padding: 8px 7px;
-  color: #667b91;
+  color: #8da2b4;
   font-size: 7px;
   text-align: center;
   background: #0b1926;
-  border-bottom: 1px solid #21364a;
+  border-bottom: 1px solid #29465d;
+  box-shadow: 0 1px 0 #29465d;
 }
 
 .score-table td {
@@ -1506,11 +1638,25 @@ onBeforeUnmount(() => {
   color: #70859a;
   font-size: 7px;
   text-align: center;
+  background: #08131e;
   border-bottom: 1px solid #172a3c;
+  transition:
+    background 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .score-table tr.active td {
-  background: rgb(34 211 238 / 7%);
+  background: rgb(34 211 238 / 10%);
+  box-shadow:
+    inset 0 1px 0 rgb(34 211 238 / 17%),
+    inset 0 -1px 0 rgb(34 211 238 / 17%);
+}
+
+.generated-table tr.active td {
+  background: rgb(167 139 250 / 10%);
+  box-shadow:
+    inset 0 1px 0 rgb(167 139 250 / 17%),
+    inset 0 -1px 0 rgb(167 139 250 / 17%);
 }
 
 .measure-column,
@@ -1877,6 +2023,10 @@ onBeforeUnmount(() => {
   .generated-actions > div {
     margin-right: 0;
   }
+
+  .timeline-scroll {
+    max-height: 320px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -1906,6 +2056,10 @@ onBeforeUnmount(() => {
 
   .combined-button {
     width: 100%;
+  }
+
+  .timeline-scroll {
+    max-height: 280px;
   }
 }
 </style>
