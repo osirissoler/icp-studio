@@ -4,11 +4,13 @@
     :class="[
       `part-lane--${accent}`,
       {
-        'part-lane--playing': activeBeat !== null,
+        'part-lane--playing': effectiveActiveBeat !== null,
+
+        'part-lane--compact': compact,
       },
     ]"
   >
-    <header class="lane-heading">
+    <header v-if="!compact" class="lane-heading">
       <div>
         <q-icon name="view_timeline" />
 
@@ -21,9 +23,25 @@
           notas
         </span>
 
-        <span> MIDI {{ minimumMidi }}–{{ maximumMidi }} </span>
+        <span>
+          MIDI
+          {{ minimumMidi }}–{{ maximumMidi }}
+        </span>
       </div>
     </header>
+
+    <div v-else class="compact-heading">
+      <div>
+        <q-icon name="view_timeline" />
+
+        <span> PISTA </span>
+      </div>
+
+      <span>
+        {{ timelineNotes.length }}
+        notas
+      </span>
+    </div>
 
     <div ref="scrollContainer" class="lane-scroll">
       <div class="lane-canvas" :style="canvasStyle">
@@ -62,8 +80,15 @@
 
           <q-tooltip anchor="top middle" self="bottom middle">
             {{ noteLabel(note.midi) }}
-            · MIDI {{ note.midi }} · Compás {{ note.measureNumber }} · Beat
-            {{ formatBeat(note.startBeat) }} · {{ formatBeat(note.durationBeats) }} tiempos
+            · MIDI {{ note.midi }}
+            · Compás
+            {{ note.measureNumber }}
+            · Beat
+            {{ formatBeat(note.startBeat) }}
+            ·
+            {{ formatBeat(note.durationBeats) }}
+            tiempos
+
             <template v-if="isManual(note.id)"> · Corrección manual </template>
           </q-tooltip>
         </button>
@@ -74,8 +99,8 @@
       </div>
     </div>
 
-    <footer class="lane-footer">
-      <span> INICIO </span>
+    <footer v-if="!compact" class="lane-footer">
+      <span>INICIO</span>
 
       <div />
 
@@ -93,6 +118,8 @@ import { computed, nextTick, ref, watch, type CSSProperties } from 'vue';
 import { notes } from '../../shared/music';
 
 import type { ScorePart, ScoreNoteEvent } from '../../shared/score';
+
+import { scorePlaybackState } from './score-playback-store';
 
 interface LaneNote {
   id: string;
@@ -125,17 +152,33 @@ const props = withDefaults(
     activeBeat?: number | null;
 
     accent?: 'original' | 'generated';
+
+    compact?: boolean;
   }>(),
   {
     activeBeat: null,
 
     accent: 'original',
+
+    compact: false,
   },
 );
 
 const scrollContainer = ref<HTMLElement | null>(null);
 
 const horizontalLines = [0, 1, 2, 3, 4];
+
+const effectiveActiveBeat = computed<number | null>(() => {
+  if (props.activeBeat !== null && props.activeBeat !== undefined) {
+    return props.activeBeat;
+  }
+
+  if (!scorePlaybackState.playing) {
+    return null;
+  }
+
+  return scorePlaybackState.activeBeat;
+});
 
 const safeTotalBeats = computed(() => Math.max(1, props.totalBeats, partLastBeat.value));
 
@@ -225,36 +268,37 @@ const measureMarkers = computed<MeasureMarker[]>(() => {
   return markers;
 });
 
-const canvasWidth = computed(() => Math.max(520, Math.round(safeTotalBeats.value * 30)));
+const pixelsPerBeat = computed(() => (props.compact ? 22 : 30));
+
+const canvasWidth = computed(() =>
+  Math.max(props.compact ? 400 : 520, Math.round(safeTotalBeats.value * pixelsPerBeat.value)),
+);
 
 const canvasStyle = computed<CSSProperties>(() => ({
   width: `${canvasWidth.value}px`,
 }));
 
 const playheadPercent = computed<number | null>(() => {
-  if (props.activeBeat === null || props.activeBeat === undefined) {
+  if (effectiveActiveBeat.value === null) {
     return null;
   }
 
-  return beatPercent(props.activeBeat);
+  return beatPercent(effectiveActiveBeat.value);
 });
 
 const playheadStyle = computed<CSSProperties>(() => ({
   left: `${playheadPercent.value ?? 0}%`,
 }));
 
-watch(
-  () => props.activeBeat,
-  (value) => {
-    if (value === null || value === undefined) {
-      return;
-    }
+watch(effectiveActiveBeat, (value) => {
+  if (value === null) {
+    return;
+  }
 
-    void nextTick(() => {
-      followPlayhead(value);
-    });
-  },
-);
+  void nextTick(() => {
+    followPlayhead(value);
+  });
+});
 
 function noteFromEvent(event: ScoreNoteEvent): LaneNote {
   return {
@@ -277,14 +321,16 @@ function noteStyle(note: LaneNote): CSSProperties {
 
   const width = Math.max(0.35, (note.durationBeats / safeTotalBeats.value) * 100);
 
-  const top = ((paddedMaximumMidi.value - note.midi) / pitchSpan.value) * 78;
+  const verticalRange = props.compact ? 72 : 78;
+
+  const top = ((paddedMaximumMidi.value - note.midi) / pitchSpan.value) * verticalRange;
 
   return {
     left: `${left}%`,
 
     width: `${width}%`,
 
-    top: `${Math.max(2, Math.min(78, top))}%`,
+    top: `${Math.max(2, Math.min(verticalRange, top))}%`,
   };
 }
 
@@ -362,15 +408,20 @@ function formatBeat(value: number): string {
   border-radius: 7px;
 }
 
-.lane-heading {
+.lane-heading,
+.compact-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.lane-heading {
   margin-bottom: 5px;
 }
 
-.lane-heading > div:first-child {
+.lane-heading > div:first-child,
+.compact-heading > div:first-child {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -381,9 +432,19 @@ function formatBeat(value: number): string {
   font-size: 13px;
 }
 
-.lane-heading span {
+.compact-heading .q-icon {
+  font-size: 11px;
+}
+
+.lane-heading span,
+.compact-heading span {
   font-size: 5px;
   font-weight: 700;
+}
+
+.compact-heading {
+  margin-bottom: 3px;
+  color: #61788c;
 }
 
 .lane-stats {
@@ -422,6 +483,19 @@ function formatBeat(value: number): string {
   min-width: 100%;
   overflow: hidden;
   background: linear-gradient(180deg, rgb(255 255 255 / 1%), transparent);
+}
+
+.part-lane--compact {
+  margin-top: 5px;
+  padding: 5px;
+}
+
+.part-lane--compact .lane-canvas {
+  height: 56px;
+}
+
+.part-lane--compact .lane-scroll::-webkit-scrollbar {
+  height: 4px;
 }
 
 .pitch-line {
@@ -467,16 +541,27 @@ function formatBeat(value: number): string {
   pointer-events: auto;
 }
 
+.part-lane--compact .lane-note {
+  height: 8px;
+  padding: 0 2px;
+  line-height: 6px;
+}
+
 .lane-note span {
   font-size: 5px;
   pointer-events: none;
+}
+
+.part-lane--compact .lane-note span {
+  font-size: 4px;
 }
 
 .part-lane--generated {
   border-color: rgb(167 139 250 / 20%);
 }
 
-.part-lane--generated .lane-heading > div:first-child {
+.part-lane--generated .lane-heading > div:first-child,
+.part-lane--generated .compact-heading > div:first-child {
   color: #c4b5fd;
 }
 
@@ -512,6 +597,12 @@ function formatBeat(value: number): string {
   height: 7px;
   background: #f8fafc;
   border-radius: 50%;
+}
+
+.part-lane--compact .playhead span {
+  left: -2px;
+  width: 5px;
+  height: 5px;
 }
 
 .lane-footer {

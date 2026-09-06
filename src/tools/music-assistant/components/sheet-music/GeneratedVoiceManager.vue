@@ -2,17 +2,14 @@
   <section class="manager-panel">
     <header class="manager-heading">
       <div>
-        <span>VOCES GENERADAS</span>
+        <span> VOCES GENERADAS </span>
 
         <strong>
           {{ parts.length }}
           {{ parts.length === 1 ? 'voz adicional' : 'voces adicionales' }}
         </strong>
 
-        <small>
-          Cada voz generada tiene ahora su propia pista musical. Las correcciones manuales aparecen
-          resaltadas sin modificar las voces originales.
-        </small>
+        <small> Cada voz tiene pista, volumen y controles independientes. </small>
       </div>
 
       <div class="heading-icon">
@@ -24,7 +21,7 @@
       <q-icon name="headphones" />
 
       <span>
-        Hay voces generadas en
+        Hay voces en
         <strong>Solo</strong>.
       </span>
     </div>
@@ -36,9 +33,13 @@
         class="voice-card"
         :class="{
           selected: selectedIds.includes(part.id),
+
           playing: playingPartId === part.id,
+
           editing: editingPartId === part.id,
+
           muted: mixerChannel(part.id).muted,
+
           solo: mixerChannel(part.id).solo,
         }"
       >
@@ -54,17 +55,18 @@
             />
 
             <div>
-              <span>
-                {{ part.abbreviation || 'GEN' }}
-              </span>
-
               <strong>
                 {{ part.name }}
               </strong>
 
               <small>
-                Basada en
-                {{ sourcePartName(part.generatedFromPartId) }}
+                {{ part.abbreviation || 'GEN' }}
+                ·
+                {{ kindLabel(part) }}
+                ·
+                {{ placementLabel(part) }}
+                · MIDI
+                {{ rangeLabel(part) }}
               </small>
             </div>
           </button>
@@ -76,80 +78,67 @@
           </div>
         </div>
 
-        <div class="voice-meta">
-          <div>
-            <span>TIPO</span>
+        <div class="source-row">
+          <q-icon name="call_split" />
 
-            <strong>
-              {{ kindLabel(part) }}
-            </strong>
-          </div>
-
-          <div>
-            <span>POSICIÓN</span>
-
-            <strong>
-              {{ placementLabel(part) }}
-            </strong>
-          </div>
-
-          <div>
-            <span>RANGO</span>
-
-            <strong>
-              {{ rangeLabel(part) }}
-            </strong>
-          </div>
+          <span>
+            Basada en
+            {{ sourcePartName(part.generatedFromPartId) }}
+          </span>
         </div>
 
-        <ScorePartLane :part="part" :total-beats="totalBeats" accent="generated" />
+        <ScorePartLane :part="part" :total-beats="totalBeats" accent="generated" compact />
 
-        <section class="mixer-channel">
-          <div class="volume-heading">
-            <span>VOLUMEN</span>
+        <div class="compact-mixer">
+          <div class="volume-row">
+            <q-icon :name="mixerChannel(part.id).muted ? 'volume_off' : 'volume_up'" />
 
-            <strong> {{ mixerChannel(part.id).volume }}% </strong>
+            <q-slider
+              :model-value="mixerChannel(part.id).volume"
+              :min="0"
+              :max="100"
+              :step="1"
+              color="deep-purple-3"
+              track-color="blue-grey-9"
+              :disable="disabled"
+              @update:model-value="updateVolume(part.id, $event)"
+            />
+
+            <span> {{ mixerChannel(part.id).volume }}% </span>
           </div>
 
-          <q-slider
-            :model-value="mixerChannel(part.id).volume"
-            :min="0"
-            :max="100"
-            :step="1"
-            color="deep-purple-3"
-            track-color="blue-grey-9"
-            :disable="disabled"
-            @update:model-value="updateVolume(part.id, $event)"
-          />
-
-          <div class="mixer-buttons">
+          <div class="mini-controls">
             <q-btn
-              unelevated
+              flat
               dense
               no-caps
               icon="headphones"
-              label="Solo"
-              class="solo-button"
+              label="S"
+              class="mini-button solo-button"
               :class="{
                 active: mixerChannel(part.id).solo,
               }"
               :disable="disabled"
               @click="toggleSolo(part.id)"
-            />
+            >
+              <q-tooltip> Solo </q-tooltip>
+            </q-btn>
 
             <q-btn
-              unelevated
+              flat
               dense
               no-caps
-              :icon="mixerChannel(part.id).muted ? 'volume_off' : 'volume_up'"
-              :label="mixerChannel(part.id).muted ? 'Muted' : 'Mute'"
-              class="mute-button"
+              icon="volume_off"
+              label="M"
+              class="mini-button mute-button"
               :class="{
                 active: mixerChannel(part.id).muted,
               }"
               :disable="disabled"
               @click="toggleMute(part.id)"
-            />
+            >
+              <q-tooltip> Mute </q-tooltip>
+            </q-btn>
 
             <q-btn
               flat
@@ -160,10 +149,10 @@
               :disable="disabled"
               @click="resetMix(part.id)"
             >
-              <q-tooltip> Restablecer canal </q-tooltip>
+              <q-tooltip> Restablecer volumen, Solo y Mute </q-tooltip>
             </q-btn>
           </div>
-        </section>
+        </div>
 
         <div class="voice-actions">
           <q-btn
@@ -217,7 +206,7 @@
     <section v-if="editingPart && draft" class="voice-editor">
       <header>
         <div>
-          <span>EDITAR VOZ</span>
+          <span> EDITAR VOZ </span>
 
           <strong>
             {{ editingPart.name }}
@@ -343,14 +332,15 @@
           seleccionadas
         </span>
 
-        <small> Puedes combinar cualquier número de pistas. </small>
+        <small> Puedes combinar cualquier número de voces. </small>
       </div>
 
       <q-btn
         flat
         no-caps
+        dense
         icon="restart_alt"
-        label="Restablecer mezcla"
+        label="Restablecer"
         class="reset-all-button"
         :disable="disabled"
         @click="resetAllMix"
@@ -360,6 +350,7 @@
         v-if="playing"
         outline
         no-caps
+        dense
         icon="stop"
         label="Detener"
         class="stop-button"
@@ -369,8 +360,9 @@
       <q-btn
         unelevated
         no-caps
+        dense
         icon="play_arrow"
-        :label="playing && !playingPartId ? 'Reproduciendo selección' : 'Escuchar seleccionadas'"
+        :label="playing && !playingPartId ? 'Reproduciendo' : 'Escuchar seleccionadas'"
         class="selected-play-button"
         :disable="disabled || !selectedIds.length"
         @click="emit('playSelected')"
@@ -480,22 +472,27 @@ const generatedHasSolo = computed(() => scoreMixerHasSolo(props.parts));
 const voiceTypeOptions = [
   {
     label: 'Segunda',
+
     value: 'second' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Tenor',
+
     value: 'tenor' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Barítono',
+
     value: 'baritone' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Bajo',
+
     value: 'bass' satisfies GeneratedVoiceKind,
   },
   {
     label: 'Personalizada',
+
     value: 'custom' satisfies GeneratedVoiceKind,
   },
 ];
@@ -503,10 +500,12 @@ const voiceTypeOptions = [
 const placementOptions = [
   {
     label: 'Arriba',
+
     value: 'above' satisfies GeneratedVoicePlacement,
   },
   {
     label: 'Abajo',
+
     value: 'below' satisfies GeneratedVoicePlacement,
   },
 ];
@@ -724,7 +723,7 @@ function rangeLabel(part: ScorePart): string {
 
   const range = defaultRange(request.kind, request.placement);
 
-  return `${request.minMidi ?? range.minimum} – ${request.maxMidi ?? range.maximum}`;
+  return `${request.minMidi ?? range.minimum}–${request.maxMidi ?? range.maximum}`;
 }
 
 function sourcePartName(sourcePartId: string | undefined): string {
@@ -747,10 +746,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 55,
+
           maximum: 88,
         }
       : {
           minimum: 48,
+
           maximum: 79,
         };
   }
@@ -759,10 +760,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 52,
+
           maximum: 79,
         }
       : {
           minimum: 45,
+
           maximum: 74,
         };
   }
@@ -771,10 +774,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 48,
+
           maximum: 74,
         }
       : {
           minimum: 40,
+
           maximum: 69,
         };
   }
@@ -783,10 +788,12 @@ function defaultRange(
     return placement === 'above'
       ? {
           minimum: 43,
+
           maximum: 69,
         }
       : {
           minimum: 32,
+
           maximum: 60,
         };
   }
@@ -802,7 +809,7 @@ function defaultRange(
 <style scoped>
 .manager-panel {
   margin-top: 11px;
-  padding: 12px;
+  padding: 10px;
   background: radial-gradient(circle at 100% 0%, rgb(167 139 250 / 8%), transparent 32%), #0d1a27;
   border: 1px solid rgb(167 139 250 / 20%);
   border-radius: 10px;
@@ -811,7 +818,7 @@ function defaultRange(
 .manager-heading {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .manager-heading > div:first-child {
@@ -827,48 +834,54 @@ function defaultRange(
 
 .manager-heading strong {
   color: #ddd6fe;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .manager-heading small {
-  max-width: 720px;
   color: #77748d;
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .heading-icon {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   color: #c4b5fd;
   background: rgb(167 139 250 / 8%);
-  border-radius: 8px;
+  border-radius: 7px;
+}
+
+.heading-icon .q-icon {
+  font-size: 16px;
 }
 
 .solo-notice {
-  margin-top: 8px;
-  padding: 7px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 5px 7px;
   color: #fde68a;
   background: rgb(245 158 11 / 6%);
   border: 1px solid rgb(245 158 11 / 18%);
-  border-radius: 7px;
-  font-size: 7px;
+  border-radius: 6px;
+  font-size: 6px;
 }
 
 .voice-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 11px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .voice-card {
   min-width: 0;
-  padding: 9px;
+  padding: 7px;
   background: #101e2c;
   border: 1px solid #293e53;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .voice-card.selected {
@@ -877,6 +890,7 @@ function defaultRange(
 
 .voice-card.playing {
   background: rgb(167 139 250 / 7%);
+  border-color: rgb(167 139 250 / 60%);
 }
 
 .voice-card.editing {
@@ -884,26 +898,27 @@ function defaultRange(
 }
 
 .voice-card.solo {
-  border-color: rgb(245 158 11 / 40%);
+  border-color: rgb(245 158 11 / 45%);
 }
 
 .voice-card.muted {
-  opacity: 0.68;
+  opacity: 0.66;
 }
 
 .voice-card-top {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 5px;
 }
 
 .voice-selector {
   display: grid;
   min-width: 0;
   flex: 1;
-  grid-template-columns: 24px 1fr;
-  gap: 7px;
+  grid-template-columns: 19px 1fr;
   align-items: center;
+  gap: 5px;
   padding: 0;
   color: inherit;
   text-align: left;
@@ -914,7 +929,7 @@ function defaultRange(
 
 .voice-selector > .q-icon {
   color: #a78bfa;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .voice-selector > div {
@@ -923,101 +938,133 @@ function defaultRange(
   flex-direction: column;
 }
 
-.voice-selector span {
-  color: #a78bfa;
-  font-size: 6px;
-}
-
 .voice-selector strong {
   overflow: hidden;
   color: #d8d1e8;
-  font-size: 9px;
+  font-size: 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .voice-selector small {
-  color: #717b8a;
-  font-size: 6px;
+  overflow: hidden;
+  color: #747185;
+  font-size: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .playing-indicator {
-  color: #c4b5fd;
-  font-size: 6px;
-}
-
-.voice-meta {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-top: 8px;
-}
-
-.voice-meta > div {
   display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: #0d1926;
-  border-radius: 6px;
+  align-items: center;
+  gap: 3px;
+  color: #c4b5fd;
+  font-size: 5px;
+  white-space: nowrap;
 }
 
-.voice-meta span {
+.playing-indicator > span {
+  width: 5px;
+  height: 5px;
+  background: #a78bfa;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgb(167 139 250 / 60%);
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
   color: #5f7185;
   font-size: 5px;
 }
 
-.voice-meta strong {
-  color: #aebdca;
-  font-size: 7px;
+.source-row .q-icon {
+  font-size: 10px;
 }
 
-.mixer-channel {
-  margin-top: 8px;
-  padding: 7px;
-  background: #0b1824;
-  border-radius: 7px;
-}
-
-.volume-heading {
-  display: flex;
-  justify-content: space-between;
-}
-
-.volume-heading span {
-  color: #69617e;
-  font-size: 5px;
-}
-
-.volume-heading strong {
-  color: #c4b5fd;
-  font-size: 7px;
-}
-
-.mixer-buttons {
+.compact-mixer {
   display: grid;
-  grid-template-columns: 1fr 1fr 30px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
   gap: 5px;
+  margin-top: 5px;
+  padding: 4px 5px;
+  background: #0b1824;
+  border-radius: 6px;
 }
 
-.solo-button,
-.mute-button {
+.volume-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 13px 1fr 28px;
+  align-items: center;
+  gap: 3px;
+}
+
+.volume-row > .q-icon {
+  color: #857c9d;
+  font-size: 12px;
+}
+
+.volume-row > span {
+  color: #c4b5fd;
+  font-size: 6px;
+  text-align: right;
+}
+
+.volume-row :deep(.q-slider) {
+  min-height: 18px;
+  padding: 0;
+}
+
+.mini-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mini-button {
+  min-width: 27px;
+  min-height: 24px;
+  padding: 0 3px;
   color: #817c91;
   background: #12202e;
-  border-radius: 6px;
+  border-radius: 5px;
+  font-size: 6px;
+}
+
+.mini-button :deep(.q-icon) {
+  font-size: 12px;
 }
 
 .solo-button.active {
   color: #fde68a;
+  background: rgb(245 158 11 / 11%);
 }
 
 .mute-button.active {
   color: #fda4af;
+  background: rgb(244 63 94 / 9%);
+}
+
+.reset-mix-button {
+  min-width: 24px;
+  min-height: 24px;
+  color: #718398;
 }
 
 .voice-actions {
   display: flex;
-  gap: 4px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 2px;
+  margin-top: 5px;
+}
+
+.voice-actions :deep(.q-btn) {
+  min-height: 25px;
+  font-size: 6px;
 }
 
 .play-button,
@@ -1025,6 +1072,7 @@ function defaultRange(
 .selected-play-button {
   color: white;
   background: #16738a;
+  border-radius: 6px;
 }
 
 .edit-button {
@@ -1041,16 +1089,17 @@ function defaultRange(
 }
 
 .voice-editor {
-  margin-top: 10px;
-  padding: 11px;
+  margin-top: 8px;
+  padding: 9px;
   background: #0c1926;
   border: 1px solid #315168;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .voice-editor > header {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .voice-editor > header > div {
@@ -1065,19 +1114,24 @@ function defaultRange(
 
 .voice-editor > header strong {
   color: #d6e6ef;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .voice-editor > header small {
   color: #6e8295;
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .editor-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr 0.8fr 0.6fr 0.6fr;
-  gap: 7px;
-  margin-top: 9px;
+  grid-template-columns:
+    1.2fr
+    0.8fr
+    0.8fr
+    0.6fr
+    0.6fr;
+  gap: 6px;
+  margin-top: 7px;
 }
 
 .manager-field :deep(.q-field__control) {
@@ -1091,24 +1145,25 @@ function defaultRange(
 }
 
 .editor-error {
-  margin-top: 8px;
-  padding: 7px;
+  margin-top: 6px;
+  padding: 6px;
   color: #fda4af;
+  font-size: 6px;
 }
 
 .voice-editor > footer {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
-  margin-top: 9px;
+  gap: 5px;
+  margin-top: 7px;
 }
 
 .manager-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  padding-top: 10px;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 7px;
   border-top: 1px solid #253b4f;
 }
 
@@ -1120,12 +1175,17 @@ function defaultRange(
 
 .manager-actions span {
   color: #aaa0c3;
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .manager-actions small {
   color: #6d7180;
-  font-size: 6px;
+  font-size: 5px;
+}
+
+.manager-actions :deep(.q-btn) {
+  min-height: 28px;
+  font-size: 7px;
 }
 
 .reset-all-button {
@@ -1141,18 +1201,28 @@ function defaultRange(
   background: #0c1b28 !important;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1250px) {
+  .voice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 850px) {
   .voice-grid {
     grid-template-columns: 1fr;
   }
 
   .editor-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 600px) {
   .editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-mixer {
     grid-template-columns: 1fr;
   }
 

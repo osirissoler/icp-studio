@@ -4,6 +4,12 @@ import type { ScoreHarmonyRow, ScoreVoiceId } from './score-harmony-engine';
 
 import { mixerVolumeFactor, resolveScoreMixerChannels } from './score-mixer-store';
 
+import {
+  setScorePlaybackBeat,
+  startScorePlayback,
+  stopScorePlayback,
+} from './score-playback-store';
+
 export interface PianoPlaybackCallbacks {
   onNoteChange?: (index: number | null) => void;
 
@@ -204,16 +210,12 @@ export class ScorePianoPlayer {
 
     const token = ++this.playbackToken;
 
+    startScorePlayback();
+
     const firstStart = Math.min(...allNotes.map(({ note }) => note.startMs));
 
     const activePartCount = Math.max(1, channels.length);
 
-    /*
-     * Conservamos la normalización automática
-     * para evitar saturación cuando suenan muchas
-     * voces, pero cada canal multiplica ese nivel
-     * por su propio fader de 0 a 100.
-     */
     const normalizedBaseVolume = Math.min(0.15, 0.2 / Math.sqrt(activePartCount));
 
     const beatTimers = new Set<number>();
@@ -230,6 +232,8 @@ export class ScorePianoPlayer {
 
         if (!beatTimers.has(beatKey)) {
           beatTimers.add(beatKey);
+
+          setScorePlaybackBeat(note.absoluteBeat);
 
           callbacks.onPositionChange?.(note.absoluteBeat);
         }
@@ -260,6 +264,8 @@ export class ScorePianoPlayer {
       if (token !== this.playbackToken) {
         return;
       }
+
+      stopScorePlayback();
 
       callbacks.onPositionChange?.(null);
 
@@ -293,6 +299,8 @@ export class ScorePianoPlayer {
 
   stop(): void {
     this.playbackToken += 1;
+
+    stopScorePlayback();
 
     this.timers.forEach((timer) => {
       clearTimeout(timer);
