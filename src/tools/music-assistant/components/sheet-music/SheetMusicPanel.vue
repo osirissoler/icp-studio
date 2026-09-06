@@ -201,9 +201,7 @@
 
             <span>NOTAS</span>
 
-            <strong>
-              {{ originalNoteCount }}
-            </strong>
+            <strong>{{ originalNoteCount }}</strong>
           </div>
 
           <div>
@@ -211,9 +209,7 @@
 
             <span>VOCES</span>
 
-            <strong>
-              {{ originalParts.length }}
-            </strong>
+            <strong>{{ originalParts.length }}</strong>
           </div>
 
           <div>
@@ -221,9 +217,7 @@
 
             <span>POSICIONES</span>
 
-            <strong>
-              {{ originalTimelineRows.length }}
-            </strong>
+            <strong>{{ originalTimelineRows.length }}</strong>
           </div>
         </div>
 
@@ -237,13 +231,9 @@
 
                 <th v-for="part in originalParts" :key="part.id" class="part-column">
                   <div class="part-heading">
-                    <span>
-                      {{ part.abbreviation || 'VOZ' }}
-                    </span>
+                    <span>{{ part.abbreviation || 'VOZ' }}</span>
 
-                    <strong>
-                      {{ part.name }}
-                    </strong>
+                    <strong>{{ part.name }}</strong>
                   </div>
                 </th>
               </tr>
@@ -301,101 +291,21 @@
         @generate="handleGenerateVoices"
       />
 
-      <section v-if="generatedParts.length" class="generated-section">
-        <header>
-          <div>
-            <span> VOCES GENERADAS </span>
-
-            <strong>
-              {{ generatedParts.length }}
-              {{ generatedParts.length === 1 ? 'voz adicional' : 'voces adicionales' }}
-            </strong>
-
-            <small>
-              Son partes nuevas de ICP Studio. Las voces originales permanecen intactas.
-            </small>
-          </div>
-
-          <q-icon name="auto_awesome" />
-        </header>
-
-        <div class="generated-parts-grid">
-          <article
-            v-for="part in generatedParts"
-            :key="part.id"
-            class="generated-part-card"
-            :class="{
-              selected: selectedGeneratedPartIds.includes(part.id),
-            }"
-          >
-            <button
-              type="button"
-              class="generated-part-selector"
-              :disabled="isPlaying"
-              @click="toggleGeneratedPart(part.id)"
-            >
-              <q-icon
-                :name="
-                  selectedGeneratedPartIds.includes(part.id)
-                    ? 'check_circle'
-                    : 'radio_button_unchecked'
-                "
-              />
-
-              <div>
-                <span>
-                  {{ part.abbreviation || 'GEN' }}
-                </span>
-
-                <strong>
-                  {{ part.name }}
-                </strong>
-
-                <small> Basada en {{ sourcePartName(part.generatedFromPartId) }} </small>
-              </div>
-            </button>
-
-            <q-btn
-              flat
-              round
-              dense
-              icon="delete_outline"
-              class="generated-delete"
-              :disable="isPlaying"
-              @click="removeGeneratedPart(part.id)"
-            />
-          </article>
-        </div>
-
-        <div class="generated-actions">
-          <div>
-            <span>
-              {{ selectedGeneratedPartIds.length }}
-              seleccionadas
-            </span>
-          </div>
-
-          <q-btn
-            unelevated
-            no-caps
-            icon="play_arrow"
-            label="Escuchar generadas"
-            class="generated-play-button"
-            :disable="isPlaying || !selectedGeneratedPartIds.length"
-            @click="playGeneratedParts"
-          />
-
-          <q-btn
-            outline
-            no-caps
-            icon="stop"
-            label="Detener"
-            class="stop-button"
-            :disable="!isPlaying"
-            @click="stopPlayback"
-          />
-        </div>
-      </section>
+      <GeneratedVoiceManager
+        v-if="generatedParts.length"
+        :parts="generatedParts"
+        :original-parts="originalParts"
+        :selected-ids="selectedGeneratedPartIds"
+        :disabled="isPlaying"
+        :playing="playbackMode === 'generated'"
+        :playing-part-id="playingGeneratedPartId"
+        @update:selected-ids="selectedGeneratedPartIds = $event"
+        @play-selected="playGeneratedParts"
+        @play-part="playGeneratedPart"
+        @stop="stopPlayback"
+        @regenerate="handleRegenerateGeneratedPart"
+        @delete="removeGeneratedPart"
+      />
 
       <section v-if="generatedParts.length" class="timeline-section generated-timeline-section">
         <header>
@@ -425,9 +335,7 @@
 
             <span>NOTAS GENERADAS</span>
 
-            <strong>
-              {{ generatedNoteCount }}
-            </strong>
+            <strong>{{ generatedNoteCount }}</strong>
           </div>
 
           <div>
@@ -435,9 +343,7 @@
 
             <span>VOCES</span>
 
-            <strong>
-              {{ generatedParts.length }}
-            </strong>
+            <strong>{{ generatedParts.length }}</strong>
           </div>
 
           <div>
@@ -445,9 +351,7 @@
 
             <span>POSICIONES</span>
 
-            <strong>
-              {{ generatedTimelineRows.length }}
-            </strong>
+            <strong>{{ generatedTimelineRows.length }}</strong>
           </div>
         </div>
 
@@ -461,13 +365,9 @@
 
                 <th v-for="part in generatedParts" :key="part.id" class="part-column">
                   <div class="part-heading generated-part-heading">
-                    <span>
-                      {{ part.abbreviation || 'GEN' }}
-                    </span>
+                    <span>{{ part.abbreviation || 'GEN' }}</span>
 
-                    <strong>
-                      {{ part.name }}
-                    </strong>
+                    <strong>{{ part.name }}</strong>
                   </div>
                 </th>
               </tr>
@@ -642,7 +542,13 @@ import {
 
 import GeneratedVoiceBuilder from './GeneratedVoiceBuilder.vue';
 
-import { generateScoreParts, type GeneratedVoiceRequest } from './generated-voice-engine';
+import GeneratedVoiceManager from './GeneratedVoiceManager.vue';
+
+import {
+  generateScorePart,
+  generateScoreParts,
+  type GeneratedVoiceRequest,
+} from './generated-voice-engine';
 
 import OpticalScoreImporter from './optical-score/OpticalScoreImporter.vue';
 
@@ -683,6 +589,8 @@ const selectedOriginalPartIds = ref<string[]>([]);
 const selectedGeneratedPartIds = ref<string[]>([]);
 
 const generationSourcePartId = ref<string | null>(null);
+
+const playingGeneratedPartId = ref<string | null>(null);
 
 const playbackMode = ref<'originals' | 'generated' | 'combined' | 'single' | null>(null);
 
@@ -813,6 +721,8 @@ async function handleMusicXmlSelection(event: Event): Promise<void> {
 
     generationSourcePartId.value = null;
 
+    playingGeneratedPartId.value = null;
+
     parseError.value =
       error instanceof Error ? error.message : 'No fue posible interpretar la partitura.';
   }
@@ -836,6 +746,8 @@ function loadScore(newScore: ScoreDocument): void {
   selectedGeneratedPartIds.value = [];
 
   generationSourcePartId.value = originals[0]?.id ?? null;
+
+  playingGeneratedPartId.value = null;
 
   resetTimelineScrolls();
 }
@@ -894,9 +806,53 @@ function handleGenerateVoices(sourcePartId: string, requests: GeneratedVoiceRequ
   void nextTick(() => {
     if (generatedTimelineScroll.value) {
       generatedTimelineScroll.value.scrollTop = 0;
+
       generatedTimelineScroll.value.scrollLeft = 0;
     }
   });
+}
+
+function handleRegenerateGeneratedPart(partId: string, request: GeneratedVoiceRequest): void {
+  if (!score.value) {
+    return;
+  }
+
+  const currentPart = generatedParts.value.find((part) => part.id === partId);
+
+  if (!currentPart) {
+    return;
+  }
+
+  const sourcePart = originalParts.value.find(
+    (part) => part.id === currentPart.generatedFromPartId,
+  );
+
+  if (!sourcePart) {
+    return;
+  }
+
+  const regenerated = generateScorePart(score.value, sourcePart, request);
+
+  score.value = {
+    ...score.value,
+
+    parts:
+      score.value.parts?.map((part) => {
+        if (part.id !== partId) {
+          return part;
+        }
+
+        return {
+          ...regenerated,
+
+          id: partId,
+        };
+      }) ?? [],
+  };
+
+  if (!selectedGeneratedPartIds.value.includes(partId)) {
+    selectedGeneratedPartIds.value = [...selectedGeneratedPartIds.value, partId];
+  }
 }
 
 function removeGeneratedPart(partId: string): void {
@@ -911,16 +867,10 @@ function removeGeneratedPart(partId: string): void {
   };
 
   selectedGeneratedPartIds.value = selectedGeneratedPartIds.value.filter((id) => id !== partId);
-}
 
-function toggleGeneratedPart(partId: string): void {
-  if (selectedGeneratedPartIds.value.includes(partId)) {
-    selectedGeneratedPartIds.value = selectedGeneratedPartIds.value.filter((id) => id !== partId);
-
-    return;
+  if (playingGeneratedPartId.value === partId) {
+    playingGeneratedPartId.value = null;
   }
-
-  selectedGeneratedPartIds.value = [...selectedGeneratedPartIds.value, partId];
 }
 
 async function playOriginalParts(): Promise<void> {
@@ -944,7 +894,17 @@ async function playGeneratedParts(): Promise<void> {
     selectedGeneratedPartIds.value.includes(part.id),
   );
 
-  await playParts(parts, 'generated');
+  await playParts(parts, 'generated', null);
+}
+
+async function playGeneratedPart(partId: string): Promise<void> {
+  const part = generatedParts.value.find((candidate) => candidate.id === partId);
+
+  if (!part) {
+    return;
+  }
+
+  await playParts([part], 'generated', partId);
 }
 
 async function playCombinedParts(): Promise<void> {
@@ -966,6 +926,7 @@ async function playCombinedParts(): Promise<void> {
 async function playParts(
   parts: ScorePart[],
   mode: 'originals' | 'generated' | 'combined',
+  generatedPartId: string | null = null,
 ): Promise<void> {
   if (!score.value || !parts.length) {
     return;
@@ -980,6 +941,8 @@ async function playParts(
   activeBeat.value = null;
 
   playbackMode.value = mode;
+
+  playingGeneratedPartId.value = generatedPartId;
 
   await player.playScoreParts(score.value, parts, {
     onPositionChange(absoluteBeat) {
@@ -1000,6 +963,8 @@ async function playSingleNote(note: ScoreTimelineNote): Promise<void> {
   activeBeat.value = note.absoluteBeat;
 
   playbackMode.value = 'single';
+
+  playingGeneratedPartId.value = null;
 
   const durationSeconds = Math.min(1.8, Math.max(0.25, note.durationMs / 1000));
 
@@ -1027,6 +992,8 @@ function finishPlayback(): void {
   activeBeat.value = null;
 
   playbackMode.value = null;
+
+  playingGeneratedPartId.value = null;
 }
 
 function followActiveTimeline(): void {
@@ -1064,6 +1031,7 @@ function scrollTimelineToBeat(container: HTMLElement | null, beatKey: string): v
 
   container.scrollTo({
     top: nextTop,
+
     behavior: 'smooth',
   });
 }
@@ -1076,6 +1044,7 @@ function resetTimelineScrolls(): void {
       }
 
       container.scrollTop = 0;
+
       container.scrollLeft = 0;
     });
   });
@@ -1141,14 +1110,6 @@ function isTimelineRowActive(absoluteBeat: number): boolean {
   }
 
   return Math.abs(activeBeat.value - absoluteBeat) < 0.0001;
-}
-
-function sourcePartName(partId: string | undefined): string {
-  if (!partId) {
-    return 'voz original';
-  }
-
-  return originalParts.value.find((part) => part.id === partId)?.name ?? 'voz original';
 }
 
 function timelinePositionKey(absoluteBeat: number): string {
@@ -1304,7 +1265,6 @@ onBeforeUnmount(() => {
 }
 
 .import-button,
-.generated-play-button,
 .combined-button {
   color: white;
   background: #16738a;
@@ -1435,7 +1395,6 @@ onBeforeUnmount(() => {
 }
 
 .timeline-section,
-.generated-section,
 .combined-playback {
   margin-top: 11px;
   padding: 12px;
@@ -1445,7 +1404,6 @@ onBeforeUnmount(() => {
 }
 
 .timeline-section > header,
-.generated-section > header,
 .combined-playback > header {
   display: flex;
   align-items: flex-start;
@@ -1454,14 +1412,12 @@ onBeforeUnmount(() => {
 }
 
 .timeline-section > header > div:first-child,
-.generated-section > header > div:first-child,
 .combined-playback > header > div:first-child {
   display: flex;
   flex-direction: column;
 }
 
 .timeline-section > header span,
-.generated-section > header span,
 .combined-playback > header span {
   color: #22d3ee;
   font-size: 7px;
@@ -1469,29 +1425,17 @@ onBeforeUnmount(() => {
 }
 
 .timeline-section > header strong,
-.generated-section > header strong,
 .combined-playback > header strong {
   color: #c7d6e5;
   font-size: 10px;
 }
 
 .timeline-section > header small,
-.generated-section > header small,
 .combined-playback > header small {
   max-width: 680px;
   color: #65798f;
   font-size: 7px;
   line-height: 1.5;
-}
-
-.generated-section {
-  background: radial-gradient(circle at 100% 0%, rgb(167 139 250 / 7%), transparent 30%), #0d1a27;
-  border-color: rgb(167 139 250 / 17%);
-}
-
-.generated-section > header > .q-icon {
-  color: #a78bfa;
-  font-size: 22px;
 }
 
 .generated-timeline-section {
@@ -1760,97 +1704,6 @@ onBeforeUnmount(() => {
   font-size: 9px !important;
 }
 
-.generated-parts-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.generated-part-card {
-  display: grid;
-  grid-template-columns: 1fr 32px;
-  align-items: center;
-  min-width: 0;
-  background: #101e2c;
-  border: 1px solid #293e53;
-  border-radius: 8px;
-}
-
-.generated-part-card.selected {
-  border-color: rgb(167 139 250 / 42%);
-}
-
-.generated-part-selector {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: 24px 1fr;
-  align-items: center;
-  gap: 7px;
-  padding: 8px;
-  color: #a9b7c5;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.generated-part-selector > .q-icon {
-  color: #a78bfa;
-  font-size: 18px;
-}
-
-.generated-part-selector > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.generated-part-selector span {
-  color: #a78bfa;
-  font-size: 6px;
-}
-
-.generated-part-selector strong {
-  overflow: hidden;
-  color: #d1c8e7;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.generated-part-selector small {
-  overflow: hidden;
-  color: #6e7180;
-  font-size: 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.generated-delete {
-  color: #8e7181;
-}
-
-.generated-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  margin-top: 9px;
-}
-
-.generated-actions > div {
-  margin-right: auto;
-  color: #817795;
-  font-size: 7px;
-}
-
-.stop-button {
-  color: #94a8bc;
-  border-radius: 8px;
-}
-
 .combined-playback {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -1971,8 +1824,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1100px) {
-  .summary-grid,
-  .generated-parts-grid {
+  .summary-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -2010,18 +1862,8 @@ onBeforeUnmount(() => {
 
   .summary-grid,
   .timeline-info,
-  .generated-parts-grid,
   .process-summary {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .generated-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .generated-actions > div {
-    margin-right: 0;
   }
 
   .timeline-scroll {
@@ -2032,7 +1874,6 @@ onBeforeUnmount(() => {
 @media (max-width: 520px) {
   .summary-grid,
   .timeline-info,
-  .generated-parts-grid,
   .process-summary {
     grid-template-columns: 1fr;
   }

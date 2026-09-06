@@ -1,5 +1,7 @@
 import type {
   ScoreDocument,
+  ScoreGeneratedVoiceKind,
+  ScoreGeneratedVoicePlacement,
   ScoreKeySignature,
   ScoreMeasure,
   ScoreNoteEvent,
@@ -15,9 +17,9 @@ import {
   type HarmonicContext,
 } from './harmonic-context-engine';
 
-export type GeneratedVoiceKind = 'second' | 'tenor' | 'baritone' | 'bass' | 'custom';
+export type GeneratedVoiceKind = ScoreGeneratedVoiceKind;
 
-export type GeneratedVoicePlacement = 'above' | 'below';
+export type GeneratedVoicePlacement = ScoreGeneratedVoicePlacement;
 
 export interface GeneratedVoiceRequest {
   id: string;
@@ -115,6 +117,24 @@ function generateScorePartWithContexts(
     generatedFromPartId: sourcePart.id,
 
     generatedVoiceType: buildGeneratedVoiceType(request),
+
+    generatedVoiceConfig: {
+      requestId: request.id,
+
+      label: request.label,
+
+      kind: request.kind,
+
+      placement: request.placement,
+
+      customDiatonicOffset: request.customDiatonicOffset,
+
+      customSemitoneOffset: request.customSemitoneOffset,
+
+      minMidi: request.minMidi,
+
+      maxMidi: request.maxMidi,
+    },
 
     clef: {
       ...sourcePart.clef,
@@ -615,7 +635,9 @@ function buildCandidates(
 ): number[] {
   const allowedPitchClasses = new Set<number>(scalePitchClasses);
 
-  context?.chordPitchClasses.forEach((pitchClass) => allowedPitchClasses.add(pitchClass));
+  context?.chordPitchClasses.forEach((pitchClass) => {
+    allowedPitchClasses.add(pitchClass);
+  });
 
   const candidates: number[] = [];
 
@@ -655,11 +677,11 @@ function buildGeneratedPartId(
       .replace(/[^a-zA-Z0-9-_]/g, '-')
       .replace(/-+/g, '-') || `voice-${requestIndex + 1}`;
 
-  return `generated-` + `${sourcePartId}-` + safeRequestId;
+  return `generated-${sourcePartId}-${safeRequestId}`;
 }
 
 function buildGeneratedVoiceType(request: GeneratedVoiceRequest): string {
-  return `${request.kind}:` + request.placement;
+  return `${request.kind}:${request.placement}`;
 }
 
 function buildAbbreviation(request: GeneratedVoiceRequest): string {

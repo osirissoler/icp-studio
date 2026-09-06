@@ -4,26 +4,55 @@ export type ScorePartSource = 'original' | 'generated';
 
 export type ScoreClefSign = 'G' | 'F' | 'C' | 'percussion' | 'TAB' | 'none' | 'unknown';
 
+export type ScoreGeneratedVoiceKind = 'second' | 'tenor' | 'baritone' | 'bass' | 'custom';
+
+export type ScoreGeneratedVoicePlacement = 'above' | 'below';
+
+export interface ScoreGeneratedVoiceConfig {
+  requestId: string;
+
+  label: string;
+
+  kind: ScoreGeneratedVoiceKind;
+
+  placement: ScoreGeneratedVoicePlacement;
+
+  customDiatonicOffset?: number | undefined;
+
+  customSemitoneOffset?: number | undefined;
+
+  minMidi?: number | undefined;
+
+  maxMidi?: number | undefined;
+}
+
 export interface ScoreTimeSignature {
   numerator: number;
+
   denominator: number;
 }
 
 export interface ScoreKeySignature {
   fifths: number;
+
   rootNote: number;
+
   scaleMode: ScoreScaleMode;
 }
 
 export interface ScoreClef {
   sign: ScoreClefSign;
+
   line: number | null;
+
   octaveChange: number;
 }
 
 export interface ScorePitch {
   noteIndex: number;
+
   octave: number;
+
   midi: number;
 }
 
@@ -95,6 +124,8 @@ export interface ScorePart {
   generatedFromPartId?: string | undefined;
 
   generatedVoiceType?: string | undefined;
+
+  generatedVoiceConfig?: ScoreGeneratedVoiceConfig | undefined;
 
   clef: ScoreClef;
 
