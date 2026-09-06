@@ -29,6 +29,7 @@ const tools = [
     to: '/ruleta',
     status: 'Disponible',
   },
+
   {
     id: 'calendar',
     label: 'Calendario',
@@ -37,6 +38,7 @@ const tools = [
     to: '/calendario',
     status: 'Disponible',
   },
+
   {
     id: 'time',
     label: 'Reloj y tiempo',
@@ -45,13 +47,16 @@ const tools = [
     to: '/reloj-tiempo',
     status: 'Disponible',
   },
+
   {
     id: 'metronome',
     label: 'Metrónomo',
     icon: 'speed',
     color: '#a78bfa',
-    status: 'Próximamente',
+    to: '/metronomo',
+    status: 'Disponible',
   },
+
   {
     id: 'music-assistant',
     label: 'Asistente musical',
@@ -60,6 +65,7 @@ const tools = [
     to: '/asistente-musical',
     status: 'En desarrollo',
   },
+
   {
     id: 'audio-recorder',
     label: 'Audio y grabación',
@@ -67,6 +73,7 @@ const tools = [
     color: '#fb7185',
     status: 'Próximamente',
   },
+
   {
     id: 'service-planner',
     label: 'Planificador de servicio',
@@ -74,6 +81,7 @@ const tools = [
     color: '#38bdf8',
     status: 'Próximamente',
   },
+
   {
     id: 'voting',
     label: 'Votaciones',
@@ -81,6 +89,7 @@ const tools = [
     color: '#22c55e',
     status: 'Próximamente',
   },
+
   {
     id: 'operator-notes',
     label: 'Apuntes del operador',
@@ -88,6 +97,7 @@ const tools = [
     color: '#f59e0b',
     status: 'Próximamente',
   },
+
   {
     id: 'technical-incidents',
     label: 'Incidencias técnicas',
@@ -95,6 +105,7 @@ const tools = [
     color: '#ef4444',
     status: 'Próximamente',
   },
+
   {
     id: 'kids-creative',
     label: 'Taller creativo infantil',

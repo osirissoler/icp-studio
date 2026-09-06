@@ -1,12 +1,30 @@
 <template>
+  <MetronomeDisplay
+    v-if="tool.mode === 'metronome'"
+    :tool="tool"
+    :compact="compact"
+    :play-sounds="playSounds"
+  />
+
   <section
+    v-else
     class="time-stage"
-    :class="[`time-stage--${tool.mode}`, { 'time-stage--compact': compact }]"
+    :class="[
+      `time-stage--${tool.mode}`,
+      {
+        'time-stage--compact': compact,
+      },
+    ]"
     :style="stageStyle"
   >
     <header v-if="tool.title">
-      <small>{{ modeLabel }}</small>
-      <strong>{{ tool.title }}</strong>
+      <small>
+        {{ modeLabel }}
+      </small>
+
+      <strong>
+        {{ tool.title }}
+      </strong>
     </header>
 
     <div v-if="tool.mode === 'clock' && tool.clockStyle === 'analog'" class="analog-clock">
@@ -14,9 +32,15 @@
         v-for="hour in 12"
         :key="hour"
         class="hour-mark"
-        :style="{ transform: `rotate(${hour * 30}deg)` }"
+        :style="{
+          transform: `rotate(${hour * 30}deg)`,
+        }"
       >
-        <i :style="{ transform: `rotate(${-hour * 30}deg)` }">
+        <i
+          :style="{
+            transform: `rotate(${-hour * 30}deg)`,
+          }"
+        >
           {{ hour }}
         </i>
       </span>
@@ -34,7 +58,13 @@
       <span class="clock-center"></span>
     </div>
 
-    <div v-else class="digital-time" :class="{ 'digital-time--completed': tool.completed }">
+    <div
+      v-else
+      class="digital-time"
+      :class="{
+        'digital-time--completed': tool.completed,
+      }"
+    >
       {{ displayValue }}
     </div>
 
@@ -43,7 +73,12 @@
     </p>
 
     <div v-if="tool.mode !== 'clock'" class="status-row">
-      <span class="status-dot" :class="{ 'status-dot--running': tool.running }"></span>
+      <span
+        class="status-dot"
+        :class="{
+          'status-dot--running': tool.running,
+        }"
+      ></span>
 
       {{ tool.completed ? 'Tiempo finalizado' : tool.running ? 'En curso' : 'Preparado' }}
     </div>
@@ -51,7 +86,8 @@
     <Transition name="finish-pop">
       <div v-if="tool.mode === 'timer' && tool.completed" class="finished-message">
         <q-icon name="notifications_active" />
-        <strong>¡Tiempo!</strong>
+
+        <strong> ¡Tiempo! </strong>
       </div>
     </Transition>
   </section>
@@ -59,6 +95,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+
+import MetronomeDisplay from '../tools/metronome/components/MetronomeDisplay.vue';
 
 import { currentTimeToolValue, type TimeToolPresentationData } from '../shared/time-tool';
 
@@ -81,6 +119,7 @@ let interval = window.setInterval(() => {
 }, 50);
 
 let audioContext: AudioContext | null = null;
+
 let lastCountdownSecond = -1;
 
 const displayScale = computed(() => {
@@ -95,14 +134,26 @@ const displayScale = computed(() => {
 
 const stageStyle = computed(() => ({
   '--time-background': props.tool.backgroundColor || '#07111d',
+
   '--time-accent': props.tool.accentColor || '#38bdf8',
+
   '--time-text': props.tool.textColor || '#f8fafc',
+
   '--time-display-scale': String(displayScale.value),
 }));
 
 const modeLabel = computed(() => {
-  if (props.tool.mode === 'clock') return 'Reloj';
-  if (props.tool.mode === 'timer') return 'Temporizador';
+  if (props.tool.mode === 'clock') {
+    return 'Reloj';
+  }
+
+  if (props.tool.mode === 'timer') {
+    return 'Temporizador';
+  }
+
+  if (props.tool.mode === 'metronome') {
+    return 'Metrónomo';
+  }
 
   return 'Cronómetro';
 });
@@ -113,17 +164,23 @@ const displayValue = computed(() => {
   if (props.tool.mode === 'clock') {
     return new Intl.DateTimeFormat('es', {
       hour: '2-digit',
+
       minute: '2-digit',
+
       second: props.tool.showSeconds ? '2-digit' : undefined,
+
       hour12: !props.tool.use24Hour,
     }).format(now.value);
   }
 
   const value = currentValue.value;
+
   const totalSeconds = Math.floor(value / 1000);
 
   const hours = Math.floor(totalSeconds / 3600);
+
   const minutes = Math.floor((totalSeconds % 3600) / 60);
+
   const seconds = totalSeconds % 60;
 
   const base =
@@ -134,7 +191,7 @@ const displayValue = computed(() => {
   if (props.tool.mode === 'stopwatch' && props.tool.showMilliseconds) {
     const centiseconds = Math.floor((value % 1000) / 10);
 
-    return `${base}.${String(centiseconds).padStart(2, '0')}`;
+    return `${base}.` + String(centiseconds).padStart(2, '0');
   }
 
   return base;
@@ -143,8 +200,11 @@ const displayValue = computed(() => {
 const dateLabel = computed(() =>
   new Intl.DateTimeFormat('es', {
     weekday: 'long',
+
     day: 'numeric',
+
     month: 'long',
+
     year: 'numeric',
   }).format(now.value),
 );
@@ -168,11 +228,14 @@ const secondHandStyle = computed(() => ({
 }));
 
 function playTone(frequency: number, duration: number): void {
-  if (!props.playSounds) return;
+  if (!props.playSounds) {
+    return;
+  }
 
   audioContext ??= new AudioContext();
 
   const oscillator = audioContext.createOscillator();
+
   const gain = audioContext.createGain();
 
   const volume = Math.min(1, Math.max(0, props.tool.soundVolume));
@@ -225,6 +288,7 @@ watch(
 
 onBeforeUnmount(() => {
   window.clearInterval(interval);
+
   interval = 0;
 
   void audioContext?.close();
@@ -244,6 +308,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
 
   gap: clamp(12px, 2vh, 24px);
+
   padding: clamp(24px, 4vw, 64px);
 
   overflow: hidden;
@@ -302,11 +367,6 @@ onBeforeUnmount(() => {
   font-size: clamp(20px, 3vw, 42px);
 }
 
-/*
- * El tamaño base sigue siendo responsive.
- * displayScale permite modificarlo
- * manualmente entre 60% y 160%.
- */
 .digital-time {
   position: relative;
   z-index: 1;

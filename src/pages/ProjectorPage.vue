@@ -18,6 +18,7 @@
         v-else-if="projectionState.mode === 'time-tool'"
         :key="projectionState.tool.id"
         :tool="projectionState.tool"
+        :play-sounds="projectionState.tool.mode === 'metronome' && isMetronomeAudioMaster"
       />
 
       <HiddenImageProjectionView
@@ -110,16 +111,30 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+
+import { useRoute } from 'vue-router';
+
 import { storeToRefs } from 'pinia';
+
 import AudioVisualizer from '../components/AudioVisualizer.vue';
+
 import ActivityProjectionView from '../components/ActivityProjectionView.vue';
+
 import DocumentViewer from '../components/DocumentViewer.vue';
+
 import HiddenImageProjectionView from '../components/HiddenImageProjectionView.vue';
+
 import RouletteWheel from '../components/RouletteWheel.vue';
+
 import TimeToolDisplay from '../components/TimeToolDisplay.vue';
+
 import type { MediaPlaybackCommand, ProjectionState } from '@/shared/projection';
+
 import { parseHiddenImageProjectionUrl } from '../shared/hidden-image-projection';
+
 import { useProjectionSettingsStore } from '../stores/projection-settings';
+
+const route = useRoute();
 
 const projectionSettings = useProjectionSettingsStore();
 
@@ -137,6 +152,17 @@ const audioIsPlaying = ref(false);
 let unsubscribeState: (() => void) | undefined;
 
 let unsubscribeMediaControl: (() => void) | undefined;
+
+/*
+ * Solo una ventana de proyección
+ * produce el sonido del metrónomo.
+ *
+ * Las demás muestran exactamente
+ * la misma animación pero permanecen
+ * silenciosas para evitar audio doble
+ * o triple.
+ */
+const isMetronomeAudioMaster = computed(() => route.query.metronomeAudio === '1');
 
 const hiddenImageProjection = computed(() => {
   const state = projectionState.value;
@@ -196,6 +222,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   unsubscribeState?.();
+
   unsubscribeMediaControl?.();
 });
 </script>
@@ -203,9 +230,13 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .projector-page {
   display: grid;
+
   min-height: 100vh;
+
   overflow: hidden;
+
   color: var(--projection-text-color);
+
   place-items: center;
 }
 
@@ -214,28 +245,38 @@ onBeforeUnmount(() => {
 .projector-document,
 .projector-blank {
   width: 100vw;
+
   min-height: 100vh;
+
   text-align: center;
 }
 
 .projector-document {
   height: 100vh;
+
   overflow: hidden;
+
   background: #000;
 }
 
 .projector-content {
   position: relative;
+
   display: flex;
+
   align-items: center;
   justify-content: center;
+
   padding: clamp(42px, 6vw, 110px);
 }
 
 .projector-media {
   display: grid;
+
   overflow: hidden;
+
   background: #000;
+
   place-items: center;
 }
 
@@ -247,67 +288,97 @@ onBeforeUnmount(() => {
 .projector-media video {
   width: 100vw;
   height: 100vh;
+
   object-fit: contain;
 }
 
 .projector-audio {
   display: flex;
+
   align-items: center;
+
   flex-direction: column;
+
   gap: 24px;
+
   color: var(--projection-text-color);
 }
 
 .projector-audio :deep(.q-icon) {
   font-size: clamp(70px, 11vw, 170px);
+
   opacity: 0.5;
 }
 
 .projector-audio strong {
   max-width: 80vw;
+
   font-size: clamp(22px, 3vw, 48px);
 }
 
 .projector-audio small {
   color: var(--projection-footer-color);
+
   font-size: clamp(13px, 1.2vw, 20px);
+
   text-transform: uppercase;
+
   letter-spacing: 0.12em;
 }
 
 .projector-blank {
   display: grid;
+
   padding: clamp(42px, 6vw, 110px);
+
   place-items: center;
 }
 
 .projector-mark {
   color: var(--projection-footer-color);
+
   font-size: clamp(16px, 1.4vw, 24px);
+
   font-weight: 700;
+
   letter-spacing: 0.12em;
+
   text-transform: uppercase;
+
   opacity: 0.3;
 }
 
 p {
   margin: 0;
+
   max-width: 100%;
+
   color: var(--projection-text-color);
+
   font-size: calc(clamp(24px, 3vw, 50px) * var(--projection-font-scale));
+
   font-weight: var(--projection-font-weight);
+
   line-height: 1.25;
+
   text-wrap: balance;
+
   white-space: pre-line;
 }
 
 .projection-footer {
   position: absolute;
+
   bottom: clamp(22px, 3vw, 52px);
+
   left: clamp(24px, 4vw, 72px);
+
   color: var(--projection-footer-color);
+
   font-size: clamp(15px, 1.35vw, 24px);
+
   font-weight: 500;
+
   text-align: left;
 }
 
@@ -321,6 +392,7 @@ p {
 .projection-enter-from,
 .projection-leave-to {
   opacity: 0;
+
   transform: scale(0.985);
 }
 </style>
