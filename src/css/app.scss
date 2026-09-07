@@ -208,7 +208,7 @@
   pointer-events: none;
 }
 
-/* Projection monitor header follows tool-page language */
+/* Projection monitor header follows Calendar/Metronome/Roulette header language. */
 .monitor-header--tool-style {
   min-height: 82px !important;
   flex: 0 0 82px !important;
@@ -285,108 +285,19 @@
   margin-left: auto;
 }
 
-/* Apply the same tool-header language to the current monitor markup. */
-.monitor-dialog .monitor-header {
-  position: relative;
-  min-height: 82px !important;
-  flex: 0 0 82px !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 12px !important;
-  padding: 13px 18px 13px 122px !important;
-  background:
-    radial-gradient(circle at 18% -80%, rgb(65 148 208 / 22%), transparent 42%),
-    #0f1a27 !important;
-}
-
-.monitor-dialog .monitor-header::before {
-  position: absolute;
-  left: 62px;
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  color: #7dd3fc;
-  background: #123149;
-  border: 1px solid #285d7c;
-  border-radius: 13px;
-  content: 'monitor';
-  font-family: 'Material Icons';
-  font-size: 24px;
-  font-weight: normal;
-}
-
-.monitor-dialog .monitor-header > div {
-  min-width: 0;
-  flex: 1;
-}
-
-.monitor-dialog .monitor-header > div::before {
-  display: block;
-  margin-bottom: 1px;
-  color: #6e839a;
-  content: 'PANTALLAS · CONTROL DE SALIDAS';
-  font-size: 9px;
-  letter-spacing: 0.08em;
-}
-
-.monitor-dialog .monitor-header > div > strong {
-  color: #e8eef6;
-  font-size: 20px !important;
-  line-height: 1.2;
-}
-
-.monitor-dialog .monitor-header > div > small {
-  margin-top: 3px !important;
-  color: #8190a3 !important;
-  font-size: 10px !important;
-}
-
-.monitor-dialog .monitor-header > .q-btn {
-  position: absolute;
-  left: 18px;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  margin: 0 !important;
-  color: #9badc1 !important;
-  background: #111c29 !important;
-  border: 1px solid #2a3b4f;
-  border-radius: 9px;
-}
-
-.monitor-dialog .monitor-header > .q-btn:hover {
-  color: #dbeafe !important;
-  border-color: #4d7199;
-}
-
-.monitor-dialog .monitor-header > .q-btn .q-icon {
-  font-size: 0 !important;
-}
-
-.monitor-dialog .monitor-header > .q-btn .q-icon::before {
-  content: 'arrow_back';
-  font-family: 'Material Icons';
-  font-size: 19px;
-}
-
 @media (max-width: 760px) {
   .tool-projection-destination {
     min-width: 170px;
   }
 
-  .monitor-dialog .monitor-header {
-    padding-left: 108px !important;
+  .monitor-header--tool-style {
+    gap: 8px !important;
+    padding: 11px 12px !important;
   }
 
-  .monitor-dialog .monitor-header::before {
-    left: 55px;
+  .monitor-header__icon {
     width: 40px;
     height: 40px;
-  }
-
-  .monitor-dialog .monitor-header > .q-btn {
-    left: 12px;
+    flex-basis: 40px;
   }
 }
