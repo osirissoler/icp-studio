@@ -198,6 +198,16 @@ const bibleApi = {
     return ipcRenderer.invoke(BIBLE_CHANNELS.getBookChapters, request) as Promise<number[]>;
   },
   searchPassage: (request: BiblePassageSearch): Promise<BiblePassage> => {
+    const reference = request.reference.trim();
+
+    if (!/\d/.test(reference)) {
+      return Promise.reject(
+        new Error(
+          `La búsqueda está incompleta. Escribiste “${reference}”. Agrega también el capítulo, por ejemplo: ${reference} 1 o ${reference} 1:1-10.`,
+        ),
+      );
+    }
+
     return ipcRenderer.invoke(BIBLE_CHANNELS.searchPassage, request) as Promise<BiblePassage>;
   },
   importVersion: (): Promise<BibleTransferResult> => {
