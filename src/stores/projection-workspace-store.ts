@@ -234,6 +234,33 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     return snapshots.value[outputId] ?? emptyWorkspace();
   }
 
+  function setWorkspaceLiveItem(
+    outputId: string,
+    item: ServicePresentationItem,
+    frameIndex = 0,
+  ): void {
+    if (!outputs.value.some((output) => output.outputId === outputId) || item.frames.length === 0) return;
+    const safeFrameIndex = Math.min(Math.max(0, frameIndex), item.frames.length - 1);
+
+    if (activeOutputId.value === outputId) {
+      usePresentationStore().setLiveItem(item, safeFrameIndex);
+      saveCurrentWorkspace();
+      return;
+    }
+
+    const current = snapshots.value[outputId] ?? emptyWorkspace();
+    const next: ProjectionWorkspaceSnapshot = {
+      ...current,
+      liveItem: item,
+      liveFrameIndex: safeFrameIndex,
+      mediaPlayback: { isPlaying: false, time: 0, duration: 0 },
+      mediaCommand: { action: 'pause', time: 0 },
+      mediaCommandSequence: current.mediaCommandSequence + 1,
+    };
+    replaceSnapshot(outputId, next);
+    projectSnapshot(outputId, next);
+  }
+
   function setWorkspaceLiveFrame(outputId: string, frameIndex: number): void {
     if (!outputs.value.some((output) => output.outputId === outputId)) return;
 
@@ -605,6 +632,7 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     switchWorkspace,
     saveCurrentWorkspace,
     workspaceSnapshot,
+    setWorkspaceLiveItem,
     setWorkspaceLiveFrame,
     moveWorkspaceLiveFrame,
     clearWorkspaceLive,
