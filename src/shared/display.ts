@@ -31,10 +31,15 @@ export interface DisplayReference {
   scaleFactor: number;
 }
 
+/**
+ * Área lógica de proyección. Puede existir sin una pantalla física asignada,
+ * lo que permite preparar áreas como Lobby o Murales antes de conectar equipos.
+ */
 export interface ProjectionOutputConfiguration {
   outputId: string;
   name: string;
-  display: DisplayReference;
+  enabled: boolean;
+  display: DisplayReference | null;
 }
 
 export interface ActiveProjectionOutput {
@@ -43,8 +48,16 @@ export interface ActiveProjectionOutput {
   displayId: number;
 }
 
+export interface ProjectionOutputAssignmentRequest {
+  outputId?: string;
+  name: string;
+  enabled: boolean;
+  displayId: number | null;
+}
+
 export interface DisplayConfiguration {
   mode: DisplayConfigurationMode;
+  independentProjectionEnabled: boolean;
   projectionDisplays: DisplayReference[];
   projectionOutputs: ProjectionOutputConfiguration[];
   audioDisplay: DisplayReference | null;
@@ -61,7 +74,10 @@ export interface DisplayStatus {
 
 export interface ApplyDisplayConfigurationRequest {
   mode: DisplayConfigurationMode;
+  independentProjectionEnabled?: boolean;
   projectionDisplayIds: number[];
   audioDisplayId: number | null;
+  projectionOutputs?: ProjectionOutputAssignmentRequest[];
+  /** Compatibilidad temporal con configuraciones creadas por versiones anteriores. */
   outputNames?: Record<number, string>;
 }
