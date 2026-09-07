@@ -5,6 +5,7 @@
       'metronome-display--compact': compact,
       'metronome-display--running': tool.running,
       'metronome-display--pulse': beatPulse,
+      'metronome-display--count-in': countInActive,
     }"
     :style="displayStyle"
   >
@@ -25,7 +26,12 @@
       </div>
     </header>
 
-    <div class="metronome-body">
+    <div
+      class="metronome-body"
+      :class="{
+        'metronome-body--count-in': countInActive,
+      }"
+    >
       <div class="bpm-section">
         <span class="bpm-value">
           {{ bpm }}
@@ -80,16 +86,34 @@
         <div class="pivot">
           <span></span>
         </div>
+
+        <Transition name="count-in">
+          <div v-if="countInActive" class="count-in-overlay">
+            <small> PREPÁRATE </small>
+
+            <strong>
+              {{ countInValue }}
+            </strong>
+
+            <span>
+              {{ countInSequenceLabel }}
+            </span>
+          </div>
+        </Transition>
       </div>
 
       <div v-if="showBeat" class="beat-section">
-        <small> TIEMPO </small>
+        <small>
+          {{ countInActive ? 'ENTRADA' : 'TIEMPO' }}
+        </small>
 
         <strong>
-          {{ currentBeat }}
+          {{ countInActive ? countInValue : currentBeat }}
         </strong>
 
-        <span> de {{ beatsPerMeasure }} </span>
+        <span>
+          {{ countInActive ? 'conteo' : `de ${beatsPerMeasure}` }}
+        </span>
       </div>
     </div>
 
@@ -98,7 +122,7 @@
         v-for="beat in beatsPerMeasure"
         :key="beat"
         :class="{
-          active: tool.running && currentBeat === beat,
+          active: metronomeRunning && currentBeat === beat,
           accent: beat === 1 && accentFirstBeat,
         }"
       >
@@ -112,14 +136,16 @@
           class="status-dot"
           :class="{
             active: tool.running,
+            counting: countInActive,
           }"
         ></span>
 
-        {{ tool.running ? 'En marcha' : 'Preparado' }}
+        {{ statusLabel }}
       </div>
 
       <div class="measure-status">
         Compás
+
         <strong> {{ beatsPerMeasure }}/{{ beatUnit }} </strong>
       </div>
     </footer>
@@ -153,7 +179,7 @@ let animationFrame = 0;
 
 let audioContext: AudioContext | null = null;
 
-let lastPlayedBeat = -1;
+let lastSoundStep = '';
 
 const bpm = computed(() => clamp(Number(props.tool.metronomeBpm ?? 120), 30, 300));
 
@@ -185,16 +211,95 @@ const displayStyle = computed(() => ({
   '--metro-scale': String(displayScale.value),
 }));
 
-const elapsed = computed(() => currentTimeToolValue(props.tool, now.value));
+/*
+ * Tiempo bruto desde que se pulsó Iniciar.
+ *
+ * En modo metrónomo utilizamos durationMs
+ * como duración total del preconteo.
+ *
+ * Ejemplo:
+ *
+ * 120 BPM
+ * preconteo desde 4
+ *
+ * 1 pulso = 500 ms
+ * durationMs = 2000 ms
+ */
+const rawElapsed = computed(() => currentTimeToolValue(props.tool, now.value));
 
 const beatDurationMs = computed(() => 60_000 / bpm.value);
+
+const countInDurationMs = computed(() =>
+  props.tool.mode === 'metronome' ? Math.max(0, props.tool.durationMs) : 0,
+);
+
+const countInEnabled = computed(() => countInDurationMs.value > 0);
+
+const countInTotalBeats = computed(() => {
+  if (!countInEnabled.value) {
+    return 0;
+  }
+
+  return Math.max(1, Math.round(countInDurationMs.value / beatDurationMs.value));
+});
+
+const countInActive = computed(
+  () => props.tool.running && countInEnabled.value && rawElapsed.value < countInDurationMs.value,
+);
+
+const countInBeatIndex = computed(() => Math.floor(rawElapsed.value / beatDurationMs.value));
+
+const countInValue = computed(() => {
+  if (!countInEnabled.value) {
+    return 0;
+  }
+
+  return Math.max(1, countInTotalBeats.value - countInBeatIndex.value);
+});
+
+const countInSequenceLabel = computed(() => {
+  const total = countInTotalBeats.value;
+
+  if (total <= 0) {
+    return '';
+  }
+
+  if (total <= 8) {
+    return Array.from(
+      {
+        length: total,
+      },
+      (_, index) => total - index,
+    ).join(' · ');
+  }
+
+  return `${total} · … · 3 · 2 · 1`;
+});
+
+/*
+ * El tiempo real del metrónomo comienza
+ * DESPUÉS del preconteo.
+ *
+ * Esto permite que:
+ *
+ * 4
+ * 3
+ * 2
+ * 1
+ *
+ * y justo después entre el primer pulso
+ * real del metrónomo.
+ */
+const elapsed = computed(() => Math.max(0, rawElapsed.value - countInDurationMs.value));
+
+const metronomeRunning = computed(() => props.tool.running && !countInActive.value);
 
 const beatIndex = computed(() => Math.floor(elapsed.value / beatDurationMs.value));
 
 const currentBeat = computed(() => (beatIndex.value % beatsPerMeasure.value) + 1);
 
 const beatPhase = computed(() => {
-  if (!props.tool.running) {
+  if (!metronomeRunning.value) {
     return 0.5;
   }
 
@@ -202,17 +307,12 @@ const beatPhase = computed(() => {
 });
 
 const needleAngle = computed(() => {
-  if (!props.tool.running) {
+  if (!metronomeRunning.value) {
     return 0;
   }
 
   const maximumAngle = 38;
 
-  /*
-   * Un pulso lleva la aguja
-   * de izquierda a derecha.
-   * El siguiente la devuelve.
-   */
   if (beatIndex.value % 2 === 0) {
     return -maximumAngle + beatPhase.value * maximumAngle * 2;
   }
@@ -224,9 +324,25 @@ const needleStyle = computed(() => ({
   transform: `translateX(-50%) rotate(${needleAngle.value}deg)`,
 }));
 
-const beatPulse = computed(() => props.tool.running && beatPhase.value < 0.13);
+const beatPulse = computed(() => metronomeRunning.value && beatPhase.value < 0.13);
 
 const beatSymbol = computed(() => (beatUnit.value === 8 ? '♪' : '♩'));
+
+const statusLabel = computed(() => {
+  if (countInActive.value) {
+    return `Conteo · ${countInValue.value}`;
+  }
+
+  if (props.tool.running) {
+    return 'En marcha';
+  }
+
+  if (rawElapsed.value > 0) {
+    return 'Pausado';
+  }
+
+  return 'Preparado';
+});
 
 const tempoName = computed(() => {
   const value = bpm.value;
@@ -281,6 +397,18 @@ const scaleMarks = Array.from(
   }),
 );
 
+const soundStep = computed(() => {
+  if (!props.tool.running) {
+    return 'stopped';
+  }
+
+  if (countInActive.value) {
+    return `count-${countInBeatIndex.value}`;
+  }
+
+  return `beat-${beatIndex.value}`;
+});
+
 function clamp(value: number, minimum: number, maximum: number): number {
   if (!Number.isFinite(value)) {
     return minimum;
@@ -323,6 +451,7 @@ function playClassicClick(accent: boolean): void {
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + (accent ? 0.085 : 0.055));
 
   oscillator.connect(gain);
+
   gain.connect(audio.destination);
 
   oscillator.start();
@@ -350,6 +479,7 @@ function playWoodClick(accent: boolean): void {
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.085);
 
   oscillator.connect(gain);
+
   gain.connect(audio.destination);
 
   oscillator.start();
@@ -375,6 +505,7 @@ function playDigitalClick(accent: boolean): void {
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.035);
 
   oscillator.connect(gain);
+
   gain.connect(audio.destination);
 
   oscillator.start();
@@ -382,13 +513,7 @@ function playDigitalClick(accent: boolean): void {
   oscillator.stop(audio.currentTime + 0.045);
 }
 
-function playBeat(): void {
-  if (!props.playSounds || !soundEnabled.value) {
-    return;
-  }
-
-  const accent = accentFirstBeat.value && currentBeat.value === 1;
-
+function playStyledClick(accent: boolean): void {
   if (soundStyle.value === 'wood') {
     playWoodClick(accent);
 
@@ -404,23 +529,52 @@ function playBeat(): void {
   playClassicClick(accent);
 }
 
+function playMetronomeBeat(): void {
+  if (!props.playSounds || !soundEnabled.value) {
+    return;
+  }
+
+  const accent = accentFirstBeat.value && currentBeat.value === 1;
+
+  playStyledClick(accent);
+}
+
+function playCountInBeat(): void {
+  if (!props.playSounds || !soundEnabled.value || !props.tool.countdownSound) {
+    return;
+  }
+
+  /*
+   * El "1" del preconteo recibe un
+   * clic más marcado para anticipar
+   * la entrada.
+   */
+  playStyledClick(countInValue.value === 1);
+}
+
 watch(
-  () => [props.tool.running, beatIndex.value] as const,
+  soundStep,
 
-  ([running, index]) => {
-    if (!running) {
-      lastPlayedBeat = -1;
+  (step) => {
+    if (step === 'stopped') {
+      lastSoundStep = '';
 
       return;
     }
 
-    if (index === lastPlayedBeat) {
+    if (step === lastSoundStep) {
       return;
     }
 
-    lastPlayedBeat = index;
+    lastSoundStep = step;
 
-    playBeat();
+    if (step.startsWith('count-')) {
+      playCountInBeat();
+
+      return;
+    }
+
+    playMetronomeBeat();
   },
 );
 
@@ -846,6 +1000,84 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 13px var(--metro-accent);
 }
 
+.count-in-overlay {
+  position: absolute;
+
+  z-index: 8;
+
+  inset: 12%;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  gap: 4px;
+
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--metro-background) 86%, transparent),
+    color-mix(in srgb, var(--metro-background) 96%, transparent)
+  );
+
+  border: 1px solid color-mix(in srgb, var(--metro-accent) 35%, transparent);
+
+  border-radius: 50%;
+
+  box-shadow:
+    inset 0 0 45px color-mix(in srgb, var(--metro-accent) 12%, transparent),
+    0 0 45px color-mix(in srgb, var(--metro-accent) 14%, transparent);
+}
+
+.count-in-overlay small {
+  color: color-mix(in srgb, var(--metro-text) 58%, transparent);
+
+  font-size: clamp(8px, 1vw, 13px);
+
+  font-weight: 800;
+
+  letter-spacing: 0.18em;
+}
+
+.count-in-overlay strong {
+  color: var(--metro-accent);
+
+  font-size: calc(clamp(92px, 14vw, 190px) * var(--metro-scale));
+
+  font-variant-numeric: tabular-nums;
+
+  font-weight: 900;
+
+  line-height: 0.92;
+
+  text-shadow: 0 0 40px color-mix(in srgb, var(--metro-accent) 55%, transparent);
+}
+
+.count-in-overlay span {
+  max-width: 80%;
+
+  color: color-mix(in srgb, var(--metro-text) 52%, transparent);
+
+  font-size: clamp(8px, 1vw, 13px);
+
+  white-space: nowrap;
+}
+
+.count-in-enter-active,
+.count-in-leave-active {
+  transition:
+    opacity 100ms ease,
+    transform 100ms ease;
+}
+
+.count-in-enter-from,
+.count-in-leave-to {
+  opacity: 0;
+
+  transform: scale(0.9);
+}
+
 .beat-section small {
   color: color-mix(in srgb, var(--metro-text) 55%, transparent);
 
@@ -971,6 +1203,20 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 12px var(--metro-accent);
 }
 
+.status-dot.counting {
+  animation: count-status-pulse 500ms ease-in-out infinite alternate;
+}
+
+@keyframes count-status-pulse {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .measure-status strong {
   margin-left: 5px;
 
@@ -979,6 +1225,10 @@ onBeforeUnmount(() => {
 
 .metronome-display--pulse .pivot span {
   transform: scale(1.25);
+}
+
+.metronome-display--count-in .needle {
+  opacity: 0.55;
 }
 
 .metronome-display--compact {
@@ -1012,7 +1262,10 @@ onBeforeUnmount(() => {
 .metronome-display--compact .metronome-body {
   width: 100%;
 
-  grid-template-columns: 0.8fr 1.5fr 0.8fr;
+  grid-template-columns:
+    0.8fr
+    1.5fr
+    0.8fr;
 
   gap: 5px;
 }
@@ -1024,6 +1277,15 @@ onBeforeUnmount(() => {
 .metronome-display--compact .bpm-value,
 .metronome-display--compact .beat-section strong {
   font-size: 27px;
+}
+
+.metronome-display--compact .count-in-overlay strong {
+  font-size: 48px;
+}
+
+.metronome-display--compact .count-in-overlay small,
+.metronome-display--compact .count-in-overlay span {
+  font-size: 5px;
 }
 
 .metronome-display--compact .bpm-label,
@@ -1063,6 +1325,7 @@ onBeforeUnmount(() => {
 
   .metronome-header {
     align-items: flex-start;
+
     flex-direction: column;
   }
 }

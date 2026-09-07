@@ -1,7 +1,7 @@
 <template>
   <q-page class="metronome-page">
-    <header class="page-header">
-      <div class="page-heading">
+    <header class="metronome-header">
+      <div class="metronome-heading">
         <button
           type="button"
           class="back-button"
@@ -11,12 +11,12 @@
           <q-icon name="arrow_back" />
         </button>
 
-        <span class="heading-icon">
+        <span class="metronome-heading-icon">
           <q-icon name="speed" />
         </span>
 
         <div>
-          <span class="eyebrow"> HERRAMIENTAS · MÚSICA </span>
+          <span class="metronome-eyebrow"> Herramientas · Música </span>
 
           <h1>Metrónomo</h1>
 
@@ -24,22 +24,48 @@
         </div>
       </div>
 
-      <div class="header-actions">
+      <div class="metronome-header-actions">
         <q-btn
           outline
           no-caps
           color="blue-grey-3"
           icon="restart_alt"
           label="Restablecer"
+          class="app-action-button app-action-button--secondary"
           @click="restoreDefaults"
         />
 
+        <template v-if="liveMetronome">
+          <q-btn
+            unelevated
+            no-caps
+            color="primary"
+            icon="tune"
+            label="Control En vivo"
+            class="app-action-button app-action-button--primary"
+            @click="openLiveConsole"
+          />
+
+          <q-btn
+            v-if="liveMetronome.running"
+            unelevated
+            no-caps
+            color="red-6"
+            icon="stop"
+            label="Detener"
+            class="app-action-button app-action-button--live"
+            @click="stopLiveMetronome"
+          />
+        </template>
+
         <q-btn
+          v-else
           unelevated
           no-caps
           color="red-6"
           icon="live_tv"
           label="Enviar a En vivo"
+          class="app-action-button app-action-button--live"
           @click="sendLive"
         />
       </div>
@@ -115,11 +141,7 @@
                 {{ tempoName }}
               </span>
 
-              <strong>
-                {{ beatSymbol }}
-                =
-                {{ config.bpm }}
-              </strong>
+              <strong> {{ beatSymbol }} = {{ config.bpm }} </strong>
             </div>
           </section>
 
@@ -168,6 +190,45 @@
             <q-toggle v-model="config.showTempoName" dark label="Mostrar nombre del tempo" />
           </section>
 
+          <section class="setting-section count-in-settings">
+            <div class="section-title">
+              <q-icon name="timer" />
+
+              <span> Preconteo antes de comenzar </span>
+            </div>
+
+            <q-toggle v-model="config.countInEnabled" dark label="Activar conteo regresivo" />
+
+            <template v-if="config.countInEnabled">
+              <q-input
+                v-model.number="config.countInBeats"
+                dark
+                outlined
+                type="number"
+                min="1"
+                max="99"
+                label="Comenzar desde"
+                suffix="pulsos"
+                @change="normalizeCountIn"
+              />
+
+              <div class="count-in-preview">
+                <small> CONTEO </small>
+
+                <strong>
+                  {{ countInPreview }}
+                </strong>
+
+                <span>
+                  Después del 1 comienza inmediatamente el metrónomo a
+                  {{ config.bpm }} BPM.
+                </span>
+              </div>
+
+              <q-toggle v-model="config.countInSound" dark label="Sonido durante el preconteo" />
+            </template>
+          </section>
+
           <section class="setting-section">
             <div class="section-title">
               <q-icon name="volume_up" />
@@ -190,8 +251,7 @@
 
             <template v-if="config.soundEnabled">
               <label class="field-label">
-                Volumen ·
-                {{ Math.round(config.soundVolume * 100) }}%
+                Volumen · {{ Math.round(config.soundVolume * 100) }}%
               </label>
 
               <q-slider
@@ -212,8 +272,7 @@
             </div>
 
             <label class="field-label">
-              Tamaño ·
-              {{ Math.round(config.displayScale * 100) }}%
+              Tamaño · {{ Math.round(config.displayScale * 100) }}%
             </label>
 
             <q-slider
@@ -272,7 +331,7 @@
           </div>
 
           <q-badge
-            color="blue-grey-8"
+            :color="liveMetronome ? 'red-8' : 'blue-grey-8'"
             :label="liveMetronome ? 'Metrónomo en vivo' : 'No está en vivo'"
           />
         </div>
@@ -289,7 +348,7 @@
             size="lg"
             color="purple-6"
             icon="play_arrow"
-            label="Iniciar"
+            :label="localState.baseTimeMs > 0 ? 'Continuar' : 'Iniciar'"
             @click="startLocal"
           />
 
@@ -327,10 +386,7 @@
           <article>
             <span> TEMPO </span>
 
-            <strong>
-              {{ config.bpm }}
-              BPM
-            </strong>
+            <strong> {{ config.bpm }} BPM </strong>
 
             <small>
               {{ tempoName }}
@@ -344,6 +400,18 @@
 
             <small>
               {{ config.accentFirstBeat ? 'Primer tiempo acentuado' : 'Sin acento' }}
+            </small>
+          </article>
+
+          <article>
+            <span> PRECONTEO </span>
+
+            <strong>
+              {{ config.countInEnabled ? `Desde ${config.countInBeats}` : 'Desactivado' }}
+            </strong>
+
+            <small>
+              {{ config.countInEnabled ? countInPreview : 'Comienza inmediatamente' }}
             </small>
           </article>
 
@@ -378,8 +446,8 @@
             </h2>
 
             <p>
-              El sonido y la animación principal pertenecen ahora a la pantalla pública. Esta
-              ventana solamente controla el metrónomo.
+              Enviar a En vivo solo lo coloca en pantalla. El conteo y el metrónomo comienzan cuando
+              pulses Iniciar.
             </p>
           </div>
 
@@ -415,6 +483,14 @@
                 }}
               </div>
 
+              <div class="live-count-in">
+                <small> PRECONTEO </small>
+
+                <strong>
+                  {{ liveCountInLabel }}
+                </strong>
+              </div>
+
               <q-btn
                 v-if="!liveMetronome.running"
                 unelevated
@@ -422,7 +498,7 @@
                 size="lg"
                 color="purple-6"
                 icon="play_arrow"
-                label="Continuar"
+                :label="liveMetronome.baseTimeMs > 0 ? 'Continuar' : 'Iniciar'"
                 @click="startLiveTimeTool"
               />
 
@@ -453,8 +529,8 @@
               <q-icon name="volume_up" />
 
               <span>
-                El clic se genera desde la primera pantalla pública. Las demás pantallas muestran el
-                mismo metrónomo sin duplicar el sonido.
+                El preconteo y el clic se generan desde la primera pantalla pública. Las demás
+                pantallas permanecen sincronizadas sin duplicar el sonido.
               </span>
             </div>
 
@@ -499,6 +575,9 @@ interface MetronomeConfig {
   beatsPerMeasure: number;
   beatUnit: MetronomeBeatUnit;
   accentFirstBeat: boolean;
+  countInEnabled: boolean;
+  countInBeats: number;
+  countInSound: boolean;
   soundEnabled: boolean;
   soundStyle: MetronomeSoundStyle;
   soundVolume: number;
@@ -533,6 +612,9 @@ const defaults: MetronomeConfig = {
   beatsPerMeasure: 4,
   beatUnit: 4,
   accentFirstBeat: true,
+  countInEnabled: true,
+  countInBeats: 4,
+  countInSound: true,
   soundEnabled: true,
   soundStyle: 'classic',
   soundVolume: 0.58,
@@ -552,13 +634,15 @@ function loadConfig(): MetronomeConfig {
       ...defaults,
       ...saved,
 
-      bpm: clamp(Number(saved.bpm ?? defaults.bpm), 30, 300),
+      bpm: Math.round(clamp(Number(saved.bpm ?? defaults.bpm), 30, 300)),
 
       beatsPerMeasure: Math.round(
         clamp(Number(saved.beatsPerMeasure ?? defaults.beatsPerMeasure), 2, 12),
       ),
 
       beatUnit: saved.beatUnit === 8 ? 8 : 4,
+
+      countInBeats: Math.round(clamp(Number(saved.countInBeats ?? defaults.countInBeats), 1, 99)),
 
       displayScale: clamp(Number(saved.displayScale ?? defaults.displayScale), 0.65, 1.5),
     };
@@ -616,6 +700,31 @@ const tempoName = computed(() => getTempoName(config.bpm));
 
 const beatSymbol = computed(() => (config.beatUnit === 8 ? '♪' : '♩'));
 
+const countInDurationMs = computed(() => {
+  if (!config.countInEnabled) {
+    return 0;
+  }
+
+  return (60_000 / config.bpm) * config.countInBeats;
+});
+
+const countInPreview = computed(() => {
+  if (!config.countInEnabled) {
+    return 'Desactivado';
+  }
+
+  if (config.countInBeats <= 8) {
+    return Array.from(
+      {
+        length: config.countInBeats,
+      },
+      (_, index) => config.countInBeats - index,
+    ).join(' · ');
+  }
+
+  return `${config.countInBeats} · … · 3 · 2 · 1`;
+});
+
 const soundStyleLabel = computed(() => {
   if (config.soundStyle === 'wood') {
     return 'Madera';
@@ -646,7 +755,7 @@ function buildPresentation(state: MetronomeState = localState): TimeToolPresenta
 
     showMilliseconds: false,
 
-    durationMs: 0,
+    durationMs: countInDurationMs.value,
 
     baseTimeMs: state.baseTimeMs,
 
@@ -654,9 +763,9 @@ function buildPresentation(state: MetronomeState = localState): TimeToolPresenta
 
     running: state.running,
 
-    completed: false,
+    completed: state.completed,
 
-    countdownSound: false,
+    countdownSound: config.countInSound,
 
     completionSound: false,
 
@@ -700,6 +809,22 @@ const liveMetronome = computed(() => {
   return tool;
 });
 
+const liveCountInLabel = computed(() => {
+  const tool = liveMetronome.value;
+
+  if (!tool || tool.durationMs <= 0) {
+    return 'Desactivado';
+  }
+
+  const bpmValue = clamp(Number(tool.metronomeBpm ?? 120), 30, 300);
+
+  const beatDuration = 60_000 / bpmValue;
+
+  const beats = Math.max(1, Math.round(tool.durationMs / beatDuration));
+
+  return `Desde ${beats}`;
+});
+
 function clamp(value: number, minimum: number, maximum: number): number {
   if (!Number.isFinite(value)) {
     return minimum;
@@ -714,6 +839,10 @@ function normalizeBpm(): void {
 
 function normalizeMeasure(): void {
   config.beatsPerMeasure = Math.round(clamp(Number(config.beatsPerMeasure), 2, 12));
+}
+
+function normalizeCountIn(): void {
+  config.countInBeats = Math.round(clamp(Number(config.countInBeats), 1, 99));
 }
 
 function changeBpm(amount: number): void {
@@ -862,23 +991,11 @@ function restoreDefaults(): void {
   tapLabel.value = 'Tap Tempo';
 }
 
-/*
- * El elemento se crea YA funcionando.
- *
- * El timestamp se comparte con todas las
- * pantallas para que calculen exactamente
- * el mismo pulso de forma independiente.
- */
 function metronomeItem(): ServicePresentationItem {
-  const startedAt = Date.now();
-
   const metronome = buildPresentation({
     baseTimeMs: 0,
-
-    startedAt,
-
-    running: true,
-
+    startedAt: 0,
+    running: false,
     completed: false,
   });
 
@@ -907,20 +1024,28 @@ function metronomeItem(): ServicePresentationItem {
   };
 }
 
-/*
- * Enviar significa realmente:
- *
- * 1. apagar la prueba local;
- * 2. mandar el estado al proyector;
- * 3. comenzar inmediatamente;
- * 4. abrir el control del operador.
- */
 function sendLive(): void {
   resetLocal();
 
   presentationStore.setLiveItem(metronomeItem());
 
   liveConsoleOpen.value = true;
+}
+
+function openLiveConsole(): void {
+  if (!liveMetronome.value) {
+    return;
+  }
+
+  liveConsoleOpen.value = true;
+}
+
+function stopLiveMetronome(): void {
+  if (!liveMetronome.value) {
+    return;
+  }
+
+  resetLiveTimeTool();
 }
 
 function removeFromLive(): void {
@@ -996,6 +1121,8 @@ watch(
 
     normalizeMeasure();
 
+    normalizeCountIn();
+
     localStorage.setItem(storageKey, JSON.stringify(config));
   },
 
@@ -1019,24 +1146,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .metronome-page {
-  min-height: 100vh;
+  min-height: 100%;
 
-  padding: 24px;
+  padding: 20px;
 
-  color: #e6edf7;
+  color: #e7eef7;
 
-  background: radial-gradient(circle at 63% 30%, rgb(139 92 246 / 8%), transparent 27%), #07111b;
+  background: radial-gradient(circle at 78% -15%, rgb(31 82 123 / 22%), transparent 34%), #0b121b;
 }
 
-.page-header,
-.page-heading,
-.header-actions {
+.metronome-header,
+.metronome-heading,
+.metronome-header-actions {
   display: flex;
 
   align-items: center;
 }
 
-.page-header {
+.metronome-header {
   justify-content: space-between;
 
   gap: 18px;
@@ -1044,19 +1171,23 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
 }
 
-.page-heading {
+.metronome-heading {
   min-width: 0;
 
   gap: 12px;
 }
 
+.metronome-heading > div {
+  min-width: 0;
+}
+
 .back-button {
   display: grid;
 
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
 
-  flex: 0 0 38px;
+  flex: 0 0 36px;
 
   place-items: center;
 
@@ -1072,7 +1203,7 @@ onBeforeUnmount(() => {
 
   font: inherit;
 
-  font-size: 22px;
+  font-size: 20px;
 
   cursor: pointer;
 }
@@ -1080,18 +1211,16 @@ onBeforeUnmount(() => {
 .back-button:hover {
   color: #dbeafe;
 
-  background: #0d1a27;
-
   border-color: #4d7199;
 }
 
-.heading-icon {
+.metronome-heading-icon {
   display: grid;
 
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
 
-  flex: 0 0 48px;
+  flex: 0 0 46px;
 
   place-items: center;
 
@@ -1103,40 +1232,79 @@ onBeforeUnmount(() => {
 
   border-radius: 13px;
 
-  font-size: 25px;
+  font-size: 24px;
 }
 
-.eyebrow {
-  color: #a78bfa;
+.metronome-eyebrow {
+  color: #6e839a;
 
   font-size: 9px;
 
-  font-weight: 800;
+  letter-spacing: 0.08em;
 
-  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-h1 {
-  margin: 1px 0 3px;
+.metronome-heading h1 {
+  margin: 1px 0 0;
 
-  color: #f8fafc;
+  font-size: 22px;
 
-  font-size: 25px;
+  line-height: 1.2;
 }
 
-.page-heading p,
-.live-header p {
-  margin: 0;
+.metronome-heading p {
+  margin: 3px 0 0;
 
-  color: #8395a9;
+  color: #8190a3;
 
   font-size: 11px;
 }
 
-.header-actions {
+.metronome-header-actions {
   gap: 8px;
 }
 
+.metronome-header-actions .q-btn {
+  min-height: 39px;
+
+  border-radius: 9px;
+}
+
+.app-action-button {
+  min-height: 40px;
+
+  padding: 0 16px;
+
+  border-radius: 9px;
+
+  font-weight: 700;
+
+  letter-spacing: 0;
+}
+
+.app-action-button--secondary {
+  min-width: 130px;
+}
+
+.app-action-button--primary {
+  min-width: 145px;
+}
+
+.app-action-button--live {
+  min-width: 140px;
+}
+
+/*
+ * Los dos paneles comparten UNA MISMA
+ * fila de Grid.
+ *
+ * El panel que necesite más altura
+ * determina la altura de toda la fila.
+ *
+ * Ambos se estiran exactamente hasta
+ * el mismo borde inferior.
+ */
 .page-layout {
   display: grid;
 
@@ -1144,10 +1312,14 @@ h1 {
     340px
     minmax(0, 1fr);
 
+  align-items: stretch;
+
   gap: 14px;
 }
 
 .panel {
+  min-height: 0;
+
   overflow: hidden;
 
   background: linear-gradient(145deg, #0f1b29, #0b1622);
@@ -1161,6 +1333,8 @@ h1 {
   display: flex;
 
   min-height: 62px;
+
+  flex: 0 0 62px;
 
   align-items: center;
   justify-content: space-between;
@@ -1198,14 +1372,36 @@ h1 {
   font-size: 21px;
 }
 
+/*
+ * CONFIGURACIÓN
+ *
+ * Ya NO tiene max-height independiente.
+ * Se estira exactamente igual que
+ * la Vista del operador.
+ */
 .settings {
-  max-height: calc(100vh - 115px);
+  display: flex;
+
+  min-width: 0;
+  min-height: 0;
+
+  flex-direction: column;
+
+  align-self: stretch;
 }
 
+/*
+ * El scroll vive aquí dentro.
+ *
+ * El card completo nunca queda más corto
+ * que el de la derecha.
+ */
 .settings-scroll {
   display: flex;
 
-  max-height: calc(100vh - 180px);
+  min-height: 0;
+
+  flex: 1 1 0;
 
   flex-direction: column;
 
@@ -1213,10 +1409,13 @@ h1 {
 
   padding: 15px;
 
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
 .setting-section {
+  flex: 0 0 auto;
+
   padding: 13px;
 
   background: #0a1622;
@@ -1224,6 +1423,12 @@ h1 {
   border: 1px solid #203348;
 
   border-radius: 11px;
+}
+
+.count-in-settings {
+  background: linear-gradient(145deg, rgb(139 92 246 / 8%), #0a1622 60%);
+
+  border-color: rgb(167 139 250 / 25%);
 }
 
 .section-title {
@@ -1387,6 +1592,54 @@ h1 {
   font-size: 9px;
 }
 
+.count-in-preview {
+  display: flex;
+
+  margin: 10px 0 5px;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+  padding: 11px;
+
+  background: rgb(139 92 246 / 7%);
+
+  border: 1px solid rgb(167 139 250 / 18%);
+
+  border-radius: 9px;
+}
+
+.count-in-preview small {
+  color: #8f82bf;
+
+  font-size: 7px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+}
+
+.count-in-preview strong {
+  overflow: hidden;
+
+  color: #c4b5fd;
+
+  font-size: 16px;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.count-in-preview span {
+  color: #8294a8;
+
+  font-size: 8px;
+
+  line-height: 1.5;
+}
+
 .field-label {
   display: block;
 
@@ -1449,6 +1702,8 @@ h1 {
 .shortcut-help {
   display: flex;
 
+  flex: 0 0 auto;
+
   gap: 9px;
 
   padding: 11px;
@@ -1490,18 +1745,27 @@ h1 {
   font-size: 8px;
 }
 
+/*
+ * PREVISUALIZACIÓN
+ *
+ * También ocupa la altura completa
+ * de la misma fila.
+ */
 .preview {
   display: flex;
 
   min-width: 0;
+  min-height: 0;
+
+  align-self: stretch;
 
   flex-direction: column;
 }
 
 .preview-screen {
-  min-height: 560px;
+  min-height: 510px;
 
-  flex: 1;
+  flex: 1 1 auto;
 
   overflow: hidden;
 
@@ -1510,6 +1774,8 @@ h1 {
 
 .preview-controls {
   display: flex;
+
+  flex: 0 0 auto;
 
   align-items: center;
   justify-content: center;
@@ -1525,7 +1791,9 @@ h1 {
 .operator-info {
   display: grid;
 
-  grid-template-columns: repeat(3, 1fr);
+  flex: 0 0 auto;
+
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 
   gap: 8px;
 
@@ -1557,15 +1825,29 @@ h1 {
 
   margin-top: 3px;
 
+  overflow: hidden;
+
   color: #e7eef6;
 
   font-size: 11px;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
 }
 
 .operator-info small {
+  display: block;
+
+  overflow: hidden;
+
   color: #718399;
 
   font-size: 8px;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
 }
 
 .live-console {
@@ -1607,6 +1889,14 @@ h1 {
   color: #f8fafc;
 
   font-size: 22px;
+}
+
+.live-header p {
+  margin: 0;
+
+  color: #8395a9;
+
+  font-size: 11px;
 }
 
 .live-body {
@@ -1667,10 +1957,13 @@ h1 {
   border-radius: 10px;
 }
 
-.live-tempo small {
+.live-tempo small,
+.live-count-in small {
   color: #718399;
 
   font-size: 7px;
+
+  letter-spacing: 0.08em;
 }
 
 .live-tempo strong {
@@ -1693,6 +1986,28 @@ h1 {
   font-size: 18px;
 
   font-weight: 750;
+}
+
+.live-count-in {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 2px;
+
+  padding: 11px 13px;
+
+  background: rgb(139 92 246 / 5%);
+
+  border: 1px solid rgb(167 139 250 / 16%);
+
+  border-radius: 9px;
+}
+
+.live-count-in strong {
+  color: #c4b5fd;
+
+  font-size: 14px;
 }
 
 .live-note {
@@ -1740,28 +2055,43 @@ h1 {
       minmax(0, 1fr);
   }
 
+  .operator-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .preview-screen {
-    min-height: 480px;
+    min-height: 450px;
   }
 }
 
 @media (max-width: 900px) {
-  .page-header {
+  .metronome-page {
+    padding: 12px;
+  }
+
+  .metronome-header {
     align-items: flex-start;
 
     flex-direction: column;
+  }
+
+  .metronome-header-actions {
+    width: 100%;
+
+    flex-wrap: wrap;
   }
 
   .page-layout {
     grid-template-columns: 1fr;
   }
 
-  .settings {
-    max-height: none;
+  .settings,
+  .preview {
+    height: auto;
   }
 
   .settings-scroll {
-    max-height: none;
+    overflow-y: visible;
   }
 
   .live-body {
@@ -1776,18 +2106,21 @@ h1 {
 }
 
 @media (max-width: 620px) {
-  .metronome-page {
-    padding: 14px;
+  .metronome-header {
+    align-items: stretch;
+
+    flex-direction: column;
   }
 
-  .page-heading {
-    align-items: flex-start;
+  .metronome-heading-icon,
+  .metronome-heading p {
+    display: none;
   }
 
-  .header-actions {
-    width: 100%;
+  .metronome-header-actions {
+    display: grid;
 
-    flex-wrap: wrap;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   }
 
   .measure-grid,
