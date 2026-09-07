@@ -31,9 +31,22 @@ export interface DisplayReference {
   scaleFactor: number;
 }
 
+export interface ProjectionOutputConfiguration {
+  outputId: string;
+  name: string;
+  display: DisplayReference;
+}
+
+export interface ActiveProjectionOutput {
+  outputId: string;
+  name: string;
+  displayId: number;
+}
+
 export interface DisplayConfiguration {
   mode: DisplayConfigurationMode;
   projectionDisplays: DisplayReference[];
+  projectionOutputs: ProjectionOutputConfiguration[];
   audioDisplay: DisplayReference | null;
 }
 
@@ -41,6 +54,7 @@ export interface DisplayStatus {
   displays: DisplayInfo[];
   configuration: DisplayConfiguration;
   activeProjectionDisplayIds: number[];
+  activeProjectionOutputs: ActiveProjectionOutput[];
   audioDisplayId: number | null;
   usesOperatorDisplay: boolean;
 }
@@ -49,4 +63,5 @@ export interface ApplyDisplayConfigurationRequest {
   mode: DisplayConfigurationMode;
   projectionDisplayIds: number[];
   audioDisplayId: number | null;
+  outputNames?: Record<number, string>;
 }
