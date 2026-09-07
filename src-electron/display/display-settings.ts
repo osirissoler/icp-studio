@@ -1,4 +1,5 @@
 import { BrowserWindow, app, screen, type Display } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
@@ -9,6 +10,7 @@ import type {
   DisplayReference,
   DisplayStatus,
   ProjectionOutputConfiguration,
+  ProjectionOutputAssignmentRequest,
 } from '../../src/shared/display';
 import { registerProjectionOutputRouter } from '../projection/projection-output-router';
 
@@ -16,6 +18,7 @@ const SETTINGS_FILENAME = 'display-settings.json';
 
 let configuration: DisplayConfiguration = {
   mode: 'automatic',
+  independentProjectionEnabled: false,
   projectionDisplays: [],
   projectionOutputs: [],
   audioDisplay: null,
@@ -45,11 +48,11 @@ function defaultOutputName(index: number): string {
   if (index === 0) return 'Principal';
   if (index === 1) return 'Retorno';
   if (index === 2) return 'Lobby';
-  return `Salida ${index + 1}`;
+  return `Área ${index + 1}`;
 }
 
-function createOutputId(index: number): string {
-  return `output-${index + 1}`;
+function createOutputId(): string {
+  return `projection-area-${randomUUID()}`;
 }
 
 export function getConnectedDisplays(): DisplayInfo[] {
@@ -69,50 +72,69 @@ export function getConnectedDisplays(): DisplayInfo[] {
   }));
 }
 
-function validConfiguration(value: unknown): value is Omit<DisplayConfiguration, 'projectionOutputs'> & {
-  projectionOutputs?: ProjectionOutputConfiguration[];
-} {
+interface StoredDisplayConfiguration {
+  mode: 'automatic' | 'custom';
+  independentProjectionEnabled?: boolean;
+  projectionDisplays: DisplayReference[];
+  projectionOutputs?: Array<{
+    outputId: string;
+    name: string;
+    enabled?: boolean;
+    display: DisplayReference | null;
+  }>;
+  audioDisplay: DisplayReference | null;
+}
+
+function validConfiguration(value: unknown): value is StoredDisplayConfiguration {
   if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const candidate = value as Partial<DisplayConfiguration>;
+  const candidate = value as Partial<StoredDisplayConfiguration>;
   return (
     (candidate.mode === 'automatic' || candidate.mode === 'custom') &&
+    (candidate.independentProjectionEnabled === undefined ||
+      typeof candidate.independentProjectionEnabled === 'boolean') &&
     Array.isArray(candidate.projectionDisplays) &&
     (candidate.projectionOutputs === undefined || Array.isArray(candidate.projectionOutputs)) &&
     (candidate.audioDisplay === null || typeof candidate.audioDisplay === 'object')
   );
 }
 
-function normalizeConfiguration(
-  value: Omit<DisplayConfiguration, 'projectionOutputs'> & {
-    projectionOutputs?: ProjectionOutputConfiguration[];
-  },
-): DisplayConfiguration {
-  const projectionOutputs = Array.isArray(value.projectionOutputs)
-    ? value.projectionOutputs
-        .filter(
-          (output) =>
-            output &&
-            typeof output.outputId === 'string' &&
-            typeof output.name === 'string' &&
-            output.display &&
-            typeof output.display === 'object',
-        )
-        .map((output) => ({
-          outputId: output.outputId,
-          name: output.name.trim() || 'Salida',
-          display: output.display,
-        }))
-    : value.projectionDisplays.map((display, index) => ({
-        outputId: createOutputId(index),
+function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfiguration {
+  const storedOutputs = Array.isArray(value.projectionOutputs) ? value.projectionOutputs : [];
+  const projectionOutputs: ProjectionOutputConfiguration[] = storedOutputs
+    .filter(
+      (output) =>
+        output &&
+        typeof output.outputId === 'string' &&
+        typeof output.name === 'string' &&
+        (output.display === null || typeof output.display === 'object'),
+    )
+    .map((output, index) => ({
+      outputId: output.outputId.trim() || createOutputId(),
+      name: output.name.trim() || defaultOutputName(index),
+      enabled: output.enabled !== false,
+      display: output.display,
+    }));
+
+  // Versiones anteriores creaban una "salida" por monitor automáticamente.
+  // Las conservamos como áreas preparadas, pero el modo independiente queda
+  // apagado hasta que el usuario lo habilite explícitamente.
+  if (projectionOutputs.length === 0 && value.projectionDisplays.length > 0) {
+    value.projectionDisplays.forEach((display, index) => {
+      projectionOutputs.push({
+        outputId: createOutputId(),
         name: defaultOutputName(index),
+        enabled: true,
         display,
-      }));
+      });
+    });
+  }
 
   return {
     mode: value.mode,
+    independentProjectionEnabled: value.independentProjectionEnabled === true,
     projectionDisplays: value.projectionDisplays,
     projectionOutputs,
     audioDisplay: value.audioDisplay,
@@ -133,7 +155,7 @@ export async function loadDisplayConfiguration(): Promise<void> {
       configuration = normalizeConfiguration(parsed);
     }
   } catch {
-    // La primera ejecución usa la configuración automática predeterminada.
+    // La primera ejecución usa modo espejo/automático.
   }
 }
 
@@ -173,10 +195,18 @@ function matchReference(
 }
 
 function resolveConfiguredOutputs(selected: Display[]): ActiveProjectionOutput[] {
+  if (!configuration.independentProjectionEnabled) {
+    return [];
+  }
+
   const usedDisplayIds = new Set<number>();
   const resolved: ActiveProjectionOutput[] = [];
 
   for (const output of configuration.projectionOutputs) {
+    if (!output.enabled || !output.display) {
+      continue;
+    }
+
     const display = matchReference(output.display, selected, usedDisplayIds);
     if (!display) {
       continue;
@@ -186,19 +216,6 @@ function resolveConfiguredOutputs(selected: Display[]): ActiveProjectionOutput[]
     resolved.push({
       outputId: output.outputId,
       name: output.name,
-      displayId: display.id,
-    });
-  }
-
-  for (const display of selected) {
-    if (usedDisplayIds.has(display.id)) {
-      continue;
-    }
-
-    const index = resolved.length;
-    resolved.push({
-      outputId: createOutputId(index),
-      name: defaultOutputName(index),
       displayId: display.id,
     });
   }
@@ -262,6 +279,56 @@ export function getDisplayStatus(): DisplayStatus {
   };
 }
 
+function buildProjectionOutputs(
+  request: ApplyDisplayConfigurationRequest,
+  selected: Display[],
+): ProjectionOutputConfiguration[] {
+  if (!Array.isArray(request.projectionOutputs)) {
+    // Compatibilidad con el panel anterior, que enviaba únicamente nombres.
+    if (request.outputNames) {
+      return selected.map((display, index) => {
+        const previous = configuration.projectionOutputs.find(
+          (output) => output.display && matchScore(output.display, display) >= 30,
+        );
+        return {
+          outputId: previous?.outputId ?? createOutputId(),
+          name: request.outputNames?.[display.id]?.trim() || previous?.name || defaultOutputName(index),
+          enabled: true,
+          display: displayReference(display),
+        };
+      });
+    }
+
+    return configuration.projectionOutputs;
+  }
+
+  const usedDisplayIds = new Set<number>();
+
+  return request.projectionOutputs.map(
+    (output: ProjectionOutputAssignmentRequest, index): ProjectionOutputConfiguration => {
+      const display =
+        output.displayId === null || usedDisplayIds.has(output.displayId)
+          ? null
+          : selected.find((item) => item.id === output.displayId) ?? null;
+
+      if (display) {
+        usedDisplayIds.add(display.id);
+      }
+
+      const previous = output.outputId
+        ? configuration.projectionOutputs.find((item) => item.outputId === output.outputId)
+        : undefined;
+
+      return {
+        outputId: previous?.outputId ?? createOutputId(),
+        name: output.name.trim().slice(0, 60) || previous?.name || defaultOutputName(index),
+        enabled: output.enabled !== false,
+        display: display ? displayReference(display) : null,
+      };
+    },
+  );
+}
+
 export async function applyDisplayConfiguration(
   request: ApplyDisplayConfigurationRequest,
 ): Promise<DisplayStatus> {
@@ -282,22 +349,11 @@ export async function applyDisplayConfiguration(
             display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
         ) ?? null;
 
-  const previousOutputs = configuration.projectionOutputs;
-  const projectionOutputs = selected.map((display, index) => {
-    const previous = previousOutputs.find((output) => matchScore(output.display, display) >= 30);
-    const requestedName = request.outputNames?.[display.id]?.trim();
-
-    return {
-      outputId: previous?.outputId ?? createOutputId(index),
-      name: requestedName || previous?.name || defaultOutputName(index),
-      display: displayReference(display),
-    };
-  });
-
   configuration = {
     mode: request.mode === 'custom' ? 'custom' : 'automatic',
+    independentProjectionEnabled: request.independentProjectionEnabled === true,
     projectionDisplays: selected.map(displayReference),
-    projectionOutputs,
+    projectionOutputs: buildProjectionOutputs(request, selected),
     audioDisplay: audio ? displayReference(audio) : null,
   };
 
