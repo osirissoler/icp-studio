@@ -155,9 +155,7 @@ export function resolveProjectionTargets(): ResolvedProjectionTargets {
   let audioDisplayId: number | null = null;
   if (!usesOperatorDisplay && selected.length > 0) {
     const matchedAudio = matchReference(configuration.audioDisplay, selected);
-    audioDisplayId = matchedAudio?.id ?? selected[0]?.id ?? null;
-  } else if (usesOperatorDisplay) {
-    audioDisplayId = primary.id;
+    audioDisplayId = matchedAudio?.id ?? null;
   }
 
   return { displays: selected, audioDisplayId, usesOperatorDisplay };
@@ -187,9 +185,12 @@ export async function applyDisplayConfiguration(
 
   const selected = external.filter((display) => selectedIds.has(display.id));
   const audio =
-    external.find(
-      (display) => display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
-    ) ?? selected[0] ?? null;
+    request.audioDisplayId === null
+      ? null
+      : external.find(
+          (display) =>
+            display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
+        ) ?? null;
 
   configuration = {
     mode: request.mode === 'custom' ? 'custom' : 'automatic',
