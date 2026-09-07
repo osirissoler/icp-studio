@@ -3,7 +3,7 @@
     <div class="panel-heading">
       <div>
         <h2>Pantallas</h2>
-        <p>Elige qué monitores proyectan, nombra cada salida y decide si alguno reproduce el audio principal.</p>
+        <p>Configura los monitores físicos y, si lo necesitas, crea áreas con contenido independiente.</p>
       </div>
       <q-btn
         outline
@@ -19,8 +19,8 @@
     <q-card flat class="settings-card mode-card">
       <q-card-section class="card-header">
         <div>
-          <strong>Modo de proyección</strong>
-          <small>Automático usa todas las pantallas externas. Personalizado respeta tu selección.</small>
+          <strong>Pantallas que utilizará ICP Studio</strong>
+          <small>Automático usa todas las pantallas externas. Personalizado te permite desactivar monitores.</small>
         </div>
       </q-card-section>
       <q-separator dark />
@@ -80,7 +80,7 @@
               </small>
               <q-badge
                 :color="display.isPrimary ? 'blue-grey-7' : isProjectionSelected(display) ? 'positive' : 'blue-grey-8'"
-                :label="display.isPrimary ? 'Operador' : isProjectionSelected(display) ? 'Proyección activa' : 'Proyección desactivada'"
+                :label="display.isPrimary ? 'Operador' : isProjectionSelected(display) ? 'Disponible para proyección' : 'Desactivada'"
               />
             </div>
           </q-card-section>
@@ -92,42 +92,137 @@
               :model-value="isProjectionSelected(display)"
               :disable="display.isPrimary || mode === 'automatic'"
               color="positive"
-              label="Usar para proyección"
+              label="Usar esta pantalla"
               @update:model-value="toggleProjection(display, Boolean($event))"
             />
             <small v-if="display.isPrimary" class="control-help">Pantalla del operador</small>
-            <small v-else-if="mode === 'automatic'" class="control-help">Activa por modo automático</small>
-            <small v-else class="control-help">Puedes dejar esta pantalla sin proyección</small>
+            <small v-else-if="mode === 'automatic'" class="control-help">Incluida por modo automático</small>
+            <small v-else class="control-help">Puedes dejarla fuera de la proyección</small>
           </q-card-section>
-
-          <template v-if="!display.isPrimary && isProjectionSelected(display)">
-            <q-separator dark />
-            <q-card-section class="output-name-control">
-              <q-input
-                dense
-                outlined
-                dark
-                maxlength="40"
-                :model-value="outputName(display.id)"
-                label="Nombre de la salida"
-                hint="Ej.: Principal, Retorno, Lobby"
-                @update:model-value="setOutputName(display.id, String($event ?? ''))"
-              >
-                <template #prepend>
-                  <q-icon name="label" />
-                </template>
-              </q-input>
-            </q-card-section>
-          </template>
         </q-card>
       </div>
+
+      <q-card flat class="settings-card independent-card">
+        <q-card-section class="independent-header">
+          <div class="independent-icon">
+            <q-icon name="splitscreen" />
+          </div>
+          <div class="independent-copy">
+            <strong>Proyecciones diferentes por área</strong>
+            <small>
+              Actívalo solamente si quieres mostrar contenido distinto en Principal, Retorno, Lobby, Murales u otras áreas.
+              Si está apagado, todas las pantallas muestran lo mismo.
+            </small>
+          </div>
+          <q-toggle
+            v-model="independentProjectionEnabled"
+            color="positive"
+            size="lg"
+            :label="independentProjectionEnabled ? 'Habilitado' : 'Deshabilitado'"
+          />
+        </q-card-section>
+
+        <template v-if="independentProjectionEnabled">
+          <q-separator dark />
+          <q-card-section class="areas-section">
+            <div class="areas-heading">
+              <div>
+                <strong>Áreas de proyección</strong>
+                <small>Crea un área y asígnale una de las pantallas disponibles.</small>
+              </div>
+              <q-btn
+                outline
+                no-caps
+                color="light-blue-4"
+                icon="add"
+                label="Crear área"
+                @click="addProjectionArea"
+              />
+            </div>
+
+            <div v-if="projectionAreas.length" class="areas-list">
+              <q-card
+                v-for="(area, index) in projectionAreas"
+                :key="area.localId"
+                flat
+                class="area-card"
+                :class="{ 'area-card--disabled': !area.enabled }"
+              >
+                <q-card-section class="area-row">
+                  <div class="area-number">{{ index + 1 }}</div>
+
+                  <q-input
+                    v-model="area.name"
+                    dark
+                    dense
+                    outlined
+                    maxlength="60"
+                    label="Nombre del área"
+                    class="area-name"
+                  >
+                    <template #prepend><q-icon name="label" /></template>
+                  </q-input>
+
+                  <q-select
+                    v-model="area.displayId"
+                    :options="displayOptionsForArea(area.localId)"
+                    dark
+                    dense
+                    outlined
+                    emit-value
+                    map-options
+                    clearable
+                    label="Pantalla asignada"
+                    class="area-display"
+                    popup-content-class="projection-area-menu"
+                  >
+                    <template #prepend><q-icon name="desktop_windows" /></template>
+                    <template #no-option>
+                      <q-item dark>
+                        <q-item-section class="text-blue-grey-4">No hay otra pantalla disponible.</q-item-section>
+                      </q-item>
+                    </template>
+                  </q-select>
+
+                  <q-toggle v-model="area.enabled" color="positive" label="Activa" />
+
+                  <q-btn
+                    flat
+                    round
+                    color="negative"
+                    icon="delete_outline"
+                    aria-label="Eliminar área"
+                    @click="removeProjectionArea(area.localId)"
+                  >
+                    <q-tooltip>Eliminar área</q-tooltip>
+                  </q-btn>
+                </q-card-section>
+
+                <div class="area-status">
+                  <q-icon :name="area.displayId === null ? 'warning_amber' : 'check_circle'" />
+                  <span v-if="area.displayId === null">Esta área todavía no tiene una pantalla asignada.</span>
+                  <span v-else>{{ displayLabel(area.displayId) }}</span>
+                </div>
+              </q-card>
+            </div>
+
+            <div v-else class="areas-empty">
+              <q-icon name="dashboard_customize" />
+              <div>
+                <strong>No has creado áreas.</strong>
+                <span>Crea, por ejemplo, Principal, Retorno, Lobby o Murales.</span>
+              </div>
+            </div>
+          </q-card-section>
+        </template>
+      </q-card>
 
       <q-card flat class="settings-card audio-card">
         <q-card-section class="card-header">
           <div>
             <strong>Audio de las pantallas de proyección</strong>
             <small>
-              Puedes impedir que el audio salga por HDMI. El dispositivo de sonido general seguirá siendo el que tengas configurado en macOS.
+              Puedes impedir que el audio salga por HDMI. El dispositivo general seguirá siendo el configurado en macOS.
             </small>
           </div>
         </q-card-section>
@@ -145,34 +240,23 @@
             v-model="audioDisplayId"
             :val="display.id"
             color="amber-5"
-            :label="`Audio principal: ${outputName(display.id)}`"
+            :label="`Audio por ${display.label}`"
           />
         </q-card-section>
       </q-card>
 
-      <div v-if="displays.length === 0" class="empty-state">
-        <q-icon name="desktop_access_disabled" />
-        <strong>No se detectaron pantallas.</strong>
-      </div>
-
       <div class="summary-row">
         <div>
           <q-icon name="tv" />
-          <span>{{ selectedProjectionIds.length }} salida{{ selectedProjectionIds.length === 1 ? '' : 's' }} seleccionada{{ selectedProjectionIds.length === 1 ? '' : 's' }}</span>
+          <span>{{ selectedProjectionIds.length }} pantalla{{ selectedProjectionIds.length === 1 ? '' : 's' }} disponible{{ selectedProjectionIds.length === 1 ? '' : 's' }}</span>
+        </div>
+        <div>
+          <q-icon :name="independentProjectionEnabled ? 'splitscreen' : 'content_copy'" />
+          <span>{{ independentProjectionEnabled ? `${activeAreaCount} área${activeAreaCount === 1 ? '' : 's'} activa${activeAreaCount === 1 ? '' : 's'}` : 'Modo espejo' }}</span>
         </div>
         <div>
           <q-icon :name="audioDisplayId === null ? 'volume_off' : 'volume_up'" />
           <span>{{ audioDisplayLabel }}</span>
-        </div>
-      </div>
-
-      <div v-if="selectedProjectionIds.length > 0" class="outputs-summary">
-        <div v-for="displayId in selectedProjectionIds" :key="displayId" class="output-summary-item">
-          <q-icon name="cast" />
-          <div>
-            <strong>{{ outputName(displayId) }}</strong>
-            <small>{{ displayLabel(displayId) }}</small>
-          </div>
         </div>
       </div>
 
@@ -199,7 +283,16 @@ import type {
   DisplayConfigurationMode,
   DisplayInfo,
   DisplayStatus,
+  ProjectionOutputAssignmentRequest,
 } from '../../shared/display';
+
+interface ProjectionAreaDraft {
+  localId: string;
+  outputId?: string;
+  name: string;
+  enabled: boolean;
+  displayId: number | null;
+}
 
 const modeOptions: Array<{
   value: DisplayConfigurationMode;
@@ -211,21 +304,22 @@ const modeOptions: Array<{
     value: 'automatic',
     label: 'Automático',
     icon: 'auto_awesome',
-    description: 'Todas las pantallas externas disponibles proyectan.',
+    description: 'Todas las pantallas externas quedan disponibles.',
   },
   {
     value: 'custom',
     label: 'Personalizado',
     icon: 'tune',
-    description: 'Tú decides exactamente cuáles pantallas se utilizan.',
+    description: 'Tú decides cuáles pantallas puede utilizar ICP Studio.',
   },
 ];
 
 const displays = ref<DisplayInfo[]>([]);
 const mode = ref<DisplayConfigurationMode>('automatic');
 const customProjectionIds = ref<number[]>([]);
+const independentProjectionEnabled = ref(false);
+const projectionAreas = ref<ProjectionAreaDraft[]>([]);
 const audioDisplayId = ref<number | null>(null);
-const outputNames = ref<Record<number, string>>({});
 const loading = ref(true);
 const applying = ref(false);
 const identifying = ref(false);
@@ -247,12 +341,15 @@ const selectedAudioDisplays = computed(() =>
   externalDisplays.value.filter((display) => selectedProjectionIds.value.includes(display.id)),
 );
 
+const activeAreaCount = computed(
+  () => projectionAreas.value.filter((area) => area.enabled && area.displayId !== null).length,
+);
+
 const audioDisplayLabel = computed(() => {
   if (audioDisplayId.value === null) {
-    return 'Audio: desactivado en pantallas';
+    return 'Audio desactivado en pantallas';
   }
-
-  return `Audio: ${outputName(audioDisplayId.value)}`;
+  return `Audio: ${displayLabel(audioDisplayId.value)}`;
 });
 
 const desktopBounds = computed(() => {
@@ -281,22 +378,6 @@ function displayLabel(displayId: number): string {
   return displays.value.find((display) => display.id === displayId)?.label ?? `Pantalla ${displayId}`;
 }
 
-function defaultOutputName(displayId: number): string {
-  const selectedIndex = selectedProjectionIds.value.indexOf(displayId);
-  if (selectedIndex === 0) return 'Principal';
-  if (selectedIndex === 1) return 'Retorno';
-  if (selectedIndex === 2) return 'Lobby';
-  return `Salida ${selectedIndex + 1}`;
-}
-
-function outputName(displayId: number): string {
-  return outputNames.value[displayId]?.trim() || defaultOutputName(displayId);
-}
-
-function setOutputName(displayId: number, value: string): void {
-  outputNames.value = { ...outputNames.value, [displayId]: value };
-}
-
 function displayMapStyle(display: DisplayInfo): Record<string, string> {
   const bounds = desktopBounds.value;
   return {
@@ -308,16 +389,26 @@ function displayMapStyle(display: DisplayInfo): Record<string, string> {
 }
 
 function isProjectionSelected(display: DisplayInfo): boolean {
-  if (display.isPrimary) {
-    return false;
-  }
-  return selectedProjectionIds.value.includes(display.id);
+  return !display.isPrimary && selectedProjectionIds.value.includes(display.id);
 }
 
 function validateAudioSelection(): void {
   if (audioDisplayId.value !== null && !selectedProjectionIds.value.includes(audioDisplayId.value)) {
     audioDisplayId.value = null;
   }
+}
+
+function validateAreaAssignments(): void {
+  const allowed = new Set(selectedProjectionIds.value);
+  const used = new Set<number>();
+
+  projectionAreas.value.forEach((area) => {
+    if (area.displayId === null || !allowed.has(area.displayId) || used.has(area.displayId)) {
+      area.displayId = null;
+      return;
+    }
+    used.add(area.displayId);
+  });
 }
 
 function toggleProjection(display: DisplayInfo, explicitValue?: boolean): void {
@@ -333,19 +424,80 @@ function toggleProjection(display: DisplayInfo, explicitValue?: boolean): void {
     : customProjectionIds.value.filter((id) => id !== display.id);
 
   validateAudioSelection();
+  validateAreaAssignments();
+}
+
+function nextAreaName(): string {
+  const preferred = ['Principal', 'Retorno', 'Lobby', 'Murales'];
+  return preferred[projectionAreas.value.length] ?? `Área ${projectionAreas.value.length + 1}`;
+}
+
+function addProjectionArea(): void {
+  const used = new Set(
+    projectionAreas.value
+      .map((area) => area.displayId)
+      .filter((displayId): displayId is number => displayId !== null),
+  );
+  const availableDisplay = selectedProjectionIds.value.find((id) => !used.has(id)) ?? null;
+
+  projectionAreas.value.push({
+    localId: crypto.randomUUID(),
+    name: nextAreaName(),
+    enabled: true,
+    displayId: availableDisplay,
+  });
+}
+
+function removeProjectionArea(localId: string): void {
+  projectionAreas.value = projectionAreas.value.filter((area) => area.localId !== localId);
+}
+
+function displayOptionsForArea(localId: string): Array<{ label: string; value: number }> {
+  const usedByOthers = new Set(
+    projectionAreas.value
+      .filter((area) => area.localId !== localId)
+      .map((area) => area.displayId)
+      .filter((displayId): displayId is number => displayId !== null),
+  );
+
+  return selectedProjectionIds.value
+    .filter((id) => !usedByOthers.has(id))
+    .map((id) => ({
+      value: id,
+      label: `${displayLabel(id)} · Pantalla ${displayNumber(displays.value.find((item) => item.id === id)!)}`,
+    }));
+}
+
+function resolvedDisplayId(status: DisplayStatus, outputId: string, storedDisplayId: number | null): number | null {
+  const active = status.activeProjectionOutputs.find((output) => output.outputId === outputId);
+  if (active) {
+    return active.displayId;
+  }
+
+  if (storedDisplayId !== null && status.displays.some((display) => display.id === storedDisplayId)) {
+    return storedDisplayId;
+  }
+
+  return null;
 }
 
 function applyStatus(status: DisplayStatus): void {
   displays.value = status.displays;
   mode.value = status.configuration.mode;
+  independentProjectionEnabled.value = status.configuration.independentProjectionEnabled;
   customProjectionIds.value = status.activeProjectionDisplayIds.filter((id) =>
     status.displays.some((display) => !display.isPrimary && display.id === id),
   );
-  outputNames.value = Object.fromEntries(
-    status.activeProjectionOutputs.map((output) => [output.displayId, output.name]),
-  );
+  projectionAreas.value = status.configuration.projectionOutputs.map((output) => ({
+    localId: output.outputId,
+    outputId: output.outputId,
+    name: output.name,
+    enabled: output.enabled,
+    displayId: resolvedDisplayId(status, output.outputId, output.display?.id ?? null),
+  }));
   audioDisplayId.value = status.audioDisplayId;
   validateAudioSelection();
+  validateAreaAssignments();
 }
 
 async function loadStatus(): Promise<void> {
@@ -364,21 +516,38 @@ async function applyConfiguration(): Promise<void> {
   applying.value = true;
   try {
     validateAudioSelection();
-    const names = Object.fromEntries(
-      selectedProjectionIds.value.map((displayId) => [displayId, outputName(displayId)]),
-    );
+    validateAreaAssignments();
+
+    const areas: ProjectionOutputAssignmentRequest[] = projectionAreas.value.map((area) => ({
+      outputId: area.outputId,
+      name: area.name.trim() || 'Área',
+      enabled: area.enabled,
+      displayId: area.displayId,
+    }));
+
     const status = await window.icpStudio?.displays.applyConfiguration({
       mode: mode.value,
+      independentProjectionEnabled: independentProjectionEnabled.value,
       projectionDisplayIds: selectedProjectionIds.value,
       audioDisplayId: audioDisplayId.value,
-      outputNames: names,
+      projectionOutputs: areas,
     });
+
     if (status) {
       applyStatus(status);
     }
-    Notify.create({ type: 'positive', message: 'Configuración de pantallas aplicada.' });
+
+    Notify.create({
+      type: 'positive',
+      message: independentProjectionEnabled.value
+        ? 'Pantallas y áreas de proyección actualizadas.'
+        : 'Pantallas actualizadas en modo espejo.',
+    });
   } catch (error) {
-    Notify.create({ type: 'negative', message: error instanceof Error ? error.message : 'No se pudo aplicar la configuración.' });
+    Notify.create({
+      type: 'negative',
+      message: error instanceof Error ? error.message : 'No se pudo aplicar la configuración.',
+    });
   } finally {
     applying.value = false;
   }
@@ -393,7 +562,10 @@ async function identifyDisplays(): Promise<void> {
   }
 }
 
-watch(mode, validateAudioSelection);
+watch(mode, () => {
+  validateAudioSelection();
+  validateAreaAssignments();
+});
 
 onMounted(async () => {
   await loadStatus();
@@ -407,18 +579,18 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .screens-settings-panel { padding: 24px; color: #e8eef6; }
-.panel-heading, .card-header, .summary-row, .actions-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.panel-heading, .card-header, .summary-row, .actions-row, .independent-header, .areas-heading, .area-row { display: flex; align-items: center; gap: 16px; }
+.panel-heading, .card-header, .areas-heading { justify-content: space-between; }
 .panel-heading { margin-bottom: 18px; }
 .panel-heading h2 { margin: 0; font-size: 22px; }
-.panel-heading p, .card-header small, .mode-option small, .display-info small, .control-help, .output-summary-item small { margin: 4px 0 0; color: #8fa0b5; }
+.panel-heading p, .card-header small, .mode-option small, .display-info small, .control-help, .independent-copy small, .areas-heading small { margin: 4px 0 0; color: #8fa0b5; }
 .settings-card { color: #e8eef6; background: #111c29; border: 1px solid #26384d; border-radius: 12px; }
 .mode-card { margin-bottom: 18px; }
-.audio-card { margin-top: 18px; }
-.card-header > div, .mode-option span, .display-info, .output-summary-item > div { display: flex; flex-direction: column; }
+.card-header > div, .mode-option span, .display-info, .independent-copy, .areas-heading > div { display: flex; flex-direction: column; }
 .mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .mode-option { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; text-align: left; color: #dbe7f5; background: #0d1621; border: 1px solid #2a3b50; border-radius: 10px; cursor: pointer; }
 .mode-option--active { border-color: #4ba3ff; background: #102740; }
-.loading-state, .empty-state { display: flex; min-height: 180px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #91a2b7; }
+.loading-state { display: flex; min-height: 180px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #91a2b7; }
 .desktop-map { position: relative; min-height: 220px; max-height: 360px; margin-bottom: 18px; overflow: hidden; background: #08111b; border: 1px solid #26384d; border-radius: 12px; }
 .display-map-item { position: absolute; display: flex; min-width: 80px; min-height: 64px; align-items: center; justify-content: center; flex-direction: column; color: #b7c6d8; background: #162332; border: 2px solid #3a4b60; border-radius: 8px; overflow: hidden; cursor: pointer; }
 .display-map-item strong { font-size: 28px; line-height: 1; }
@@ -432,13 +604,27 @@ onBeforeUnmount(() => {
 .display-info { min-width: 0; flex: 1; gap: 4px; }
 .display-info .q-badge { align-self: flex-start; }
 .display-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.output-name-control { padding-top: 14px; }
+.independent-card, .audio-card { margin-top: 18px; }
+.independent-header { padding: 18px; }
+.independent-icon { display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center; color: #8fd3ff; background: #102740; border-radius: 12px; font-size: 25px; }
+.independent-copy { min-width: 0; flex: 1; }
+.areas-section { padding: 18px; }
+.areas-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.area-card { color: #e8eef6; background: #0b1520; border: 1px solid #2a3b50; border-radius: 10px; }
+.area-card--disabled { opacity: .62; }
+.area-row { padding: 12px; }
+.area-number { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; color: #bfe2ff; background: #16304a; border-radius: 8px; font-weight: 700; }
+.area-name { min-width: 180px; flex: 1; }
+.area-display { min-width: 240px; flex: 1.2; }
+.area-status { display: flex; align-items: center; gap: 8px; padding: 0 12px 10px 58px; color: #8295aa; font-size: 12px; }
+.areas-empty { display: flex; min-height: 100px; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; color: #74879d; background: #0b1520; border: 1px dashed #2d4056; border-radius: 10px; }
+.areas-empty > .q-icon { font-size: 30px; }
+.areas-empty div { display: flex; flex-direction: column; gap: 3px; }
 .audio-options { display: flex; flex-wrap: wrap; gap: 10px 22px; }
-.summary-row { margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
+.summary-row { justify-content: space-between; margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
 .summary-row > div { display: flex; align-items: center; gap: 8px; color: #aebed0; }
-.outputs-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
-.output-summary-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; color: #dbe7f5; }
-.output-summary-item .q-icon { color: #4ba3ff; font-size: 22px; }
-.actions-row { margin-top: 16px; justify-content: flex-end; }
-@media (max-width: 700px) { .mode-options { grid-template-columns: 1fr; } .display-controls, .summary-row { align-items: flex-start; flex-direction: column; } .audio-options { flex-direction: column; } }
+.actions-row { justify-content: flex-end; margin-top: 16px; }
+:deep(.projection-area-menu) { color: #e8eef6; background: #111c29; border: 1px solid #30455e; }
+@media (max-width: 900px) { .area-row { align-items: stretch; flex-wrap: wrap; } .area-name, .area-display { min-width: calc(50% - 40px); } }
+@media (max-width: 700px) { .mode-options { grid-template-columns: 1fr; } .display-controls, .summary-row, .independent-header { align-items: flex-start; flex-direction: column; } .audio-options { flex-direction: column; } .area-name, .area-display { width: 100%; min-width: 100%; } .area-status { padding-left: 12px; } }
 </style>
