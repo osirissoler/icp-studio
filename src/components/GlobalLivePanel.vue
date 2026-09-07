@@ -33,6 +33,19 @@
             </small>
             <q-badge v-if="liveFrame" color="primary" label="Seleccionado" />
             <q-btn
+              v-if="outputs.length > 0"
+              flat
+              round
+              dense
+              size="xs"
+              icon="grid_view"
+              color="light-blue-4"
+              aria-label="Ver todas las pantallas"
+              @click.stop="monitorOpen = true"
+            >
+              <q-tooltip>Ver todas las pantallas en vivo</q-tooltip>
+            </q-btn>
+            <q-btn
               flat
               round
               dense
@@ -321,6 +334,8 @@
         <span></span>
       </div>
     </template>
+
+    <ProjectionOutputsMonitorDialog v-model="monitorOpen" />
   </div>
 </template>
 
@@ -334,15 +349,19 @@ import DocumentViewer from './DocumentViewer.vue';
 import DocumentThumbnail from './DocumentThumbnail.vue';
 import RouletteWheel from './RouletteWheel.vue';
 import TimeToolDisplay from './TimeToolDisplay.vue';
+import ProjectionOutputsMonitorDialog from './projection/ProjectionOutputsMonitorDialog.vue';
 import type { PresentationFrame } from '../shared/presentation';
 import { usePresentationStore } from '../stores/presentation-store';
 import { useProjectionSettingsStore } from '../stores/projection-settings';
+import { useProjectionWorkspaceStore } from '../stores/projection-workspace-store';
 
 type LiveSection = 'screen' | 'content';
 
 const presentationStore = usePresentationStore();
 const projectionSettings = useProjectionSettingsStore();
+const workspaceStore = useProjectionWorkspaceStore();
 const { liveFrame, liveFrameIndex, liveItem, mediaPlayback } = storeToRefs(presentationStore);
+const { outputs } = storeToRefs(workspaceStore);
 const { audioVisualizer, activeContent, visualizerColors, surfaceStyle, contentLayoutStyle } =
   storeToRefs(projectionSettings);
 const {
@@ -358,6 +377,8 @@ const {
   pauseLiveTimeTool,
   resetLiveTimeTool,
 } = presentationStore;
+
+const monitorOpen = ref(false);
 
 const timeToolModeLabel = computed(() => {
   const mode = liveFrame.value?.timeTool?.mode;
