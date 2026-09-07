@@ -234,6 +234,32 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     return snapshots.value[outputId] ?? emptyWorkspace();
   }
 
+  function addWorkspaceServiceItem(outputId: string, item: ServicePresentationItem): void {
+    if (!outputs.value.some((output) => output.outputId === outputId)) return;
+
+    if (activeOutputId.value === outputId) {
+      const presentationStore = usePresentationStore();
+      const added = presentationStore.addToService(item);
+      if (!added) presentationStore.updateServiceItem(item);
+      saveCurrentWorkspace();
+      return;
+    }
+
+    const current = snapshots.value[outputId] ?? emptyWorkspace();
+    const existingIndex = current.serviceItems.findIndex(
+      (serviceItem) => serviceItem.id === item.id || serviceItem.sourceId === item.sourceId,
+    );
+    const serviceItems = [...current.serviceItems];
+    if (existingIndex >= 0) serviceItems[existingIndex] = item;
+    else serviceItems.push(item);
+
+    replaceSnapshot(outputId, {
+      ...current,
+      serviceItems,
+      selectedServiceItemId: item.id,
+    });
+  }
+
   function setWorkspaceLiveItem(
     outputId: string,
     item: ServicePresentationItem,
@@ -632,6 +658,7 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     switchWorkspace,
     saveCurrentWorkspace,
     workspaceSnapshot,
+    addWorkspaceServiceItem,
     setWorkspaceLiveItem,
     setWorkspaceLiveFrame,
     moveWorkspaceLiveFrame,
