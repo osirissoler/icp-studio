@@ -14,6 +14,23 @@
       </div>
 
       <div class="calendar-header-actions">
+        <div v-if="projectionOutputs.length" class="calendar-live-destination">
+          <span class="calendar-live-destination__label">
+            <q-icon name="desktop_windows" /> Destino
+          </span>
+          <q-select
+            v-model="calendarOutputId"
+            dark
+            dense
+            outlined
+            emit-value
+            map-options
+            options-dense
+            :options="projectionOutputOptions"
+            class="calendar-live-destination__select"
+            popup-content-class="calendar-live-destination-menu"
+          />
+        </div>
         <q-btn
           v-if="presentedActivity"
           unelevated
@@ -597,7 +614,13 @@
                   :class="{
                     'operator-activity-item--active': activity.id === presentedActivity.id,
                   }"
-                  @click="sendActivityToLive(activity, { openOperator: false, notify: false })"
+                  @click="
+                    sendActivityToLive(activity, {
+                      openOperator: false,
+                      notify: false,
+                      targetOutputId: presentedOutputId,
+                    })
+                  "
                 >
                   <span class="operator-activity-position">{{ activityIndex + 1 }}</span>
                   <span class="operator-activity-details">
@@ -957,6 +980,7 @@ import type {
 import type { ActivityPresentationData, ServicePresentationItem } from '../shared/presentation';
 import { useCalendarActivitiesStore } from '../stores/calendar-activities';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useProjectionWorkspaceStore } from '../stores/projection-workspace-store';
 
 interface CalendarDay {
   day: number;
@@ -987,9 +1011,15 @@ const router = useRouter();
 const route = useRoute();
 const calendarStore = useCalendarActivitiesStore();
 const presentationStore = usePresentationStore();
+const projectionWorkspaceStore = useProjectionWorkspaceStore();
 const { activities, categories } = storeToRefs(calendarStore);
 const { liveFrame: activePresentationFrame, liveItem: activePresentationItem } =
   storeToRefs(presentationStore);
+const {
+  activeOutputId,
+  outputs: projectionOutputs,
+  independentProjectionEnabled,
+} = storeToRefs(projectionWorkspaceStore);
 const now = new Date();
 const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
 const year = ref(now.getFullYear());
@@ -1006,6 +1036,8 @@ const categoriesDialogOpen = ref(false);
 const editingActivityId = ref<string | null>(null);
 const selectedActivity = ref<CalendarActivity | null>(null);
 const presentedActivityId = ref<string | null>(null);
+const presentedOutputId = ref<string | null>(null);
+const calendarOutputId = ref<string | null>(null);
 const operatorActivityList = ref<HTMLElement | null>(null);
 const selectedDayKey = ref('');
 const newCategoryName = ref('');
@@ -1035,6 +1067,9 @@ const viewOptions: Array<{ label: string; value: CalendarViewMode; icon: string 
 const activityForm = reactive<ActivityForm>(emptyActivityForm(todayKey));
 const categoryOptions = computed(() =>
   categories.value.map((category) => ({ label: category.label, value: category.id })),
+);
+const projectionOutputOptions = computed(() =>
+  projectionOutputs.value.map((output) => ({ label: output.name, value: output.outputId })),
 );
 const statusOptions: Array<{ label: string; value: CalendarActivityStatus }> = [
   { label: 'Pendiente', value: 'pending' },
@@ -1302,9 +1337,33 @@ function activityLiveBody(activity: CalendarActivity): string {
     .join('\n\n');
 }
 
+function selectedCalendarOutputId(): string | null {
+  if (!independentProjectionEnabled.value) return null;
+  const selectedId = calendarOutputId.value;
+  if (selectedId && projectionOutputs.value.some((output) => output.outputId === selectedId)) {
+    return selectedId;
+  }
+  if (
+    activeOutputId.value &&
+    projectionOutputs.value.some((output) => output.outputId === activeOutputId.value)
+  ) {
+    return activeOutputId.value;
+  }
+  return projectionOutputs.value[0]?.outputId ?? null;
+}
+
+function projectionOutputName(outputId: string | null): string {
+  if (!outputId) return 'la salida actual';
+  return projectionOutputs.value.find((output) => output.outputId === outputId)?.name ?? 'la salida seleccionada';
+}
+
 function sendActivityToLive(
   activity: CalendarActivity,
-  options: { openOperator?: boolean; notify?: boolean } = {},
+  options: {
+    openOperator?: boolean;
+    notify?: boolean;
+    targetOutputId?: string | null;
+  } = {},
 ): void {
   if (activity.status === 'cancelled') {
     showAppNotification(
@@ -1317,17 +1376,29 @@ function sendActivityToLive(
 
   const item = activityPresentationItem();
   const frameIndex = item.frames.findIndex((frame) => frame.activity?.id === activity.id);
-  presentationStore.setLiveItem(item, frameIndex);
+  const targetOutputId =
+    options.targetOutputId === undefined ? selectedCalendarOutputId() : options.targetOutputId;
+
+  if (targetOutputId) {
+    projectionWorkspaceStore.setWorkspaceLiveItem(targetOutputId, item, frameIndex);
+  } else {
+    presentationStore.setLiveItem(item, frameIndex);
+  }
 
   selectedActivity.value = activity;
   presentedActivityId.value = activity.id;
+  presentedOutputId.value = targetOutputId;
   if (options.openOperator ?? true) {
     activityDetailDialogOpen.value = false;
     presentationPreviewOpen.value = false;
     operatorPresentationOpen.value = true;
   }
   if (options.notify ?? true) {
-    showAppNotification(`${activity.title} está ahora En vivo.`, 'positive', 'live_tv');
+    showAppNotification(
+      `${activity.title} está ahora En vivo en ${projectionOutputName(targetOutputId)}.`,
+      'positive',
+      'live_tv',
+    );
   }
 }
 
@@ -1342,13 +1413,22 @@ function movePresentedActivity(direction: -1 | 1): void {
     );
     return;
   }
-  sendActivityToLive(activity, { openOperator: false, notify: false });
+  sendActivityToLive(activity, {
+    openOperator: false,
+    notify: false,
+    targetOutputId: presentedOutputId.value,
+  });
 }
 
 function stopActivityLive(): void {
-  presentationStore.clearLive();
+  if (presentedOutputId.value) {
+    projectionWorkspaceStore.clearWorkspaceLive(presentedOutputId.value);
+  } else {
+    presentationStore.clearLive();
+  }
   operatorPresentationOpen.value = false;
   presentedActivityId.value = null;
+  presentedOutputId.value = null;
   showAppNotification('La salida En vivo quedó limpia.', 'info', 'tv_off');
 }
 
@@ -1590,10 +1670,27 @@ onMounted(() => {
 });
 onBeforeUnmount(() => window.removeEventListener('keydown', handleOperatorKeyboard));
 watch(
+  [activeOutputId, projectionOutputs],
+  ([currentOutputId, availableOutputs]) => {
+    if (
+      calendarOutputId.value &&
+      availableOutputs.some((output) => output.outputId === calendarOutputId.value)
+    ) {
+      return;
+    }
+    calendarOutputId.value =
+      currentOutputId && availableOutputs.some((output) => output.outputId === currentOutputId)
+        ? currentOutputId
+        : availableOutputs[0]?.outputId ?? null;
+  },
+  { immediate: true },
+);
+watch(
   () => activePresentationFrame.value?.activity?.id,
   (activityId) => {
     if (activePresentationItem.value?.type === 'activity') {
       presentedActivityId.value = activityId ?? null;
+      if (activeOutputId.value) presentedOutputId.value = activeOutputId.value;
       void nextTick(() => {
         if (!activityId) return;
         const selectedItem = operatorActivityList.value?.querySelector<HTMLElement>(
@@ -1693,6 +1790,45 @@ button {
 .calendar-header-actions .q-btn {
   min-height: 39px;
   border-radius: 9px;
+}
+.calendar-live-destination {
+  display: flex;
+  min-width: 190px;
+  height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 10px;
+  background: #101d2b;
+  border: 1px solid #2c4258;
+  border-radius: 9px;
+}
+.calendar-live-destination__label {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: #7f93a8;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.calendar-live-destination__select {
+  min-width: 110px;
+  flex: 1;
+}
+.calendar-live-destination__select :deep(.q-field__control) {
+  min-height: 30px;
+  height: 30px;
+  background: #0b1520;
+}
+.calendar-live-destination__select :deep(.q-field__native),
+.calendar-live-destination__select :deep(.q-field__input) {
+  min-height: 30px;
+  padding: 0;
+  color: #dbeafe;
+  font-size: 9px;
+  font-weight: 700;
 }
 .app-action-button {
   min-height: 40px;
@@ -3235,6 +3371,9 @@ button {
   .calendar-header-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  }
+  .calendar-live-destination {
+    min-width: 0;
   }
   .calendar-summary,
   .months-grid,
