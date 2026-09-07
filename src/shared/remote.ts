@@ -1,3 +1,6 @@
+import type { LibraryViewMode } from './library-view';
+import type { ActiveContentSettings } from './theme';
+
 export const REMOTE_CHANNELS = {
   status: 'remote:status',
   start: 'remote:start',
@@ -126,5 +129,3 @@ export interface RemoteServerStatus {
   connectedClients: number;
   error: string | null;
 }
-import type { LibraryViewMode } from './library-view';
-import type { ActiveContentSettings } from './theme';
