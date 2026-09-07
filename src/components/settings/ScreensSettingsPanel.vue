@@ -3,7 +3,7 @@
     <div class="panel-heading">
       <div>
         <h2>Pantallas</h2>
-        <p>Elige qué monitores proyectan y si alguno reproduce el audio principal.</p>
+        <p>Elige qué monitores proyectan, nombra cada salida y decide si alguno reproduce el audio principal.</p>
       </div>
       <q-btn
         outline
@@ -99,6 +99,26 @@
             <small v-else-if="mode === 'automatic'" class="control-help">Activa por modo automático</small>
             <small v-else class="control-help">Puedes dejar esta pantalla sin proyección</small>
           </q-card-section>
+
+          <template v-if="!display.isPrimary && isProjectionSelected(display)">
+            <q-separator dark />
+            <q-card-section class="output-name-control">
+              <q-input
+                dense
+                outlined
+                dark
+                maxlength="40"
+                :model-value="outputName(display.id)"
+                label="Nombre de la salida"
+                hint="Ej.: Principal, Retorno, Lobby"
+                @update:model-value="setOutputName(display.id, String($event ?? ''))"
+              >
+                <template #prepend>
+                  <q-icon name="label" />
+                </template>
+              </q-input>
+            </q-card-section>
+          </template>
         </q-card>
       </div>
 
@@ -125,7 +145,7 @@
             v-model="audioDisplayId"
             :val="display.id"
             color="amber-5"
-            :label="`Audio principal: ${display.label}`"
+            :label="`Audio principal: ${outputName(display.id)}`"
           />
         </q-card-section>
       </q-card>
@@ -143,6 +163,16 @@
         <div>
           <q-icon :name="audioDisplayId === null ? 'volume_off' : 'volume_up'" />
           <span>{{ audioDisplayLabel }}</span>
+        </div>
+      </div>
+
+      <div v-if="selectedProjectionIds.length > 0" class="outputs-summary">
+        <div v-for="displayId in selectedProjectionIds" :key="displayId" class="output-summary-item">
+          <q-icon name="cast" />
+          <div>
+            <strong>{{ outputName(displayId) }}</strong>
+            <small>{{ displayLabel(displayId) }}</small>
+          </div>
         </div>
       </div>
 
@@ -195,6 +225,7 @@ const displays = ref<DisplayInfo[]>([]);
 const mode = ref<DisplayConfigurationMode>('automatic');
 const customProjectionIds = ref<number[]>([]);
 const audioDisplayId = ref<number | null>(null);
+const outputNames = ref<Record<number, string>>({});
 const loading = ref(true);
 const applying = ref(false);
 const identifying = ref(false);
@@ -221,8 +252,7 @@ const audioDisplayLabel = computed(() => {
     return 'Audio: desactivado en pantallas';
   }
 
-  const display = displays.value.find((item) => item.id === audioDisplayId.value);
-  return display ? `Audio: ${display.label}` : 'Audio: desactivado en pantallas';
+  return `Audio: ${outputName(audioDisplayId.value)}`;
 });
 
 const desktopBounds = computed(() => {
@@ -245,6 +275,26 @@ const desktopMapStyle = computed(() => {
 
 function displayNumber(display: DisplayInfo): number {
   return displays.value.findIndex((item) => item.id === display.id) + 1;
+}
+
+function displayLabel(displayId: number): string {
+  return displays.value.find((display) => display.id === displayId)?.label ?? `Pantalla ${displayId}`;
+}
+
+function defaultOutputName(displayId: number): string {
+  const selectedIndex = selectedProjectionIds.value.indexOf(displayId);
+  if (selectedIndex === 0) return 'Principal';
+  if (selectedIndex === 1) return 'Retorno';
+  if (selectedIndex === 2) return 'Lobby';
+  return `Salida ${selectedIndex + 1}`;
+}
+
+function outputName(displayId: number): string {
+  return outputNames.value[displayId]?.trim() || defaultOutputName(displayId);
+}
+
+function setOutputName(displayId: number, value: string): void {
+  outputNames.value = { ...outputNames.value, [displayId]: value };
 }
 
 function displayMapStyle(display: DisplayInfo): Record<string, string> {
@@ -291,6 +341,9 @@ function applyStatus(status: DisplayStatus): void {
   customProjectionIds.value = status.activeProjectionDisplayIds.filter((id) =>
     status.displays.some((display) => !display.isPrimary && display.id === id),
   );
+  outputNames.value = Object.fromEntries(
+    status.activeProjectionOutputs.map((output) => [output.displayId, output.name]),
+  );
   audioDisplayId.value = status.audioDisplayId;
   validateAudioSelection();
 }
@@ -311,10 +364,14 @@ async function applyConfiguration(): Promise<void> {
   applying.value = true;
   try {
     validateAudioSelection();
+    const names = Object.fromEntries(
+      selectedProjectionIds.value.map((displayId) => [displayId, outputName(displayId)]),
+    );
     const status = await window.icpStudio?.displays.applyConfiguration({
       mode: mode.value,
       projectionDisplayIds: selectedProjectionIds.value,
       audioDisplayId: audioDisplayId.value,
+      outputNames: names,
     });
     if (status) {
       applyStatus(status);
@@ -353,11 +410,11 @@ onBeforeUnmount(() => {
 .panel-heading, .card-header, .summary-row, .actions-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .panel-heading { margin-bottom: 18px; }
 .panel-heading h2 { margin: 0; font-size: 22px; }
-.panel-heading p, .card-header small, .mode-option small, .display-info small, .control-help { margin: 4px 0 0; color: #8fa0b5; }
+.panel-heading p, .card-header small, .mode-option small, .display-info small, .control-help, .output-summary-item small { margin: 4px 0 0; color: #8fa0b5; }
 .settings-card { color: #e8eef6; background: #111c29; border: 1px solid #26384d; border-radius: 12px; }
 .mode-card { margin-bottom: 18px; }
 .audio-card { margin-top: 18px; }
-.card-header > div, .mode-option span, .display-info { display: flex; flex-direction: column; }
+.card-header > div, .mode-option span, .display-info, .output-summary-item > div { display: flex; flex-direction: column; }
 .mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .mode-option { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; text-align: left; color: #dbe7f5; background: #0d1621; border: 1px solid #2a3b50; border-radius: 10px; cursor: pointer; }
 .mode-option--active { border-color: #4ba3ff; background: #102740; }
@@ -375,9 +432,13 @@ onBeforeUnmount(() => {
 .display-info { min-width: 0; flex: 1; gap: 4px; }
 .display-info .q-badge { align-self: flex-start; }
 .display-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.output-name-control { padding-top: 14px; }
 .audio-options { display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .summary-row { margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
 .summary-row > div { display: flex; align-items: center; gap: 8px; color: #aebed0; }
+.outputs-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+.output-summary-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; color: #dbe7f5; }
+.output-summary-item .q-icon { color: #4ba3ff; font-size: 22px; }
 .actions-row { margin-top: 16px; justify-content: flex-end; }
 @media (max-width: 700px) { .mode-options { grid-template-columns: 1fr; } .display-controls, .summary-row { align-items: flex-start; flex-direction: column; } .audio-options { flex-direction: column; } }
 </style>
