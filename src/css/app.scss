@@ -110,3 +110,106 @@
 .calendar-live-destination-menu .q-item:hover {
   background: #1a3147 !important;
 }
+
+/* Reusable live-tool projection destination */
+.tool-projection-destination {
+  display: flex;
+  min-width: 204px;
+  height: 42px;
+  order: -1;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 6px 4px 10px;
+  color: #e2edf8;
+  background: linear-gradient(180deg, #132333, #0e1926);
+  border: 1px solid #30485f;
+  border-radius: 11px;
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 6px 18px rgb(0 0 0 / 13%);
+}
+
+.tool-projection-destination--activity {
+  order: 5;
+  margin-left: auto;
+}
+
+.tool-projection-destination__label {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: #8ba1b7;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tool-projection-destination__icon {
+  color: #6cc5ff;
+  font-size: 15px;
+}
+
+.tool-projection-destination__select-wrap {
+  position: relative;
+  display: flex;
+  min-width: 118px;
+  height: 32px;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  padding: 0 26px 0 9px;
+  overflow: hidden;
+  background: rgb(7 16 25 / 78%);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgb(111 174 226 / 20%);
+}
+
+.tool-projection-destination__select-wrap:hover {
+  background: rgb(14 30 44 / 92%);
+  box-shadow: inset 0 0 0 1px rgb(111 174 226 / 38%);
+}
+
+.tool-projection-destination__dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  background: #4ade80;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgb(74 222 128 / 10%);
+}
+
+.tool-projection-destination__select {
+  min-width: 0;
+  height: 32px;
+  flex: 1;
+  padding: 0;
+  color: #edf7ff;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 10px;
+  font-weight: 750;
+  appearance: none;
+  cursor: pointer;
+}
+
+.tool-projection-destination__select option {
+  color: #dceafa;
+  background: #101b28;
+}
+
+.tool-projection-destination__chevron {
+  position: absolute;
+  right: 5px;
+  color: #7cc7f5;
+  font-size: 16px;
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .tool-projection-destination {
+    min-width: 170px;
+  }
+}
