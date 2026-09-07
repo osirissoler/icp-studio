@@ -32,27 +32,27 @@ export interface DisplayReference {
 }
 
 /**
- * Área lógica de proyección. Puede existir sin una pantalla física asignada,
- * lo que permite preparar áreas como Lobby o Murales antes de conectar equipos.
+ * Área lógica de proyección. Una misma área puede controlar varias pantallas
+ * físicas que siempre muestran el mismo contenido.
  */
 export interface ProjectionOutputConfiguration {
   outputId: string;
   name: string;
   enabled: boolean;
-  display: DisplayReference | null;
+  displays: DisplayReference[];
 }
 
 export interface ActiveProjectionOutput {
   outputId: string;
   name: string;
-  displayId: number;
+  displayIds: number[];
 }
 
 export interface ProjectionOutputAssignmentRequest {
   outputId?: string | undefined;
   name: string;
   enabled: boolean;
-  displayId: number | null;
+  displayIds: number[];
 }
 
 export interface DisplayConfiguration {
