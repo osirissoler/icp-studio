@@ -1,5 +1,6 @@
 export const PROJECTION_CHANNELS = {
   setState: 'projection:set-state',
+  setStateForOutput: 'projection:set-state-for-output',
   stateChanged: 'projection:state-changed',
   controlMedia: 'projection:control-media',
   mediaControl: 'projection:media-control',
@@ -78,10 +79,11 @@ export type ProjectionState =
 export type ProjectionOutputTarget = string | null;
 
 /**
- * Contrato preparado para enrutar un estado de proyección hacia todas
- * las salidas o únicamente hacia una salida configurada.
+ * Contrato para enrutar un estado de proyección hacia una salida concreta.
+ * El envío global continúa usando PROJECTION_CHANNELS.setState para conservar
+ * compatibilidad con todo el flujo actual.
  */
 export interface ProjectionDispatchRequest {
   state: ProjectionState;
-  outputId: ProjectionOutputTarget;
+  outputId: string;
 }
