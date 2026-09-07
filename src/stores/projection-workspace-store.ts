@@ -2,7 +2,11 @@ import { computed, ref } from 'vue';
 import { defineStore, storeToRefs } from 'pinia';
 import type { ActiveProjectionOutput } from '../shared/display';
 import type { ServicePresentationItem } from '../shared/presentation';
-import type { MediaPlaybackCommand, ProjectionOutputTarget } from '../shared/projection';
+import type {
+  MediaPlaybackCommand,
+  ProjectionOutputTarget,
+  ProjectionState,
+} from '../shared/projection';
 import { usePresentationStore } from './presentation-store';
 
 interface ProjectionWorkspaceSnapshot {
@@ -28,6 +32,58 @@ function emptyWorkspace(): ProjectionWorkspaceSnapshot {
     mediaPlayback: { isPlaying: false, time: 0, duration: 0 },
     mediaCommand: { action: 'pause', time: 0 },
     mediaCommandSequence: 0,
+  };
+}
+
+function projectionStateForFrame(
+  item: ServicePresentationItem,
+  frameIndex: number,
+): ProjectionState | null {
+  const frame = item.frames[frameIndex];
+  if (!frame) return null;
+
+  if (item.type === 'activity' && frame.activity) {
+    return { mode: 'activity', ...frame.activity };
+  }
+
+  if (item.type === 'game' && frame.roulette) {
+    return {
+      mode: 'roulette',
+      ...frame.roulette,
+      options: frame.roulette.options.map((option) => ({ ...option })),
+      usedWinnerIds: [...frame.roulette.usedWinnerIds],
+    };
+  }
+
+  if (item.type === 'time-tool' && frame.timeTool) {
+    return { mode: 'time-tool', tool: { ...frame.timeTool } };
+  }
+
+  if (frame.mediaType && frame.mediaUrl) {
+    if (frame.mediaType === 'document') {
+      if (!frame.documentFormat) return null;
+      return {
+        mode: 'document',
+        url: frame.mediaUrl,
+        name: item.title,
+        format: frame.documentFormat,
+        pageIndex: frame.pageIndex ?? 0,
+      };
+    }
+
+    return {
+      mode: 'media',
+      mediaType: frame.mediaType,
+      url: frame.mediaUrl,
+      name: item.title,
+    };
+  }
+
+  return {
+    mode: 'content',
+    title: '',
+    body: frame.text,
+    footer: item.footer,
   };
 }
 
@@ -149,6 +205,53 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     return snapshots.value[outputId] ?? emptyWorkspace();
   }
 
+  function setWorkspaceLiveFrame(outputId: string, frameIndex: number): void {
+    if (!outputs.value.some((output) => output.outputId === outputId)) return;
+
+    if (activeOutputId.value === outputId) {
+      usePresentationStore().setLiveFrame(frameIndex);
+      saveCurrentWorkspace();
+      return;
+    }
+
+    const current = snapshots.value[outputId];
+    const item = current?.liveItem;
+    if (!current || !item || !item.frames[frameIndex]) return;
+
+    const state = projectionStateForFrame(item, frameIndex);
+    if (!state) return;
+
+    snapshots.value = {
+      ...snapshots.value,
+      [outputId]: {
+        ...current,
+        liveFrameIndex: frameIndex,
+        mediaPlayback: { isPlaying: false, time: 0, duration: 0 },
+        mediaCommand: { action: 'pause', time: 0 },
+        mediaCommandSequence: current.mediaCommandSequence + 1,
+      },
+    };
+
+    const restoreTarget = activeOutputId.value;
+    window.icpStudio?.projection.setTargetOutput(outputId);
+    window.icpStudio?.projection.setState(state);
+    window.icpStudio?.projection.setTargetOutput(restoreTarget);
+  }
+
+  function moveWorkspaceLiveFrame(outputId: string, direction: -1 | 1): void {
+    const snapshot = workspaceSnapshot(outputId);
+    const item = snapshot.liveItem;
+    if (!item || item.frames.length === 0) return;
+
+    const nextIndex = Math.min(
+      item.frames.length - 1,
+      Math.max(0, snapshot.liveFrameIndex + direction),
+    );
+
+    if (nextIndex === snapshot.liveFrameIndex) return;
+    setWorkspaceLiveFrame(outputId, nextIndex);
+  }
+
   return {
     activeOutputId,
     activeOutput,
@@ -158,5 +261,7 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     switchWorkspace,
     saveCurrentWorkspace,
     workspaceSnapshot,
+    setWorkspaceLiveFrame,
+    moveWorkspaceLiveFrame,
   };
 });
