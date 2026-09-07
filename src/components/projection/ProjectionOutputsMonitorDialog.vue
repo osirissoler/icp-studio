@@ -60,52 +60,26 @@
                   </span>
 
                   <span v-else class="content-actions">
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      size="xs"
-                      icon="keyboard_arrow_up"
-                      :disable="!canMoveFrame(output.outputId, -1)"
-                      aria-label="Contenido anterior"
-                      @mousedown.stop
-                      @click.stop="moveFrame(output.outputId, -1)"
-                    >
+                    <q-btn flat round dense size="xs" icon="keyboard_arrow_up" :disable="!canMoveFrame(output.outputId, -1)" aria-label="Contenido anterior" @mousedown.stop @click.stop="moveFrame(output.outputId, -1)">
                       <q-tooltip>Contenido anterior</q-tooltip>
                     </q-btn>
                     <small v-if="workspace(output.outputId).liveItem && liveFrame(output.outputId)">
-                      {{ workspace(output.outputId).liveFrameIndex + 1 }} de
-                      {{ workspace(output.outputId).liveItem?.frames.length }}
+                      {{ workspace(output.outputId).liveFrameIndex + 1 }} de {{ workspace(output.outputId).liveItem?.frames.length }}
                     </small>
-                    <q-badge
-                      v-if="liveFrame(output.outputId)"
-                      color="primary"
-                      label="Seleccionado"
-                    />
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      size="xs"
-                      icon="keyboard_arrow_down"
-                      :disable="!canMoveFrame(output.outputId, 1)"
-                      aria-label="Contenido siguiente"
-                      @mousedown.stop
-                      @click.stop="moveFrame(output.outputId, 1)"
-                    >
+                    <q-badge v-if="liveFrame(output.outputId)" color="primary" label="Seleccionado" />
+                    <q-btn flat round dense size="xs" icon="keyboard_arrow_down" :disable="!canMoveFrame(output.outputId, 1)" aria-label="Contenido siguiente" @mousedown.stop @click.stop="moveFrame(output.outputId, 1)">
                       <q-tooltip>Contenido siguiente</q-tooltip>
                     </q-btn>
                   </span>
                 </header>
 
-                <div v-if="section === 'screen'" class="technical-screen">
+                <div
+                  v-if="section === 'screen'"
+                  class="technical-screen"
+                  :style="[surfaceStyle, contentLayoutStyle]"
+                >
                   <template v-if="workspace(output.outputId).liveItem && liveFrame(output.outputId)">
-                    <img
-                      v-if="liveFrame(output.outputId)?.mediaType === 'image' && liveFrame(output.outputId)?.mediaUrl"
-                      :src="liveFrame(output.outputId)?.mediaUrl"
-                      :alt="workspace(output.outputId).liveItem?.title"
-                      class="live-media"
-                    />
+                    <img v-if="liveFrame(output.outputId)?.mediaType === 'image' && liveFrame(output.outputId)?.mediaUrl" :src="liveFrame(output.outputId)?.mediaUrl" :alt="workspace(output.outputId).liveItem?.title" class="live-media" />
 
                     <div v-else-if="liveFrame(output.outputId)?.mediaType === 'video'" class="media-placeholder">
                       <q-icon name="movie" size="36px" />
@@ -156,18 +130,14 @@
 
                 <div v-else class="active-content-shell">
                   <div v-if="workspace(output.outputId).liveItem" class="active-content-list">
-                    <div class="active-content-title">
-                      {{ workspace(output.outputId).liveItem?.title }}
-                    </div>
+                    <div class="active-content-title">{{ workspace(output.outputId).liveItem?.title }}</div>
 
                     <button
                       v-for="(frame, frameIndex) in workspace(output.outputId).liveItem?.frames ?? []"
                       :key="frame.id"
                       type="button"
                       class="active-content-row"
-                      :class="{
-                        'active-content-row--selected': workspace(output.outputId).liveFrameIndex === frameIndex,
-                      }"
+                      :class="{ 'active-content-row--selected': workspace(output.outputId).liveFrameIndex === frameIndex }"
                       @click="selectFrame(output.outputId, frameIndex)"
                     >
                       <span class="active-content-position">{{ frameIndex + 1 }}</span>
@@ -175,11 +145,7 @@
                         <strong>{{ frame.label }}</strong>
                         <small>{{ frame.text || frameContentLabel(frame) }}</small>
                       </span>
-                      <q-icon
-                        v-if="workspace(output.outputId).liveFrameIndex === frameIndex"
-                        name="radio_button_checked"
-                        color="light-blue-3"
-                      />
+                      <q-icon v-if="workspace(output.outputId).liveFrameIndex === frameIndex" name="radio_button_checked" color="light-blue-3" />
                     </button>
                   </div>
 
@@ -201,20 +167,18 @@
 import { computed, reactive } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { PresentationFrame, ServicePresentationItem } from '../../shared/presentation';
+import { useProjectionSettingsStore } from '../../stores/projection-settings';
 import { useProjectionWorkspaceStore } from '../../stores/projection-workspace-store';
 
 type MonitorSection = 'screen' | 'content';
 
-const props = defineProps<{
-  modelValue: boolean;
-}>();
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-}>();
+const props = defineProps<{ modelValue: boolean }>();
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 
 const workspaceStore = useProjectionWorkspaceStore();
+const projectionSettings = useProjectionSettingsStore();
 const { activeOutputId, outputs } = storeToRefs(workspaceStore);
+const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 const sectionOrders = reactive<Record<string, MonitorSection[]>>({});
 const draggingSections = reactive<Record<string, MonitorSection | null>>({});
 
@@ -233,9 +197,7 @@ function liveFrame(outputId: string): ServicePresentationItem['frames'][number] 
 }
 
 function sectionsFor(outputId: string): MonitorSection[] {
-  if (!sectionOrders[outputId]) {
-    sectionOrders[outputId] = ['screen', 'content'];
-  }
+  if (!sectionOrders[outputId]) sectionOrders[outputId] = ['screen', 'content'];
   return sectionOrders[outputId];
 }
 
@@ -257,12 +219,10 @@ function dropSection(outputId: string, target: MonitorSection): void {
     draggingSections[outputId] = null;
     return;
   }
-
   const order = sectionsFor(outputId);
   const draggingIndex = order.indexOf(dragging);
   const targetIndex = order.indexOf(target);
   if (draggingIndex < 0 || targetIndex < 0) return;
-
   const next = [...order];
   next[draggingIndex] = target;
   next[targetIndex] = dragging;
@@ -304,166 +264,36 @@ function displaySummary(displayIds: number[]): string {
 </script>
 
 <style scoped>
-.monitor-dialog {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  flex-direction: column;
-  overflow: hidden;
-  color: #e8eef6;
-  background: #08111b;
-}
-
-.monitor-header {
-  display: flex;
-  min-height: 72px;
-  flex: 0 0 72px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 20px;
-  background: #0f1a27;
-}
-
-.monitor-header > div {
-  display: flex;
-  flex-direction: column;
-}
-
+.monitor-dialog { display: flex; width: 100vw; height: 100vh; flex-direction: column; overflow: hidden; color: #e8eef6; background: #08111b; }
+.monitor-header { display: flex; min-height: 72px; flex: 0 0 72px; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: #0f1a27; }
+.monitor-header > div { display: flex; flex-direction: column; }
 .monitor-header strong { font-size: 18px; }
 .monitor-header small { margin-top: 3px; color: #8193a8; }
-
-.monitor-body {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  padding: 16px;
-  overflow: hidden;
-}
-
-.monitor-grid {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  grid-template-rows: minmax(0, 1fr);
-  gap: 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.monitor-card {
-  display: flex;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-  color: #dbe7f5;
-  background: #0b131d;
-  border: 1px solid #293b50;
-  border-radius: 10px;
-}
-
+.monitor-body { display: flex; min-height: 0; flex: 1 1 auto; padding: 16px; overflow: hidden; }
+.monitor-grid { display: grid; width: 100%; height: 100%; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow-x: auto; overflow-y: hidden; }
+.monitor-card { display: flex; height: 100%; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; color: #dbe7f5; background: #0b131d; border: 1px solid #293b50; border-radius: 10px; }
 .monitor-card--active { border-color: #4ba3ff; box-shadow: 0 0 0 1px rgb(75 163 255 / 20%); }
-
-.monitor-card-header {
-  display: flex;
-  height: 48px;
-  flex: 0 0 48px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 10px;
-  background: #0f1a27;
-  border-bottom: 1px solid #26364b;
-}
-
+.monitor-card-header { display: flex; height: 48px; flex: 0 0 48px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; background: #0f1a27; border-bottom: 1px solid #26364b; }
 .monitor-card-header > div { display: flex; min-width: 0; flex-direction: column; }
 .monitor-card-header strong, .monitor-card-header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .monitor-card-header small { color: #71859b; font-size: 9px; }
-
-.monitor-sections {
-  display: grid;
-  min-height: 0;
-  flex: 1;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
-  overflow: hidden;
-}
-
-.live-section {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-  background: #0b131d;
-  border: 1px solid #26364b;
-  border-radius: 8px;
-}
-
-.section-header {
-  display: flex;
-  min-height: 30px;
-  flex: 0 0 30px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 7px;
-  color: #77869a;
-  background: #121e2c;
-  border-bottom: 1px solid #26364b;
-  font-size: 10px;
-  cursor: grab;
-  user-select: none;
-}
-
+.monitor-sections { display: grid; min-height: 0; flex: 1; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; overflow: hidden; }
+.live-section { display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: #0b131d; border: 1px solid #26364b; border-radius: 8px; }
+.section-header { display: flex; min-height: 30px; flex: 0 0 30px; align-items: center; justify-content: space-between; gap: 6px; padding: 0 7px; color: #77869a; background: #121e2c; border-bottom: 1px solid #26364b; font-size: 10px; cursor: grab; user-select: none; }
 .section-header > span, .content-actions, .output-label { display: flex; min-width: 0; align-items: center; gap: 5px; }
 .content-actions .q-btn { color: #8fbbe0; }
 .output-label { max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-dot { width: 7px; height: 7px; flex: 0 0 7px; background: #f05252; border-radius: 50%; }
-
-.technical-screen {
-  position: relative;
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: #d9e5f3;
-  background: #03070c;
-  text-align: center;
-}
-
+.technical-screen { position: relative; display: flex; min-height: 0; flex: 1; align-items: center; justify-content: center; overflow: hidden; text-align: center; }
 .live-media { width: 100%; height: 100%; object-fit: contain; }
-.media-placeholder, .text-preview, .active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; padding: 16px; color: #91a5ba; text-align: center; }
-.media-placeholder strong, .text-preview strong { max-width: 92%; overflow: hidden; color: #f2f7fc; text-overflow: ellipsis; white-space: nowrap; }
-.media-placeholder small { color: #70849a; font-size: 9px; }
-.text-preview span { display: -webkit-box; max-width: 92%; overflow: hidden; color: #d4dfeb; font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
-
+.media-placeholder, .text-preview, .active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; padding: 16px; color: inherit; text-align: center; }
+.media-placeholder strong, .text-preview strong { max-width: 92%; overflow: hidden; color: var(--projection-text-color, #f2f7fc); text-overflow: ellipsis; white-space: nowrap; }
+.media-placeholder small { color: var(--projection-footer-color, #70849a); font-size: 9px; }
+.text-preview span { display: -webkit-box; max-width: 92%; overflow: hidden; color: var(--projection-text-color, #d4dfeb); font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
 .active-content-shell { min-height: 0; flex: 1; overflow: hidden; }
 .active-content-list { height: 100%; padding: 6px; overflow-y: auto; overscroll-behavior: contain; }
 .active-content-title { position: sticky; top: -6px; z-index: 1; padding: 6px 5px 8px; overflow: hidden; color: #dce8f4; background: #0b131d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-
-.active-content-row {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 3px;
-  padding: 5px;
-  color: #93a3b5;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  text-align: left;
-  cursor: pointer;
-}
-
+.active-content-row { display: grid; width: 100%; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 7px; margin-bottom: 3px; padding: 5px; color: #93a3b5; background: transparent; border: 1px solid transparent; border-radius: 6px; text-align: left; cursor: pointer; }
 .active-content-row:hover { color: #d9edff; background: #10243a; border-color: #284b6c; }
 .active-content-row--selected { color: #f2f8ff; background: #1d4f7d; border-color: #60a5fa; box-shadow: inset 3px 0 #60a5fa; }
 .active-content-position { display: grid; width: 22px; height: 22px; place-items: center; color: #93c5fd; background: #172d49; border-radius: 5px; font-size: 9px; }
@@ -473,14 +303,6 @@ function displaySummary(displayIds: number[]): string {
 .active-content-row small { margin-top: 1px; color: #75889d; font-size: 9px; }
 .active-content-row--selected small { color: #d5e8ff; }
 .active-content-empty { color: #66758a; font-size: 10px; }
-
 .monitor-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #76899e; }
-
-@media (max-width: 780px) {
-  .monitor-grid {
-    grid-template-columns: minmax(360px, 1fr);
-    grid-auto-columns: minmax(360px, 1fr);
-    grid-auto-flow: column;
-  }
-}
+@media (max-width: 780px) { .monitor-grid { grid-template-columns: minmax(360px, 1fr); grid-auto-columns: minmax(360px, 1fr); grid-auto-flow: column; } }
 </style>
