@@ -25,7 +25,11 @@ const latestStateByOutput = new Map<string, ProjectionState>();
 
 function isProjectionWindow(window: BrowserWindow): boolean {
   const title = window.getTitle();
-  return projectionWindowTitlePrefixes.some((prefix) => title.startsWith(prefix));
+  const url = window.webContents.getURL();
+  return (
+    url.includes('#/projector') ||
+    projectionWindowTitlePrefixes.some((prefix) => title.startsWith(prefix))
+  );
 }
 
 function windowBelongsToDisplay(window: BrowserWindow, display: Display): boolean {
@@ -97,6 +101,11 @@ function isMediaDispatchRequest(value: unknown): value is MediaPlaybackDispatchR
     request.outputId.length <= 120 &&
     isMediaPlaybackCommand(request.command)
   );
+}
+
+function isAllowedSender(event: Electron.IpcMainEvent): boolean {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  return Boolean(senderWindow && !senderWindow.isDestroyed() && !isProjectionWindow(senderWindow));
 }
 
 function resolveWindowOutput(
@@ -189,13 +198,17 @@ export function registerProjectionOutputRouter(
 
   registered = true;
 
-  ipcMain.on(PROJECTION_CHANNELS.setState, () => {
+  ipcMain.on(PROJECTION_CHANNELS.setState, (event) => {
+    if (!isAllowedSender(event)) {
+      return;
+    }
+
     // Un envío global vuelve a sincronizar todas las salidas.
     latestStateByOutput.clear();
   });
 
-  ipcMain.on(PROJECTION_CHANNELS.setStateForOutput, (_event, value: unknown) => {
-    if (!isDispatchRequest(value)) {
+  ipcMain.on(PROJECTION_CHANNELS.setStateForOutput, (event, value: unknown) => {
+    if (!isAllowedSender(event) || !isDispatchRequest(value)) {
       return;
     }
 
@@ -203,8 +216,8 @@ export function registerProjectionOutputRouter(
     sendStateToOutput(value.outputId, value.state, resolveTargets);
   });
 
-  ipcMain.on(PROJECTION_CHANNELS.controlMediaForOutput, (_event, value: unknown) => {
-    if (!isMediaDispatchRequest(value)) {
+  ipcMain.on(PROJECTION_CHANNELS.controlMediaForOutput, (event, value: unknown) => {
+    if (!isAllowedSender(event) || !isMediaDispatchRequest(value)) {
       return;
     }
 
