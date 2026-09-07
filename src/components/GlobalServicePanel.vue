@@ -13,6 +13,10 @@
       </q-chip>
     </div>
 
+    <div class="projection-target">
+      <ProjectionOutputSelector v-model="projectionOutputTarget" />
+    </div>
+
     <div v-if="serviceItems.length" ref="serviceListElement" class="service-list">
       <button
         v-for="(item, index) in serviceItems"
@@ -52,15 +56,47 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import ProjectionOutputSelector from './projection/ProjectionOutputSelector.vue';
 import type { PresentationItemType } from '../shared/presentation';
+import type { ProjectionOutputTarget } from '../shared/projection';
 import { usePresentationStore } from '../stores/presentation-store';
 
+const projectionOutputStorageKey = 'icp-studio-live-projection-output';
 const serviceListElement = ref<HTMLElement | null>(null);
 const presentationStore = usePresentationStore();
 const { serviceItems, selectedServiceItemId } = storeToRefs(presentationStore);
 const { activateServiceItem, removeFromService, selectServiceItem } = presentationStore;
+
+function loadProjectionOutputTarget(): ProjectionOutputTarget {
+  try {
+    const stored = localStorage.getItem(projectionOutputStorageKey);
+    return stored && stored.length > 0 ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+const projectionOutputTarget = ref<ProjectionOutputTarget>(loadProjectionOutputTarget());
+
+watch(
+  projectionOutputTarget,
+  (outputId) => {
+    window.icpStudio?.projection.setTargetOutput(outputId);
+
+    try {
+      if (outputId === null) {
+        localStorage.removeItem(projectionOutputStorageKey);
+      } else {
+        localStorage.setItem(projectionOutputStorageKey, outputId);
+      }
+    } catch {
+      // La selección sigue funcionando aunque el almacenamiento local no esté disponible.
+    }
+  },
+  { immediate: true },
+);
 
 function moveServiceSelection(direction: -1 | 1): void {
   if (serviceItems.value.length === 0) {
@@ -130,6 +166,10 @@ function itemIcon(type: PresentationItemType): string {
   margin-bottom: 9px;
   color: #8492a6;
   font-size: 10px;
+}
+
+.projection-target {
+  margin-bottom: 9px;
 }
 
 .service-list {
