@@ -139,7 +139,7 @@
                         liveFrame(output.outputId)?.mediaUrl &&
                         liveFrame(output.outputId)?.documentFormat
                       "
-                      :url="liveFrame(output.outputId)!.mediaUrl"
+                      :url="liveFrame(output.outputId)?.mediaUrl ?? ''"
                       :format="liveFrame(output.outputId)!.documentFormat!"
                       :page-index="liveFrame(output.outputId)?.pageIndex ?? 0"
                     />
