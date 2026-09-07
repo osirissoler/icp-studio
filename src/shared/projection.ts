@@ -3,6 +3,7 @@ export const PROJECTION_CHANNELS = {
   setStateForOutput: 'projection:set-state-for-output',
   stateChanged: 'projection:state-changed',
   controlMedia: 'projection:control-media',
+  controlMediaForOutput: 'projection:control-media-for-output',
   mediaControl: 'projection:media-control',
 } as const;
 
@@ -85,5 +86,10 @@ export type ProjectionOutputTarget = string | null;
  */
 export interface ProjectionDispatchRequest {
   state: ProjectionState;
+  outputId: string;
+}
+
+export interface MediaPlaybackDispatchRequest {
+  command: MediaPlaybackCommand;
   outputId: string;
 }
