@@ -3,7 +3,7 @@
     <div class="panel-heading">
       <div>
         <h2>Pantallas</h2>
-        <p>Elige qué monitores proyectan y cuál reproduce el audio principal.</p>
+        <p>Elige qué monitores proyectan y si alguno reproduce el audio principal.</p>
       </div>
       <q-btn
         outline
@@ -80,7 +80,7 @@
               </small>
               <q-badge
                 :color="display.isPrimary ? 'blue-grey-7' : isProjectionSelected(display) ? 'positive' : 'blue-grey-8'"
-                :label="display.isPrimary ? 'Operador' : isProjectionSelected(display) ? 'Proyección activa' : 'Sin proyección'"
+                :label="display.isPrimary ? 'Operador' : isProjectionSelected(display) ? 'Proyección activa' : 'Proyección desactivada'"
               />
             </div>
           </q-card-section>
@@ -95,18 +95,40 @@
               label="Usar para proyección"
               @update:model-value="toggleProjection(display, Boolean($event))"
             />
-
-            <q-radio
-              v-if="!display.isPrimary"
-              v-model="audioDisplayId"
-              :val="display.id"
-              :disable="!isProjectionSelected(display)"
-              color="amber-5"
-              label="Audio principal"
-            />
+            <small v-if="display.isPrimary" class="control-help">Pantalla del operador</small>
+            <small v-else-if="mode === 'automatic'" class="control-help">Activa por modo automático</small>
+            <small v-else class="control-help">Puedes dejar esta pantalla sin proyección</small>
           </q-card-section>
         </q-card>
       </div>
+
+      <q-card flat class="settings-card audio-card">
+        <q-card-section class="card-header">
+          <div>
+            <strong>Audio de las pantallas de proyección</strong>
+            <small>
+              Puedes impedir que el audio salga por HDMI. El dispositivo de sonido general seguirá siendo el que tengas configurado en macOS.
+            </small>
+          </div>
+        </q-card-section>
+        <q-separator dark />
+        <q-card-section class="audio-options">
+          <q-radio
+            v-model="audioDisplayId"
+            :val="null"
+            color="amber-5"
+            label="Sin audio en pantallas"
+          />
+          <q-radio
+            v-for="display in selectedAudioDisplays"
+            :key="display.id"
+            v-model="audioDisplayId"
+            :val="display.id"
+            color="amber-5"
+            :label="`Audio principal: ${display.label}`"
+          />
+        </q-card-section>
+      </q-card>
 
       <div v-if="displays.length === 0" class="empty-state">
         <q-icon name="desktop_access_disabled" />
@@ -119,7 +141,7 @@
           <span>{{ selectedProjectionIds.length }} salida{{ selectedProjectionIds.length === 1 ? '' : 's' }} seleccionada{{ selectedProjectionIds.length === 1 ? '' : 's' }}</span>
         </div>
         <div>
-          <q-icon name="volume_up" />
+          <q-icon :name="audioDisplayId === null ? 'volume_off' : 'volume_up'" />
           <span>{{ audioDisplayLabel }}</span>
         </div>
       </div>
@@ -141,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Notify } from 'quasar';
 import type {
   DisplayConfigurationMode,
@@ -190,9 +212,17 @@ const selectedProjectionIds = computed(() => {
   );
 });
 
+const selectedAudioDisplays = computed(() =>
+  externalDisplays.value.filter((display) => selectedProjectionIds.value.includes(display.id)),
+);
+
 const audioDisplayLabel = computed(() => {
+  if (audioDisplayId.value === null) {
+    return 'Audio: desactivado en pantallas';
+  }
+
   const display = displays.value.find((item) => item.id === audioDisplayId.value);
-  return display ? `Audio: ${display.label}` : 'Audio: se asignará a la primera salida activa';
+  return display ? `Audio: ${display.label}` : 'Audio: desactivado en pantallas';
 });
 
 const desktopBounds = computed(() => {
@@ -234,11 +264,10 @@ function isProjectionSelected(display: DisplayInfo): boolean {
   return selectedProjectionIds.value.includes(display.id);
 }
 
-function ensureAudioSelection(): void {
-  if (audioDisplayId.value !== null && selectedProjectionIds.value.includes(audioDisplayId.value)) {
-    return;
+function validateAudioSelection(): void {
+  if (audioDisplayId.value !== null && !selectedProjectionIds.value.includes(audioDisplayId.value)) {
+    audioDisplayId.value = null;
   }
-  audioDisplayId.value = selectedProjectionIds.value[0] ?? null;
 }
 
 function toggleProjection(display: DisplayInfo, explicitValue?: boolean): void {
@@ -253,7 +282,7 @@ function toggleProjection(display: DisplayInfo, explicitValue?: boolean): void {
     ? Array.from(new Set([...customProjectionIds.value, display.id]))
     : customProjectionIds.value.filter((id) => id !== display.id);
 
-  ensureAudioSelection();
+  validateAudioSelection();
 }
 
 function applyStatus(status: DisplayStatus): void {
@@ -263,7 +292,7 @@ function applyStatus(status: DisplayStatus): void {
     status.displays.some((display) => !display.isPrimary && display.id === id),
   );
   audioDisplayId.value = status.audioDisplayId;
-  ensureAudioSelection();
+  validateAudioSelection();
 }
 
 async function loadStatus(): Promise<void> {
@@ -281,7 +310,7 @@ async function loadStatus(): Promise<void> {
 async function applyConfiguration(): Promise<void> {
   applying.value = true;
   try {
-    ensureAudioSelection();
+    validateAudioSelection();
     const status = await window.icpStudio?.displays.applyConfiguration({
       mode: mode.value,
       projectionDisplayIds: selectedProjectionIds.value,
@@ -307,6 +336,8 @@ async function identifyDisplays(): Promise<void> {
   }
 }
 
+watch(mode, validateAudioSelection);
+
 onMounted(async () => {
   await loadStatus();
   unsubscribeStatus = window.icpStudio?.displays.onStatusChanged(applyStatus);
@@ -322,9 +353,10 @@ onBeforeUnmount(() => {
 .panel-heading, .card-header, .summary-row, .actions-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .panel-heading { margin-bottom: 18px; }
 .panel-heading h2 { margin: 0; font-size: 22px; }
-.panel-heading p, .card-header small, .mode-option small, .display-info small { margin: 4px 0 0; color: #8fa0b5; }
+.panel-heading p, .card-header small, .mode-option small, .display-info small, .control-help { margin: 4px 0 0; color: #8fa0b5; }
 .settings-card { color: #e8eef6; background: #111c29; border: 1px solid #26384d; border-radius: 12px; }
 .mode-card { margin-bottom: 18px; }
+.audio-card { margin-top: 18px; }
 .card-header > div, .mode-option span, .display-info { display: flex; flex-direction: column; }
 .mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .mode-option { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; text-align: left; color: #dbe7f5; background: #0d1621; border: 1px solid #2a3b50; border-radius: 10px; cursor: pointer; }
@@ -343,8 +375,9 @@ onBeforeUnmount(() => {
 .display-info { min-width: 0; flex: 1; gap: 4px; }
 .display-info .q-badge { align-self: flex-start; }
 .display-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.audio-options { display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .summary-row { margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
 .summary-row > div { display: flex; align-items: center; gap: 8px; color: #aebed0; }
 .actions-row { margin-top: 16px; justify-content: flex-end; }
-@media (max-width: 700px) { .mode-options { grid-template-columns: 1fr; } .display-controls, .summary-row { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 700px) { .mode-options { grid-template-columns: 1fr; } .display-controls, .summary-row { align-items: flex-start; flex-direction: column; } .audio-options { flex-direction: column; } }
 </style>
