@@ -208,6 +208,83 @@
   pointer-events: none;
 }
 
+/* Projection monitor header follows tool-page language */
+.monitor-header--tool-style {
+  min-height: 82px !important;
+  flex: 0 0 82px !important;
+  justify-content: flex-start !important;
+  gap: 11px !important;
+  padding: 13px 18px !important;
+  background:
+    radial-gradient(circle at 18% -80%, rgb(65 148 208 / 22%), transparent 42%),
+    #0f1a27 !important;
+}
+
+.monitor-header__back {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: #9badc1;
+  background: #111c29;
+  border: 1px solid #2a3b4f;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.monitor-header__back:hover {
+  color: #dbeafe;
+  border-color: #4d7199;
+}
+
+.monitor-header__back .material-icons {
+  font-size: 19px;
+}
+
+.monitor-header__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  color: #7dd3fc;
+  background: #123149;
+  border: 1px solid #285d7c;
+  border-radius: 13px;
+  font-size: 24px;
+}
+
+.monitor-header__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.monitor-header__eyebrow {
+  display: block;
+  margin-bottom: 1px;
+  color: #6e839a;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.monitor-header--tool-style .monitor-header__copy > strong {
+  color: #e8eef6;
+  font-size: 20px !important;
+  line-height: 1.2;
+}
+
+.monitor-header--tool-style .monitor-header__copy > small {
+  margin-top: 3px !important;
+  color: #8190a3 !important;
+  font-size: 10px !important;
+}
+
+.monitor-header--tool-style > .q-btn {
+  margin-left: auto;
+}
+
 @media (max-width: 760px) {
   .tool-projection-destination {
     min-width: 170px;
