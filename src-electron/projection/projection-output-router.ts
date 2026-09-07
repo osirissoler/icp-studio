@@ -33,10 +33,7 @@ function isProjectionWindow(window: BrowserWindow): boolean {
 }
 
 function windowDisplayId(window: BrowserWindow): number | null {
-  if (window.isDestroyed()) {
-    return null;
-  }
-
+  if (window.isDestroyed()) return null;
   try {
     return screen.getDisplayMatching(window.getBounds()).id;
   } catch {
@@ -44,15 +41,8 @@ function windowDisplayId(window: BrowserWindow): number | null {
   }
 }
 
-function windowBelongsToDisplay(window: BrowserWindow, display: Display): boolean {
-  return windowDisplayId(window) === display.id;
-}
-
 function isProjectionState(value: unknown): value is ProjectionState {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
+  if (!value || typeof value !== 'object') return false;
   const mode = (value as { mode?: unknown }).mode;
   return (
     mode === 'content' ||
@@ -66,10 +56,7 @@ function isProjectionState(value: unknown): value is ProjectionState {
 }
 
 function isMediaPlaybackCommand(value: unknown): value is MediaPlaybackCommand {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
+  if (!value || typeof value !== 'object') return false;
   const command = value as Partial<MediaPlaybackCommand>;
   return (
     (command.action === 'play' || command.action === 'pause' || command.action === 'seek') &&
@@ -79,10 +66,7 @@ function isMediaPlaybackCommand(value: unknown): value is MediaPlaybackCommand {
 }
 
 function isDispatchRequest(value: unknown): value is ProjectionDispatchRequest {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
+  if (!value || typeof value !== 'object') return false;
   const request = value as Partial<ProjectionDispatchRequest>;
   return (
     typeof request.outputId === 'string' &&
@@ -93,10 +77,7 @@ function isDispatchRequest(value: unknown): value is ProjectionDispatchRequest {
 }
 
 function isMediaDispatchRequest(value: unknown): value is MediaPlaybackDispatchRequest {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
+  if (!value || typeof value !== 'object') return false;
   const request = value as Partial<MediaPlaybackDispatchRequest>;
   return (
     typeof request.outputId === 'string' &&
@@ -115,50 +96,25 @@ function resolveWindowOutput(
   window: BrowserWindow,
   snapshot: ProjectionTargetsSnapshot,
 ): ActiveProjectionOutput | null {
-  if (!isProjectionWindow(window)) {
-    return null;
-  }
-
+  if (!isProjectionWindow(window)) return null;
   const displayId = windowDisplayId(window);
-  if (displayId === null) {
-    return null;
-  }
-
-  return snapshot.outputs.find((output) => output.displayId === displayId) ?? null;
+  if (displayId === null) return null;
+  return snapshot.outputs.find((output) => output.displayIds.includes(displayId)) ?? null;
 }
 
-function findOutputWindow(
+function findOutputWindows(
   outputId: string,
   resolveTargets: ResolveProjectionTargets,
-): BrowserWindow | null {
-  const snapshot = resolveTargets();
-  const output = snapshot.outputs.find((item) => item.outputId === outputId);
-  if (!output) {
-    console.warn('[projection-output] Área no activa o sin pantalla:', outputId);
-    return null;
-  }
+): BrowserWindow[] {
+  const output = resolveTargets().outputs.find((item) => item.outputId === outputId);
+  if (!output) return [];
 
-  const display = snapshot.displays.find((item) => item.id === output.displayId);
-  if (!display) {
-    console.warn('[projection-output] Pantalla no disponible para el área:', output.name);
-    return null;
-  }
-
-  const projectionWindow =
-    BrowserWindow.getAllWindows().find(
-      (window) =>
-        !window.isDestroyed() &&
-        isProjectionWindow(window) &&
-        windowBelongsToDisplay(window, display),
-    ) ?? null;
-
-  if (!projectionWindow) {
-    console.warn(
-      `[projection-output] No se encontró ventana en ${output.name} (display ${output.displayId}).`,
-    );
-  }
-
-  return projectionWindow;
+  const displayIds = new Set(output.displayIds);
+  return BrowserWindow.getAllWindows().filter((window) => {
+    if (window.isDestroyed() || !isProjectionWindow(window)) return false;
+    const displayId = windowDisplayId(window);
+    return displayId !== null && displayIds.has(displayId);
+  });
 }
 
 function sendStateToOutput(
@@ -166,8 +122,9 @@ function sendStateToOutput(
   state: ProjectionState,
   resolveTargets: ResolveProjectionTargets,
 ): void {
-  const window = findOutputWindow(outputId, resolveTargets);
-  window?.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
+  for (const window of findOutputWindows(outputId, resolveTargets)) {
+    window.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
+  }
 }
 
 function sendMediaControlToOutput(
@@ -175,72 +132,47 @@ function sendMediaControlToOutput(
   command: MediaPlaybackCommand,
   resolveTargets: ResolveProjectionTargets,
 ): void {
-  const window = findOutputWindow(outputId, resolveTargets);
-  window?.webContents.send(PROJECTION_CHANNELS.mediaControl, command);
+  for (const window of findOutputWindows(outputId, resolveTargets)) {
+    window.webContents.send(PROJECTION_CHANNELS.mediaControl, command);
+  }
 }
 
 function restoreTargetedState(
   window: BrowserWindow,
   resolveTargets: ResolveProjectionTargets,
 ): void {
-  if (window.isDestroyed()) {
-    return;
-  }
-
-  const snapshot = resolveTargets();
-  const output = resolveWindowOutput(window, snapshot);
-  if (!output) {
-    return;
-  }
-
+  if (window.isDestroyed()) return;
+  const output = resolveWindowOutput(window, resolveTargets());
+  if (!output) return;
   const state = latestStateByOutput.get(output.outputId);
-  if (state) {
-    window.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
-  }
+  if (state) window.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
 }
 
 export function registerProjectionOutputRouter(
   resolveTargets: ResolveProjectionTargets,
 ): void {
-  if (registered) {
-    return;
-  }
-
+  if (registered) return;
   registered = true;
 
   ipcMain.on(PROJECTION_CHANNELS.setState, (event) => {
-    if (!isAllowedSender(event)) {
-      return;
-    }
-
-    // Un envío global vuelve a sincronizar todas las pantallas.
+    if (!isAllowedSender(event)) return;
     latestStateByOutput.clear();
   });
 
   ipcMain.on(PROJECTION_CHANNELS.setStateForOutput, (event, value: unknown) => {
-    if (!isAllowedSender(event) || !isDispatchRequest(value)) {
-      return;
-    }
-
+    if (!isAllowedSender(event) || !isDispatchRequest(value)) return;
     latestStateByOutput.set(value.outputId, value.state);
     sendStateToOutput(value.outputId, value.state, resolveTargets);
   });
 
   ipcMain.on(PROJECTION_CHANNELS.controlMediaForOutput, (event, value: unknown) => {
-    if (!isAllowedSender(event) || !isMediaDispatchRequest(value)) {
-      return;
-    }
-
+    if (!isAllowedSender(event) || !isMediaDispatchRequest(value)) return;
     sendMediaControlToOutput(value.outputId, value.command, resolveTargets);
   });
 
   app.on('browser-window-created', (_event, window) => {
     window.webContents.on('did-finish-load', () => {
-      // electron-main envía primero su estado global al cargar. Restauramos
-      // después el estado específico del área, si existe.
-      setTimeout(() => {
-        restoreTargetedState(window, resolveTargets);
-      }, 0);
+      setTimeout(() => restoreTargetedState(window, resolveTargets), 0);
     });
   });
 }
