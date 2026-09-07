@@ -219,8 +219,7 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
       return;
     }
 
-    const currentIsValid =
-      activeOutputId.value !== null && validIds.has(activeOutputId.value);
+    const currentIsValid = activeOutputId.value !== null && validIds.has(activeOutputId.value);
     const nextOutputId = currentIsValid ? activeOutputId.value : activeOutputs[0]?.outputId ?? null;
 
     if (nextOutputId !== null) {
@@ -311,7 +310,8 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
             : command.action === 'pause'
               ? false
               : current.mediaPlayback.isPlaying,
-        time: typeof command.time === 'number' ? Math.max(0, command.time) : current.mediaPlayback.time,
+        time:
+          typeof command.time === 'number' ? Math.max(0, command.time) : current.mediaPlayback.time,
       },
       mediaCommand: command,
       mediaCommandSequence: current.mediaCommandSequence + 1,
@@ -353,12 +353,17 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
   }
 
   function setWorkspaceRouletteTimed(outputId: string, timedSpin: boolean): void {
-    const frame = workspaceSnapshot(outputId).liveItem?.frames[workspaceSnapshot(outputId).liveFrameIndex];
+    const snapshot = workspaceSnapshot(outputId);
+    const frame = snapshot.liveItem?.frames[snapshot.liveFrameIndex];
     if (!frame?.roulette || frame.roulette.spinning) return;
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      roulette: currentFrame.roulette ? { ...currentFrame.roulette, timedSpin } : currentFrame.roulette,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.roulette) return currentFrame;
+      return {
+        ...currentFrame,
+        roulette: { ...currentFrame.roulette, timedSpin },
+      };
+    });
   }
 
   function setWorkspaceRouletteDuration(outputId: string, duration: number): void {
@@ -366,12 +371,17 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     const snapshot = workspaceSnapshot(outputId);
     const roulette = snapshot.liveItem?.frames[snapshot.liveFrameIndex]?.roulette;
     if (!roulette || roulette.spinning) return;
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      roulette: currentFrame.roulette
-        ? { ...currentFrame.roulette, spinDuration: Math.min(600_000, Math.max(1_000, duration)) }
-        : currentFrame.roulette,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.roulette) return currentFrame;
+      return {
+        ...currentFrame,
+        roulette: {
+          ...currentFrame.roulette,
+          spinDuration: Math.min(600_000, Math.max(1_000, duration)),
+        },
+      };
+    });
   }
 
   function stopWorkspaceRoulette(outputId: string): void {
@@ -433,21 +443,22 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
       360 * (cruiseTurns + ((randomValues[1] ?? 0) % 3)) +
       ((360 - center - currentRotation + 360) % 360);
 
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      roulette: currentFrame.roulette
-        ? {
-            ...currentFrame.roulette,
-            options: displayOptions,
-            rotation,
-            winnerId: '',
-            pendingWinnerId: selected.id,
-            spinning: true,
-            spinStartedAt: Date.now(),
-            usedWinnerIds,
-          }
-        : currentFrame.roulette,
-    }));
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.roulette) return currentFrame;
+      return {
+        ...currentFrame,
+        roulette: {
+          ...currentFrame.roulette,
+          options: displayOptions,
+          rotation,
+          winnerId: '',
+          pendingWinnerId: selected.id,
+          spinning: true,
+          spinStartedAt: Date.now(),
+          usedWinnerIds,
+        },
+      };
+    });
 
     if (roulette.timedSpin) {
       const previous = rouletteTimers.get(outputId);
@@ -466,20 +477,22 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     const timer = rouletteTimers.get(outputId);
     if (timer !== undefined) window.clearTimeout(timer);
     rouletteTimers.delete(outputId);
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      roulette: currentFrame.roulette
-        ? {
-            ...currentFrame.roulette,
-            rotation: 0,
-            winnerId: '',
-            pendingWinnerId: '',
-            spinning: false,
-            spinStartedAt: 0,
-            usedWinnerIds: [],
-          }
-        : currentFrame.roulette,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.roulette) return currentFrame;
+      return {
+        ...currentFrame,
+        roulette: {
+          ...currentFrame.roulette,
+          rotation: 0,
+          winnerId: '',
+          pendingWinnerId: '',
+          spinning: false,
+          spinStartedAt: 0,
+          usedWinnerIds: [],
+        },
+      };
+    });
   }
 
   function scheduleWorkspaceTimeToolFinish(outputId: string): void {
@@ -494,12 +507,19 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
       outputId,
       window.setTimeout(() => {
         timeToolTimers.delete(outputId);
-        updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-          ...currentFrame,
-          timeTool: currentFrame.timeTool
-            ? { ...currentFrame.timeTool, baseTimeMs: 0, startedAt: 0, running: false, completed: true }
-            : currentFrame.timeTool,
-        }));
+        updateWorkspaceLiveItem(outputId, (currentFrame) => {
+          if (!currentFrame.timeTool) return currentFrame;
+          return {
+            ...currentFrame,
+            timeTool: {
+              ...currentFrame.timeTool,
+              baseTimeMs: 0,
+              startedAt: 0,
+              running: false,
+              completed: true,
+            },
+          };
+        });
       }, Math.max(0, remaining)),
     );
   }
@@ -508,14 +528,23 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     const snapshot = workspaceSnapshot(outputId);
     const tool = snapshot.liveItem?.frames[snapshot.liveFrameIndex]?.timeTool;
     if (!tool || tool.mode === 'clock' || tool.running) return;
-    const baseTimeMs = tool.mode === 'timer' && tool.baseTimeMs <= 0 ? tool.durationMs : tool.baseTimeMs;
+    const baseTimeMs =
+      tool.mode === 'timer' && tool.baseTimeMs <= 0 ? tool.durationMs : tool.baseTimeMs;
     if (tool.mode === 'timer' && baseTimeMs <= 0) return;
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      timeTool: currentFrame.timeTool
-        ? { ...currentFrame.timeTool, baseTimeMs, startedAt: Date.now(), running: true, completed: false }
-        : currentFrame.timeTool,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.timeTool) return currentFrame;
+      return {
+        ...currentFrame,
+        timeTool: {
+          ...currentFrame.timeTool,
+          baseTimeMs,
+          startedAt: Date.now(),
+          running: true,
+          completed: false,
+        },
+      };
+    });
     scheduleWorkspaceTimeToolFinish(outputId);
   }
 
@@ -527,18 +556,20 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     const timer = timeToolTimers.get(outputId);
     if (timer !== undefined) window.clearTimeout(timer);
     timeToolTimers.delete(outputId);
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      timeTool: currentFrame.timeTool
-        ? {
-            ...currentFrame.timeTool,
-            baseTimeMs: value,
-            startedAt: 0,
-            running: false,
-            completed: currentFrame.timeTool.mode === 'timer' && value <= 0,
-          }
-        : currentFrame.timeTool,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.timeTool) return currentFrame;
+      return {
+        ...currentFrame,
+        timeTool: {
+          ...currentFrame.timeTool,
+          baseTimeMs: value,
+          startedAt: 0,
+          running: false,
+          completed: currentFrame.timeTool.mode === 'timer' && value <= 0,
+        },
+      };
+    });
   }
 
   function resetWorkspaceTimeTool(outputId: string): void {
@@ -548,18 +579,21 @@ export const useProjectionWorkspaceStore = defineStore('projection-workspaces', 
     const timer = timeToolTimers.get(outputId);
     if (timer !== undefined) window.clearTimeout(timer);
     timeToolTimers.delete(outputId);
-    updateWorkspaceLiveItem(outputId, (currentFrame) => ({
-      ...currentFrame,
-      timeTool: currentFrame.timeTool
-        ? {
-            ...currentFrame.timeTool,
-            baseTimeMs: currentFrame.timeTool.mode === 'timer' ? currentFrame.timeTool.durationMs : 0,
-            startedAt: 0,
-            running: false,
-            completed: false,
-          }
-        : currentFrame.timeTool,
-    }));
+
+    updateWorkspaceLiveItem(outputId, (currentFrame) => {
+      if (!currentFrame.timeTool) return currentFrame;
+      return {
+        ...currentFrame,
+        timeTool: {
+          ...currentFrame.timeTool,
+          baseTimeMs:
+            currentFrame.timeTool.mode === 'timer' ? currentFrame.timeTool.durationMs : 0,
+          startedAt: 0,
+          running: false,
+          completed: false,
+        },
+      };
+    });
   }
 
   return {
