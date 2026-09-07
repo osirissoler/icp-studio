@@ -42,12 +42,18 @@ export function installProjectionDestinationPortal(router: Router): () => void {
   function fillOptions(): void {
     if (!select) return;
     const currentValue = selectedOutputId();
-    select.replaceChildren();
-    for (const output of workspaceStore.outputs) {
-      const option = document.createElement('option');
-      option.value = output.outputId;
-      option.textContent = output.name;
-      select.append(option);
+    const signature = workspaceStore.outputs
+      .map((output) => `${output.outputId}:${output.name}`)
+      .join('|');
+    if (select.dataset.signature !== signature) {
+      select.replaceChildren();
+      for (const output of workspaceStore.outputs) {
+        const option = document.createElement('option');
+        option.value = output.outputId;
+        option.textContent = output.name;
+        select.append(option);
+      }
+      select.dataset.signature = signature;
     }
     select.value = currentValue;
   }
@@ -147,7 +153,15 @@ export function installProjectionDestinationPortal(router: Router): () => void {
     () => queueRender(),
   );
 
-  observer = new MutationObserver(() => queueRender());
+  observer = new MutationObserver(() => {
+    const undecoratedMonitor = document.querySelector('.monitor-header:not([data-tool-header="true"])');
+    const path = router.currentRoute.value.path;
+    const needsPortal =
+      supportedRoutes.has(path) &&
+      workspaceStore.outputs.length > 0 &&
+      (!portal?.isConnected || !target?.isConnected);
+    if (undecoratedMonitor || needsPortal) queueRender();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   queueRender();
 
