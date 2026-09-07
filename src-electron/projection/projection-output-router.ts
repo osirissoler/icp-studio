@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type Display } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, type Display } from 'electron';
 import type { ActiveProjectionOutput } from '../../src/shared/display';
 import {
   PROJECTION_CHANNELS,
@@ -32,17 +32,20 @@ function isProjectionWindow(window: BrowserWindow): boolean {
   );
 }
 
-function windowBelongsToDisplay(window: BrowserWindow, display: Display): boolean {
-  const bounds = window.getBounds();
-  const centerX = bounds.x + bounds.width / 2;
-  const centerY = bounds.y + bounds.height / 2;
+function windowDisplayId(window: BrowserWindow): number | null {
+  if (window.isDestroyed()) {
+    return null;
+  }
 
-  return (
-    centerX >= display.bounds.x &&
-    centerX < display.bounds.x + display.bounds.width &&
-    centerY >= display.bounds.y &&
-    centerY < display.bounds.y + display.bounds.height
-  );
+  try {
+    return screen.getDisplayMatching(window.getBounds()).id;
+  } catch {
+    return null;
+  }
+}
+
+function windowBelongsToDisplay(window: BrowserWindow, display: Display): boolean {
+  return windowDisplayId(window) === display.id;
 }
 
 function isProjectionState(value: unknown): value is ProjectionState {
@@ -84,7 +87,7 @@ function isDispatchRequest(value: unknown): value is ProjectionDispatchRequest {
   return (
     typeof request.outputId === 'string' &&
     request.outputId.length > 0 &&
-    request.outputId.length <= 120 &&
+    request.outputId.length <= 160 &&
     isProjectionState(request.state)
   );
 }
@@ -98,7 +101,7 @@ function isMediaDispatchRequest(value: unknown): value is MediaPlaybackDispatchR
   return (
     typeof request.outputId === 'string' &&
     request.outputId.length > 0 &&
-    request.outputId.length <= 120 &&
+    request.outputId.length <= 160 &&
     isMediaPlaybackCommand(request.command)
   );
 }
@@ -116,14 +119,12 @@ function resolveWindowOutput(
     return null;
   }
 
-  for (const output of snapshot.outputs) {
-    const display = snapshot.displays.find((item) => item.id === output.displayId);
-    if (display && windowBelongsToDisplay(window, display)) {
-      return output;
-    }
+  const displayId = windowDisplayId(window);
+  if (displayId === null) {
+    return null;
   }
 
-  return null;
+  return snapshot.outputs.find((output) => output.displayId === displayId) ?? null;
 }
 
 function findOutputWindow(
@@ -133,22 +134,31 @@ function findOutputWindow(
   const snapshot = resolveTargets();
   const output = snapshot.outputs.find((item) => item.outputId === outputId);
   if (!output) {
+    console.warn('[projection-output] Área no activa o sin pantalla:', outputId);
     return null;
   }
 
   const display = snapshot.displays.find((item) => item.id === output.displayId);
   if (!display) {
+    console.warn('[projection-output] Pantalla no disponible para el área:', output.name);
     return null;
   }
 
-  return (
+  const projectionWindow =
     BrowserWindow.getAllWindows().find(
       (window) =>
         !window.isDestroyed() &&
         isProjectionWindow(window) &&
         windowBelongsToDisplay(window, display),
-    ) ?? null
-  );
+    ) ?? null;
+
+  if (!projectionWindow) {
+    console.warn(
+      `[projection-output] No se encontró ventana en ${output.name} (display ${output.displayId}).`,
+    );
+  }
+
+  return projectionWindow;
 }
 
 function sendStateToOutput(
@@ -203,7 +213,7 @@ export function registerProjectionOutputRouter(
       return;
     }
 
-    // Un envío global vuelve a sincronizar todas las salidas.
+    // Un envío global vuelve a sincronizar todas las pantallas.
     latestStateByOutput.clear();
   });
 
@@ -227,7 +237,7 @@ export function registerProjectionOutputRouter(
   app.on('browser-window-created', (_event, window) => {
     window.webContents.on('did-finish-load', () => {
       // electron-main envía primero su estado global al cargar. Restauramos
-      // después el estado específico de la salida, si existe.
+      // después el estado específico del área, si existe.
       setTimeout(() => {
         restoreTargetedState(window, resolveTargets);
       }, 0);
