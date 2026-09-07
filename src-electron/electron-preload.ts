@@ -13,6 +13,7 @@ import {
 import {
   PROJECTION_CHANNELS,
   type MediaPlaybackCommand,
+  type ProjectionOutputTarget,
   type ProjectionState,
 } from '../src/shared/projection';
 import { SONG_CHANNELS, type DefaultSongCollection } from '../src/shared/song';
@@ -75,9 +76,22 @@ const windowApi = {
   },
 };
 
+let projectionOutputTarget: ProjectionOutputTarget = null;
+
 const projectionApi = {
+  setTargetOutput: (outputId: ProjectionOutputTarget): void => {
+    projectionOutputTarget = typeof outputId === 'string' && outputId.length > 0 ? outputId : null;
+  },
   setState: (state: ProjectionState): void => {
-    ipcRenderer.send(PROJECTION_CHANNELS.setState, state);
+    if (projectionOutputTarget === null) {
+      ipcRenderer.send(PROJECTION_CHANNELS.setState, state);
+      return;
+    }
+
+    ipcRenderer.send(PROJECTION_CHANNELS.setStateForOutput, {
+      state,
+      outputId: projectionOutputTarget,
+    });
   },
   controlMedia: (command: MediaPlaybackCommand): void => {
     ipcRenderer.send(PROJECTION_CHANNELS.controlMedia, command);
