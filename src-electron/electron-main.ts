@@ -289,12 +289,14 @@ function notifyRendererDisplays(): void {
 }
 
 async function closeProjectionWindows(): Promise<void> {
-  for (const projectionWindow of projectionWindows.values()) {
+  const windowsToClose = [...projectionWindows.values()];
+  projectionWindows.clear();
+
+  for (const projectionWindow of windowsToClose) {
     if (!projectionWindow.isDestroyed()) {
       projectionWindow.close();
     }
   }
-  projectionWindows.clear();
 }
 
 async function synchronizeProjectionWindows(forceRecreate = false): Promise<void> {
@@ -305,7 +307,7 @@ async function synchronizeProjectionWindows(forceRecreate = false): Promise<void
     await closeProjectionWindows();
   } else {
     for (const [displayId, projectionWindow] of projectionWindows) {
-      if (!outputDisplayIds.has(displayId)) {
+      if (!outputDisplayIds.has(displayId) || projectionWindow.isDestroyed()) {
         projectionWindows.delete(displayId);
 
         if (!projectionWindow.isDestroyed()) {
@@ -316,14 +318,25 @@ async function synchronizeProjectionWindows(forceRecreate = false): Promise<void
   }
 
   for (const [index, display] of outputDisplays.entries()) {
-    if (!projectionWindows.has(display.id)) {
-      await createProjectionWindow(
-        display,
-        index,
-        usesOperatorDisplay,
-        display.id === audioDisplayId,
-      );
+    const existingWindow = projectionWindows.get(display.id);
+
+    if (existingWindow && !existingWindow.isDestroyed() && !existingWindow.webContents.isCrashed()) {
+      continue;
     }
+
+    if (existingWindow) {
+      projectionWindows.delete(display.id);
+      if (!existingWindow.isDestroyed()) {
+        existingWindow.destroy();
+      }
+    }
+
+    await createProjectionWindow(
+      display,
+      index,
+      usesOperatorDisplay,
+      display.id === audioDisplayId,
+    );
   }
 
   notifyRendererDisplays();
@@ -671,14 +684,6 @@ function parseProjectionState(value: unknown): ProjectionState | null {
       (tool.displayScale === undefined ||
         (typeof tool.displayScale === 'number' && Number.isFinite(tool.displayScale)))
     ) {
-      /*
-       * Estos dos valores ya están
-       * correctamente estrechados por
-       * nuestros type guards.
-       *
-       * Aquí deja de existir el error:
-       * unknown -> TimeToolMode.
-       */
       const mode: TimeToolMode = tool.mode;
 
       const clockStyle: ClockDisplayStyle = tool.clockStyle;
@@ -1078,6 +1083,24 @@ async function createProjectionWindow(
   usesOperatorDisplay = false,
   audioMaster = false,
 ): Promise<void> {
+  if (display) {
+    const existingWindow = projectionWindows.get(display.id);
+
+    if (existingWindow && !existingWindow.isDestroyed() && !existingWindow.webContents.isCrashed()) {
+      if (existingWindow.isMinimized()) {
+        existingWindow.restore();
+      }
+      return;
+    }
+
+    if (existingWindow) {
+      projectionWindows.delete(display.id);
+      if (!existingWindow.isDestroyed()) {
+        existingWindow.destroy();
+      }
+    }
+  }
+
   const displayWindowOptions = display
     ? {
         width: Math.min(1280, Math.round(display.workArea.width * 0.78)),
@@ -1158,16 +1181,6 @@ async function createProjectionWindow(
     webPreferences: {
       contextIsolation: true,
 
-      /*
-       * Muy importante para el
-       * metrónomo.
-       *
-       * Electron no debe reducir la
-       * frecuencia de animación ni
-       * temporizadores de esta ventana
-       * cuando el operador esté
-       * trabajando en otra.
-       */
       backgroundThrottling: false,
 
       preload: path.join(import.meta.dirname, 'electron-preload.cjs'),
@@ -1182,7 +1195,9 @@ async function createProjectionWindow(
     'ready-to-show',
 
     () => {
-      projectorWindow.show();
+      if (!projectorWindow.isDestroyed()) {
+        projectorWindow.show();
+      }
     },
   );
 
@@ -1190,7 +1205,9 @@ async function createProjectionWindow(
     'did-finish-load',
 
     () => {
-      projectorWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, latestProjectionState);
+      if (!projectorWindow.isDestroyed()) {
+        projectorWindow.webContents.send(PROJECTION_CHANNELS.stateChanged, latestProjectionState);
+      }
     },
   );
 
@@ -1198,18 +1215,25 @@ async function createProjectionWindow(
     'closed',
 
     () => {
-      projectionWindows.delete(projectionId);
+      if (projectionWindows.get(projectionId) === projectorWindow) {
+        projectionWindows.delete(projectionId);
+      }
     },
   );
 
-  /*
-   * Solo la pantalla configurada como audio principal
-   * reproduce el clic del metrónomo. Las demás conservan
-   * exactamente la misma imagen sin duplicar el sonido.
-   */
   const metronomeAudioMaster = audioMaster ? '1' : '0';
 
-  await loadAppWindow(projectorWindow, `/projector?metronomeAudio=${metronomeAudioMaster}`);
+  try {
+    await loadAppWindow(projectorWindow, `/projector?metronomeAudio=${metronomeAudioMaster}`);
+  } catch (error) {
+    if (projectionWindows.get(projectionId) === projectorWindow) {
+      projectionWindows.delete(projectionId);
+    }
+    if (!projectorWindow.isDestroyed()) {
+      projectorWindow.destroy();
+    }
+    throw error;
+  }
 }
 
 async function createWindow(): Promise<void> {
