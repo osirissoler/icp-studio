@@ -70,3 +70,18 @@ export type ProjectionState =
   | ProjectionRouletteState
   | ProjectionTimeToolState
   | ProjectionBlankState;
+
+/**
+ * null significa que el contenido se envía a todas las salidas activas.
+ * Un string identifica una salida concreta, por ejemplo output-1.
+ */
+export type ProjectionOutputTarget = string | null;
+
+/**
+ * Contrato preparado para enrutar un estado de proyección hacia todas
+ * las salidas o únicamente hacia una salida configurada.
+ */
+export interface ProjectionDispatchRequest {
+  state: ProjectionState;
+  outputId: ProjectionOutputTarget;
+}
