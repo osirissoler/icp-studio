@@ -18,8 +18,23 @@
     </div>
 
     <div v-if="activeOutputName" class="active-area-caption">
-      <q-icon name="desktop_windows" />
-      <span>Servicio de <strong>{{ activeOutputName }}</strong></span>
+      <div class="active-area-copy">
+        <q-icon name="desktop_windows" />
+        <span>Servicio de <strong>{{ activeOutputName }}</strong></span>
+      </div>
+      <q-btn
+        v-if="outputs.length > 0"
+        flat
+        round
+        dense
+        size="xs"
+        icon="grid_view"
+        color="light-blue-4"
+        aria-label="Ver todas las pantallas"
+        @click="monitorOpen = true"
+      >
+        <q-tooltip>Ver contenido en vivo de todas las pantallas</q-tooltip>
+      </q-btn>
     </div>
 
     <div v-if="serviceItems.length" ref="serviceListElement" class="service-list">
@@ -58,6 +73,8 @@
       <span v-if="activeOutputName">Agrega elementos al servicio de {{ activeOutputName }}.</span>
       <span v-else>Los elementos agregados aparecerán aquí.</span>
     </div>
+
+    <ProjectionOutputsMonitorDialog v-model="monitorOpen" />
   </div>
 </template>
 
@@ -65,16 +82,18 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import ProjectionOutputSelector from './projection/ProjectionOutputSelector.vue';
+import ProjectionOutputsMonitorDialog from './projection/ProjectionOutputsMonitorDialog.vue';
 import type { PresentationItemType } from '../shared/presentation';
 import type { ProjectionOutputTarget } from '../shared/projection';
 import { usePresentationStore } from '../stores/presentation-store';
 import { useProjectionWorkspaceStore } from '../stores/projection-workspace-store';
 
 const serviceListElement = ref<HTMLElement | null>(null);
+const monitorOpen = ref(false);
 const presentationStore = usePresentationStore();
 const workspaceStore = useProjectionWorkspaceStore();
 const { serviceItems, selectedServiceItemId } = storeToRefs(presentationStore);
-const { activeOutputId, activeOutput } = storeToRefs(workspaceStore);
+const { activeOutputId, activeOutput, outputs } = storeToRefs(workspaceStore);
 const { activateServiceItem, removeFromService, selectServiceItem } = presentationStore;
 
 const projectionOutputTarget = ref<ProjectionOutputTarget>(activeOutputId.value);
@@ -196,6 +215,7 @@ onBeforeUnmount(() => {
 .active-area-caption {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   margin-bottom: 8px;
   padding: 6px 8px;
@@ -204,6 +224,13 @@ onBeforeUnmount(() => {
   border: 1px solid #24425e;
   border-radius: 7px;
   font-size: 9px;
+}
+
+.active-area-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
 }
 
 .active-area-caption strong { color: #d9efff; }
