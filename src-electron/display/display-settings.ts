@@ -10,6 +10,7 @@ import type {
   DisplayStatus,
   ProjectionOutputConfiguration,
 } from '../../src/shared/display';
+import { registerProjectionOutputRouter } from '../projection/projection-output-router';
 
 const SETTINGS_FILENAME = 'display-settings.json';
 
@@ -303,6 +304,8 @@ export async function applyDisplayConfiguration(
   await persistConfiguration();
   return getDisplayStatus();
 }
+
+registerProjectionOutputRouter(resolveProjectionTargets);
 
 export async function identifyDisplays(): Promise<void> {
   const displays = screen.getAllDisplays();
