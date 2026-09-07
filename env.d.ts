@@ -13,7 +13,11 @@ import type {
   DisplayStatus,
 } from './src/shared/display';
 import type { MediaImportProgress, MediaKind, MediaLibraryItem } from './src/shared/media';
-import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
+import type {
+  MediaPlaybackCommand,
+  ProjectionOutputTarget,
+  ProjectionState,
+} from './src/shared/projection';
 import type {
   RemoteBridgeRequest,
   RemoteBridgeResponse,
@@ -53,6 +57,7 @@ interface IcpStudioApi {
     rename: (itemId: string, name: string) => Promise<MediaLibraryItem | null>;
   };
   projection: {
+    setTargetOutput: (outputId: ProjectionOutputTarget) => void;
     setState: (state: ProjectionState) => void;
     controlMedia: (command: MediaPlaybackCommand) => void;
     onMediaControl: (listener: (command: MediaPlaybackCommand) => void) => () => void;
