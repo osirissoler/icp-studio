@@ -71,6 +71,13 @@ export default defineConfigWithVueTs(
   },
 
   {
+    files: ['src-electron/electron-main.ts'],
+    rules: {
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
+
+  {
     files: ['src-pwa/sw/**/*.ts'],
     languageOptions: {
       globals: {
