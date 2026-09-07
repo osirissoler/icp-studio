@@ -34,8 +34,8 @@
         <button type="button" class="screen-status gt-sm">
           <span class="status-dot"></span>
           <span>
-            {{ displays.length }}
-            {{ displays.length === 1 ? 'pantalla activa' : 'pantallas activas' }}
+            {{ activeProjectionCount }}
+            {{ activeProjectionCount === 1 ? 'salida activa' : 'salidas activas' }}
           </span>
           <q-icon name="expand_more" size="16px" />
 
@@ -47,7 +47,7 @@
                 <q-item-section avatar>
                   <q-icon
                     :name="display.isPrimary ? 'laptop_mac' : 'connected_tv'"
-                    :color="display.isPrimary ? 'blue-grey-4' : 'positive'"
+                    :color="display.isPrimary ? 'blue-grey-4' : isProjectionActive(display.id) ? 'positive' : 'blue-grey-6'"
                   />
                 </q-item-section>
 
@@ -64,8 +64,8 @@
 
                 <q-item-section side>
                   <q-badge
-                    :label="display.isPrimary ? 'Operador' : 'Proyección'"
-                    :color="display.isPrimary ? 'blue-grey-7' : 'positive'"
+                    :label="displayBadgeLabel(display.id, display.isPrimary)"
+                    :color="display.isPrimary ? 'blue-grey-7' : isProjectionActive(display.id) ? 'positive' : 'blue-grey-8'"
                   />
                 </q-item-section>
               </q-item>
@@ -220,7 +220,7 @@
         <q-separator dark />
 
         <q-card-section class="settings-dialog-content">
-          <SettingsPage :initial-section="settingsInitialSection" />
+          <SettingsShell :initial-section="settingsInitialSection" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -242,9 +242,9 @@ import PersistentMediaPlayer from '../components/PersistentMediaPlayer.vue';
 
 import RemoteControlBridge from '../components/RemoteControlBridge.vue';
 
-import SettingsPage from '../pages/SettingsPage.vue';
+import SettingsShell from '../components/settings/SettingsShell.vue';
 
-import type { DisplayInfo } from '../shared/display';
+import type { DisplayInfo, DisplayStatus } from '../shared/display';
 
 import type { NavigationItemId } from '../shared/navigation';
 
@@ -265,6 +265,8 @@ const drawerOpen = ref(true);
 
 const displays = ref<DisplayInfo[]>([]);
 
+const displayStatus = ref<DisplayStatus | null>(null);
+
 const settingsDialogOpen = ref(false);
 
 const settingsInitialSection = ref<'general' | 'screens' | 'remote'>('general');
@@ -272,6 +274,11 @@ const settingsInitialSection = ref<'general' | 'screens' | 'remote'>('general');
 const draggingNavigationId = ref<NavigationItemId | null>(null);
 
 let unsubscribeDisplays: (() => void) | undefined;
+let unsubscribeDisplayStatus: (() => void) | undefined;
+
+const activeProjectionCount = computed(
+  () => displayStatus.value?.activeProjectionDisplayIds.length ?? 0,
+);
 
 const layoutView = computed(() => (menuSide.value === 'right' ? 'hHh lpR lFf' : 'hHh Lpr lFf'));
 
@@ -295,6 +302,20 @@ const currentDate = computed(() => {
   return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 });
 
+function isProjectionActive(displayId: number): boolean {
+  return displayStatus.value?.activeProjectionDisplayIds.includes(displayId) ?? false;
+}
+
+function displayBadgeLabel(displayId: number, isPrimary: boolean): string {
+  if (isPrimary) {
+    return displayStatus.value?.usesOperatorDisplay && isProjectionActive(displayId)
+      ? 'Operador · salida temporal'
+      : 'Operador';
+  }
+
+  return isProjectionActive(displayId) ? 'Proyección' : 'Disponible';
+}
+
 function openSettings(section: 'general' | 'screens' | 'remote' | Event = 'general'): void {
   settingsInitialSection.value = typeof section === 'string' ? section : 'general';
 
@@ -303,14 +324,21 @@ function openSettings(section: 'general' | 'screens' | 'remote' | Event = 'gener
 
 onMounted(async () => {
   displays.value = (await window.icpStudio?.displays.list()) ?? [];
+  displayStatus.value = (await window.icpStudio?.displays.getStatus()) ?? null;
 
   unsubscribeDisplays = window.icpStudio?.displays.onChanged((nextDisplays) => {
     displays.value = nextDisplays;
+  });
+
+  unsubscribeDisplayStatus = window.icpStudio?.displays.onStatusChanged((status) => {
+    displayStatus.value = status;
+    displays.value = status.displays;
   });
 });
 
 onBeforeUnmount(() => {
   unsubscribeDisplays?.();
+  unsubscribeDisplayStatus?.();
 });
 
 function toggleMenu(): void {
