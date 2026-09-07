@@ -1,7 +1,8 @@
 import type { GameSessionScoringConfig, GameSessionTeam } from './game-session';
 import type { GameHintConfig } from './game-hints';
+import type { BibleActivityType } from './bible-activities';
 
-export type ActivityType = 'hidden-image';
+export type ActivityType = BibleActivityType;
 
 export interface ActivityExecutionContextBase {
   activityType: ActivityType;
@@ -22,4 +23,5 @@ export interface CareoActivityExecutionContext extends ActivityExecutionContextB
 }
 
 export type ActivityExecutionContext =
-  StandaloneActivityExecutionContext | CareoActivityExecutionContext;
+  | StandaloneActivityExecutionContext
+  | CareoActivityExecutionContext;
