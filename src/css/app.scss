@@ -22,3 +22,91 @@
 .library-toolbar-button.disabled {
   opacity: 0.34 !important;
 }
+
+/* Calendar projection destination pilot */
+.calendar-live-destination {
+  position: relative;
+  min-width: 204px !important;
+  height: 42px !important;
+  gap: 9px !important;
+  padding: 4px 6px 4px 10px !important;
+  background: linear-gradient(180deg, #132333, #0e1926) !important;
+  border: 1px solid #30485f !important;
+  border-radius: 11px !important;
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 3%),
+    0 6px 18px rgb(0 0 0 / 13%);
+}
+
+.calendar-live-destination__label {
+  gap: 5px !important;
+  color: #8ba1b7 !important;
+  font-size: 8px !important;
+  letter-spacing: 0.06em !important;
+}
+
+.calendar-live-destination__label .q-icon {
+  color: #6cc5ff;
+  font-size: 15px;
+}
+
+.calendar-live-destination__select {
+  min-width: 118px !important;
+}
+
+.calendar-live-destination__select .q-field__control {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 4px 0 10px !important;
+  color: #d9ecff !important;
+  background: rgb(7 16 25 / 78%) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 0 1px rgb(111 174 226 / 20%);
+}
+
+.calendar-live-destination__select .q-field__control::before,
+.calendar-live-destination__select .q-field__control::after {
+  display: none !important;
+}
+
+.calendar-live-destination__select .q-field__native,
+.calendar-live-destination__select .q-field__input,
+.calendar-live-destination__select .q-field__marginal {
+  min-height: 32px !important;
+  height: 32px !important;
+  color: #edf7ff !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+}
+
+.calendar-live-destination__select .q-field__append {
+  padding-left: 2px !important;
+  color: #7cc7f5 !important;
+}
+
+.calendar-live-destination__select:hover .q-field__control {
+  background: rgb(14 30 44 / 92%) !important;
+  box-shadow: inset 0 0 0 1px rgb(111 174 226 / 38%);
+}
+
+.calendar-live-destination-menu {
+  padding: 5px !important;
+  color: #dceafa !important;
+  background: #101b28 !important;
+  border: 1px solid #30475f !important;
+  border-radius: 9px !important;
+  box-shadow: 0 14px 38px rgb(0 0 0 / 36%) !important;
+}
+
+.calendar-live-destination-menu .q-item {
+  min-height: 34px !important;
+  padding: 6px 9px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+}
+
+.calendar-live-destination-menu .q-item.q-manual-focusable--focused,
+.calendar-live-destination-menu .q-item:hover {
+  background: #1a3147 !important;
+}
