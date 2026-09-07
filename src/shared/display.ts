@@ -49,7 +49,7 @@ export interface ActiveProjectionOutput {
 }
 
 export interface ProjectionOutputAssignmentRequest {
-  outputId?: string;
+  outputId?: string | undefined;
   name: string;
   enabled: boolean;
   displayId: number | null;
