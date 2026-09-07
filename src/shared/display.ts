@@ -41,6 +41,8 @@ export interface ProjectionOutputAssignmentRequest {
 export interface DisplayConfiguration {
   mode: DisplayConfigurationMode;
   independentProjectionEnabled: boolean;
+  /** Permite usar la pantalla principal del operador como una salida adicional. */
+  operatorDisplayProjectionEnabled: boolean;
   projectionDisplays: DisplayReference[];
   projectionOutputs: ProjectionOutputConfiguration[];
   audioDisplay: DisplayReference | null;
@@ -58,6 +60,7 @@ export interface DisplayStatus {
 export interface ApplyDisplayConfigurationRequest {
   mode: DisplayConfigurationMode;
   independentProjectionEnabled?: boolean;
+  operatorDisplayProjectionEnabled?: boolean;
   projectionDisplayIds: number[];
   audioDisplayId: number | null;
   projectionOutputs?: ProjectionOutputAssignmentRequest[];
