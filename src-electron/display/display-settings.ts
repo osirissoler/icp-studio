@@ -93,8 +93,7 @@ function validConfiguration(value: unknown): value is StoredDisplayConfiguration
   const candidate = value as Partial<StoredDisplayConfiguration>;
   return (
     (candidate.mode === 'automatic' || candidate.mode === 'custom') &&
-    (candidate.independentProjectionEnabled === undefined ||
-      typeof candidate.independentProjectionEnabled === 'boolean') &&
+    (candidate.independentProjectionEnabled === undefined || typeof candidate.independentProjectionEnabled === 'boolean') &&
     Array.isArray(candidate.projectionDisplays) &&
     (candidate.projectionOutputs === undefined || Array.isArray(candidate.projectionOutputs)) &&
     (candidate.audioDisplay === null || typeof candidate.audioDisplay === 'object')
@@ -122,6 +121,7 @@ function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfi
         name: output.name.trim() || defaultOutputName(index),
         enabled: output.enabled !== false,
         displays,
+        display: displays[0] ?? null,
       };
     });
 
@@ -132,6 +132,7 @@ function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfi
         name: defaultOutputName(index),
         enabled: true,
         displays: [display],
+        display,
       });
     });
   }
@@ -157,7 +158,7 @@ export async function loadDisplayConfiguration(): Promise<void> {
       await persistConfiguration();
     }
   } catch {
-    // La primera ejecución usa modo espejo/automático.
+    // Primera ejecución: modo espejo/automático.
   }
 }
 
@@ -177,18 +178,12 @@ function matchScore(reference: DisplayReference, display: Display): number {
   return score;
 }
 
-function matchReference(
-  reference: DisplayReference | null,
-  candidates: Display[],
-  usedIds = new Set<number>(),
-): Display | null {
+function matchReference(reference: DisplayReference | null, candidates: Display[], usedIds = new Set<number>()): Display | null {
   if (!reference) return null;
-
   const ranked = candidates
     .filter((display) => !usedIds.has(display.id))
     .map((display) => ({ display, score: matchScore(reference, display) }))
     .sort((a, b) => b.score - a.score);
-
   return ranked[0] && ranked[0].score >= 30 ? ranked[0].display : null;
 }
 
@@ -210,7 +205,12 @@ function resolveConfiguredOutputs(selected: Display[]): ActiveProjectionOutput[]
     }
 
     if (displayIds.length === 0) continue;
-    resolved.push({ outputId: output.outputId, name: output.name, displayIds });
+    resolved.push({
+      outputId: output.outputId,
+      name: output.name,
+      displayIds,
+      displayId: displayIds[0]!,
+    });
   }
 
   return resolved;
@@ -268,51 +268,55 @@ export function getDisplayStatus(): DisplayStatus {
   };
 }
 
-function buildProjectionOutputs(
-  request: ApplyDisplayConfigurationRequest,
-  selected: Display[],
-): ProjectionOutputConfiguration[] {
+function buildProjectionOutputs(request: ApplyDisplayConfigurationRequest, selected: Display[]): ProjectionOutputConfiguration[] {
   if (!Array.isArray(request.projectionOutputs)) {
     if (request.outputNames) {
-      return selected.map((display, index) => ({
-        outputId: createOutputId(),
-        name: request.outputNames?.[display.id]?.trim() || defaultOutputName(index),
-        enabled: true,
-        displays: [displayReference(display)],
-      }));
+      return selected.map((display, index) => {
+        const reference = displayReference(display);
+        return {
+          outputId: createOutputId(),
+          name: request.outputNames?.[display.id]?.trim() || defaultOutputName(index),
+          enabled: true,
+          displays: [reference],
+          display: reference,
+        };
+      });
     }
     return configuration.projectionOutputs;
   }
 
   const globallyUsedDisplayIds = new Set<number>();
-  return request.projectionOutputs.map(
-    (output: ProjectionOutputAssignmentRequest, index): ProjectionOutputConfiguration => {
-      const previous = output.outputId
-        ? configuration.projectionOutputs.find((item) => item.outputId === output.outputId)
-        : undefined;
+  return request.projectionOutputs.map((output: ProjectionOutputAssignmentRequest, index): ProjectionOutputConfiguration => {
+    const previous = output.outputId
+      ? configuration.projectionOutputs.find((item) => item.outputId === output.outputId)
+      : undefined;
 
-      const references: DisplayReference[] = [];
-      for (const displayId of Array.isArray(output.displayIds) ? output.displayIds : []) {
-        if (globallyUsedDisplayIds.has(displayId)) continue;
-        const display = selected.find((item) => item.id === displayId);
-        if (!display) continue;
-        globallyUsedDisplayIds.add(display.id);
-        references.push(displayReference(display));
-      }
+    const requestedDisplayIds = Array.isArray(output.displayIds)
+      ? output.displayIds
+      : output.displayId === null || output.displayId === undefined
+        ? []
+        : [output.displayId];
 
-      return {
-        outputId: previous?.outputId ?? createOutputId(),
-        name: output.name.trim().slice(0, 60) || previous?.name || defaultOutputName(index),
-        enabled: output.enabled !== false,
-        displays: references,
-      };
-    },
-  );
+    const references: DisplayReference[] = [];
+    for (const displayId of requestedDisplayIds) {
+      if (globallyUsedDisplayIds.has(displayId)) continue;
+      const display = selected.find((item) => item.id === displayId);
+      if (!display) continue;
+      globallyUsedDisplayIds.add(display.id);
+      references.push(displayReference(display));
+    }
+
+    return {
+      outputId: previous?.outputId ?? createOutputId(),
+      name: output.name.trim().slice(0, 60) || previous?.name || defaultOutputName(index),
+      enabled: output.enabled !== false,
+      displays: references,
+      display: references[0] ?? null,
+    };
+  });
 }
 
-export async function applyDisplayConfiguration(
-  request: ApplyDisplayConfigurationRequest,
-): Promise<DisplayStatus> {
+export async function applyDisplayConfiguration(request: ApplyDisplayConfigurationRequest): Promise<DisplayStatus> {
   const primaryId = screen.getPrimaryDisplay().id;
   const external = screen.getAllDisplays().filter((display) => display.id !== primaryId);
   const selectedIds = new Set(
@@ -322,13 +326,11 @@ export async function applyDisplayConfiguration(
   );
 
   const selected = external.filter((display) => selectedIds.has(display.id));
-  const audio =
-    request.audioDisplayId === null
-      ? null
-      : external.find(
-          (display) =>
-            display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
-        ) ?? null;
+  const audio = request.audioDisplayId === null
+    ? null
+    : external.find(
+        (display) => display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
+      ) ?? null;
 
   configuration = {
     mode: request.mode === 'custom' ? 'custom' : 'automatic',
