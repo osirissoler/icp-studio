@@ -60,6 +60,19 @@
                   </span>
 
                   <span v-else class="content-actions">
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      size="xs"
+                      icon="keyboard_arrow_up"
+                      :disable="!canMoveFrame(output.outputId, -1)"
+                      aria-label="Contenido anterior"
+                      @mousedown.stop
+                      @click.stop="moveFrame(output.outputId, -1)"
+                    >
+                      <q-tooltip>Contenido anterior</q-tooltip>
+                    </q-btn>
                     <small v-if="workspace(output.outputId).liveItem && liveFrame(output.outputId)">
                       {{ workspace(output.outputId).liveFrameIndex + 1 }} de
                       {{ workspace(output.outputId).liveItem?.frames.length }}
@@ -69,6 +82,19 @@
                       color="primary"
                       label="Seleccionado"
                     />
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      size="xs"
+                      icon="keyboard_arrow_down"
+                      :disable="!canMoveFrame(output.outputId, 1)"
+                      aria-label="Contenido siguiente"
+                      @mousedown.stop
+                      @click.stop="moveFrame(output.outputId, 1)"
+                    >
+                      <q-tooltip>Contenido siguiente</q-tooltip>
+                    </q-btn>
                   </span>
                 </header>
 
@@ -81,28 +107,19 @@
                       class="live-media"
                     />
 
-                    <div
-                      v-else-if="liveFrame(output.outputId)?.mediaType === 'video'"
-                      class="media-placeholder"
-                    >
+                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'video'" class="media-placeholder">
                       <q-icon name="movie" size="36px" />
                       <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
                       <small>Video en vivo</small>
                     </div>
 
-                    <div
-                      v-else-if="liveFrame(output.outputId)?.mediaType === 'audio'"
-                      class="media-placeholder"
-                    >
+                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'audio'" class="media-placeholder">
                       <q-icon name="graphic_eq" size="36px" />
                       <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
                       <small>Audio en vivo</small>
                     </div>
 
-                    <div
-                      v-else-if="liveFrame(output.outputId)?.mediaType === 'document'"
-                      class="media-placeholder"
-                    >
+                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'document'" class="media-placeholder">
                       <q-icon name="description" size="36px" />
                       <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
                       <small>{{ liveFrame(output.outputId)?.label }}</small>
@@ -143,26 +160,27 @@
                       {{ workspace(output.outputId).liveItem?.title }}
                     </div>
 
-                    <div
+                    <button
                       v-for="(frame, frameIndex) in workspace(output.outputId).liveItem?.frames ?? []"
                       :key="frame.id"
+                      type="button"
                       class="active-content-row"
                       :class="{
-                        'active-content-row--selected':
-                          workspace(output.outputId).liveFrameIndex === frameIndex,
+                        'active-content-row--selected': workspace(output.outputId).liveFrameIndex === frameIndex,
                       }"
+                      @click="selectFrame(output.outputId, frameIndex)"
                     >
                       <span class="active-content-position">{{ frameIndex + 1 }}</span>
-                      <div>
+                      <span class="active-content-copy">
                         <strong>{{ frame.label }}</strong>
                         <small>{{ frame.text || frameContentLabel(frame) }}</small>
-                      </div>
+                      </span>
                       <q-icon
                         v-if="workspace(output.outputId).liveFrameIndex === frameIndex"
                         name="radio_button_checked"
                         color="light-blue-3"
                       />
-                    </div>
+                    </button>
                   </div>
 
                   <div v-else class="active-content-empty">
@@ -252,6 +270,22 @@ function dropSection(outputId: string, target: MonitorSection): void {
   draggingSections[outputId] = null;
 }
 
+function selectFrame(outputId: string, frameIndex: number): void {
+  workspaceStore.setWorkspaceLiveFrame(outputId, frameIndex);
+}
+
+function moveFrame(outputId: string, direction: -1 | 1): void {
+  workspaceStore.moveWorkspaceLiveFrame(outputId, direction);
+}
+
+function canMoveFrame(outputId: string, direction: -1 | 1): boolean {
+  const snapshot = workspace(outputId);
+  const frameCount = snapshot.liveItem?.frames.length ?? 0;
+  if (frameCount === 0) return false;
+  if (direction < 0) return snapshot.liveFrameIndex > 0;
+  return snapshot.liveFrameIndex < frameCount - 1;
+}
+
 function frameContentLabel(frame: PresentationFrame): string {
   if (frame.mediaType === 'image') return 'Imagen';
   if (frame.mediaType === 'video') return 'Video';
@@ -296,14 +330,8 @@ function displaySummary(displayIds: number[]): string {
   flex-direction: column;
 }
 
-.monitor-header strong {
-  font-size: 18px;
-}
-
-.monitor-header small {
-  margin-top: 3px;
-  color: #8193a8;
-}
+.monitor-header strong { font-size: 18px; }
+.monitor-header small { margin-top: 3px; color: #8193a8; }
 
 .monitor-body {
   display: flex;
@@ -338,10 +366,7 @@ function displaySummary(displayIds: number[]): string {
   border-radius: 10px;
 }
 
-.monitor-card--active {
-  border-color: #4ba3ff;
-  box-shadow: 0 0 0 1px rgb(75 163 255 / 20%);
-}
+.monitor-card--active { border-color: #4ba3ff; box-shadow: 0 0 0 1px rgb(75 163 255 / 20%); }
 
 .monitor-card-header {
   display: flex;
@@ -355,23 +380,9 @@ function displaySummary(displayIds: number[]): string {
   border-bottom: 1px solid #26364b;
 }
 
-.monitor-card-header > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.monitor-card-header strong,
-.monitor-card-header small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.monitor-card-header small {
-  color: #71859b;
-  font-size: 9px;
-}
+.monitor-card-header > div { display: flex; min-width: 0; flex-direction: column; }
+.monitor-card-header strong, .monitor-card-header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-card-header small { color: #71859b; font-size: 9px; }
 
 .monitor-sections {
   display: grid;
@@ -409,29 +420,10 @@ function displaySummary(displayIds: number[]): string {
   user-select: none;
 }
 
-.section-header > span,
-.content-actions,
-.output-label {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 5px;
-}
-
-.output-label {
-  max-width: 58%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-dot {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  background: #f05252;
-  border-radius: 50%;
-}
+.section-header > span, .content-actions, .output-label { display: flex; min-width: 0; align-items: center; gap: 5px; }
+.content-actions .q-btn { color: #8fbbe0; }
+.output-label { max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-dot { width: 7px; height: 7px; flex: 0 0 7px; background: #f05252; border-radius: 50%; }
 
 .technical-screen {
   position: relative;
@@ -446,81 +438,19 @@ function displaySummary(displayIds: number[]): string {
   text-align: center;
 }
 
-.live-media {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
+.live-media { width: 100%; height: 100%; object-fit: contain; }
+.media-placeholder, .text-preview, .active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; padding: 16px; color: #91a5ba; text-align: center; }
+.media-placeholder strong, .text-preview strong { max-width: 92%; overflow: hidden; color: #f2f7fc; text-overflow: ellipsis; white-space: nowrap; }
+.media-placeholder small { color: #70849a; font-size: 9px; }
+.text-preview span { display: -webkit-box; max-width: 92%; overflow: hidden; color: #d4dfeb; font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
 
-.media-placeholder,
-.text-preview,
-.active-content-empty {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 7px;
-  padding: 16px;
-  color: #91a5ba;
-  text-align: center;
-}
-
-.media-placeholder strong,
-.text-preview strong {
-  max-width: 92%;
-  overflow: hidden;
-  color: #f2f7fc;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.media-placeholder small {
-  color: #70849a;
-  font-size: 9px;
-}
-
-.text-preview span {
-  display: -webkit-box;
-  max-width: 92%;
-  overflow: hidden;
-  color: #d4dfeb;
-  font-size: 13px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-}
-
-.active-content-shell {
-  min-height: 0;
-  flex: 1;
-  overflow: hidden;
-}
-
-.active-content-list {
-  height: 100%;
-  padding: 6px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.active-content-title {
-  position: sticky;
-  top: -6px;
-  z-index: 1;
-  padding: 6px 5px 8px;
-  overflow: hidden;
-  color: #dce8f4;
-  background: #0b131d;
-  font-size: 11px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.active-content-shell { min-height: 0; flex: 1; overflow: hidden; }
+.active-content-list { height: 100%; padding: 6px; overflow-y: auto; overscroll-behavior: contain; }
+.active-content-title { position: sticky; top: -6px; z-index: 1; padding: 6px 5px 8px; overflow: hidden; color: #dce8f4; background: #0b131d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 
 .active-content-row {
   display: grid;
+  width: 100%;
   grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
@@ -530,68 +460,21 @@ function displaySummary(displayIds: number[]): string {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
 }
 
-.active-content-row--selected {
-  color: #f2f8ff;
-  background: #1d4f7d;
-  border-color: #60a5fa;
-  box-shadow: inset 3px 0 #60a5fa;
-}
+.active-content-row:hover { color: #d9edff; background: #10243a; border-color: #284b6c; }
+.active-content-row--selected { color: #f2f8ff; background: #1d4f7d; border-color: #60a5fa; box-shadow: inset 3px 0 #60a5fa; }
+.active-content-position { display: grid; width: 22px; height: 22px; place-items: center; color: #93c5fd; background: #172d49; border-radius: 5px; font-size: 9px; }
+.active-content-copy { display: flex; min-width: 0; flex-direction: column; }
+.active-content-row strong, .active-content-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.active-content-row strong { font-size: 10px; }
+.active-content-row small { margin-top: 1px; color: #75889d; font-size: 9px; }
+.active-content-row--selected small { color: #d5e8ff; }
+.active-content-empty { color: #66758a; font-size: 10px; }
 
-.active-content-position {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  color: #93c5fd;
-  background: #172d49;
-  border-radius: 5px;
-  font-size: 9px;
-}
-
-.active-content-row > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.active-content-row strong,
-.active-content-row small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.active-content-row strong {
-  font-size: 10px;
-}
-
-.active-content-row small {
-  margin-top: 1px;
-  color: #75889d;
-  font-size: 9px;
-}
-
-.active-content-row--selected small {
-  color: #d5e8ff;
-}
-
-.active-content-empty {
-  color: #66758a;
-  font-size: 10px;
-}
-
-.monitor-empty {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-  color: #76899e;
-}
+.monitor-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #76899e; }
 
 @media (max-width: 780px) {
   .monitor-grid {
