@@ -5,10 +5,7 @@
         <div class="header-left">
           <q-btn flat round dense icon="arrow_back" aria-label="Volver" @click="goBack" />
           <div class="activity-icon"><q-icon name="grid_on" /></div>
-          <div>
-            <h1>Crucigrama bíblico</h1>
-            <p>Crea un tablero real con palabras cruzadas y pistas bíblicas.</p>
-          </div>
+          <div><h1>Crucigrama bíblico</h1><p>Crea un tablero real con palabras cruzadas y pistas bíblicas.</p></div>
         </div>
         <q-btn v-if="mode === 'library'" unelevated no-caps icon="add" label="Nuevo crucigrama" class="primary" @click="createActivity" />
         <div v-else-if="mode === 'editor'" class="header-actions">
@@ -24,18 +21,14 @@
 
       <section v-if="mode === 'library'" class="library">
         <div v-if="activities.length === 0" class="empty-state">
-          <q-icon name="grid_on" size="60px" />
-          <h2>No hay crucigramas guardados</h2>
+          <q-icon name="grid_on" size="60px" /><h2>No hay crucigramas guardados</h2>
           <p>Crea palabras, pistas y deja que ICP Studio construya la cuadrícula automáticamente.</p>
           <q-btn unelevated no-caps icon="add" label="Crear crucigrama" class="primary" @click="createActivity" />
         </div>
         <div v-else class="cards">
           <article v-for="activity in activities" :key="activity.id" class="card">
             <div class="card-icon"><q-icon name="grid_on" /></div>
-            <div class="card-copy">
-              <h3>{{ activity.title }}</h3>
-              <span>{{ activity.rounds.length }} palabras</span>
-            </div>
+            <div class="card-copy"><h3>{{ activity.title }}</h3><span>{{ activity.rounds.length }} palabras</span></div>
             <div class="card-actions">
               <q-btn flat round dense icon="edit" @click="editActivity(activity)" />
               <q-btn flat round dense icon="delete_outline" color="red-4" @click="removeActivity(activity)" />
@@ -49,19 +42,14 @@
         <aside class="editor-panel">
           <label>Nombre del crucigrama</label>
           <q-input v-model="title" dark outlined dense placeholder="Ej. Personajes del Antiguo Testamento" />
-          <div class="section-heading">
-            <div><strong>Palabras y pistas</strong><small>{{ rounds.length }} palabras</small></div>
-            <q-btn flat dense no-caps icon="add" label="Agregar" @click="addWord" />
-          </div>
+          <div class="section-heading"><div><strong>Palabras y pistas</strong><small>{{ rounds.length }} palabras</small></div><q-btn flat dense no-caps icon="add" label="Agregar" @click="addWord" /></div>
           <div class="word-list">
             <button v-for="(round,index) in rounds" :key="round.id" type="button" class="word-row" :class="{active: round.id === activeId}" @click="activeId = round.id">
-              <span>{{ index + 1 }}</span>
-              <div><strong>{{ round.answer || 'Sin palabra' }}</strong><small>{{ round.prompt || 'Sin pista' }}</small></div>
+              <span>{{ index + 1 }}</span><div><strong>{{ round.answer || 'Sin palabra' }}</strong><small>{{ round.prompt || 'Sin pista' }}</small></div>
               <q-btn v-if="rounds.length > 2" flat round dense icon="close" @click.stop="deleteWord(round.id)" />
             </button>
           </div>
         </aside>
-
         <main class="editor-main">
           <div v-if="activeRound" class="word-editor">
             <div class="field-block"><label>Palabra</label><q-input v-model="activeRound.answer" dark outlined dense placeholder="NOE" @update:model-value="rebuildPreview" /></div>
@@ -76,18 +64,14 @@
               </div>
             </div>
             <div v-else class="board-empty">Agrega al menos dos palabras compatibles para construir el tablero.</div>
-            <div class="clues">
-              <div><h3>Horizontales</h3><p v-for="item in horizontalWords" :key="item.id"><b>{{ item.number }}.</b> {{ item.prompt }}</p></div>
-              <div><h3>Verticales</h3><p v-for="item in verticalWords" :key="item.id"><b>{{ item.number }}.</b> {{ item.prompt }}</p></div>
-            </div>
+            <div class="clues"><div><h3>Horizontales</h3><p v-for="item in horizontalWords" :key="item.id"><b>{{ item.number }}.</b> {{ item.prompt }}</p></div><div><h3>Verticales</h3><p v-for="item in verticalWords" :key="item.id"><b>{{ item.number }}.</b> {{ item.prompt }}</p></div></div>
           </div>
         </main>
       </section>
 
       <section v-else class="play-layout">
         <aside class="operator-panel">
-          <h2>{{ playing?.title }}</h2>
-          <p>{{ solvedIds.size }} de {{ placedWords.length }} palabras reveladas</p>
+          <h2>{{ playing?.title }}</h2><p>{{ solvedIds.size }} de {{ placedWords.length }} palabras reveladas</p>
           <button v-for="word in placedWords" :key="word.id" type="button" class="clue-control" :class="{solved: solvedIds.has(word.id)}" @click="toggleSolved(word.id)">
             <span>{{ word.number }}</span><div><strong>{{ word.prompt }}</strong><small>{{ solvedIds.has(word.id) ? word.answer : 'Oculta' }}</small></div>
           </button>
@@ -120,70 +104,40 @@ interface PlacedWord { id:string; answer:string; prompt:string; bibleReference:s
 interface BoardCell { row:number; col:number; letter:string; number:number|null; wordIds:string[]; }
 interface Board { rows:number; cols:number; cells:BoardCell[]; }
 
-const router = useRouter();
-const $q = useQuasar();
-const mode = ref<Mode>('library');
-const activities = ref<BibleActivityRecord[]>([]);
-const editingId = ref<string|null>(null);
-const title = ref('');
-const rounds = ref<BibleActivityRound[]>([]);
-const activeId = ref('');
-const playing = ref<BibleActivityRecord|null>(null);
-const solvedIds = ref(new Set<string>());
-const placedWords = ref<PlacedWord[]>([]);
-const board = ref<Board>({rows:0,cols:0,cells:[]});
-
-const activeRound = computed(() => rounds.value.find(r => r.id === activeId.value) ?? null);
-const boardStyle = computed(() => ({ '--cw-cols': String(board.value.cols), '--cw-rows': String(board.value.rows) }));
-const horizontalWords = computed(() => placedWords.value.filter(w => w.direction === 'across'));
-const verticalWords = computed(() => placedWords.value.filter(w => w.direction === 'down'));
-
-function normalizeWord(value:string):string { return value.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase(); }
-function newRound():BibleActivityRound { return { id:createBibleActivityId('crossword-round'), prompt:'', answer:'', bibleReference:'', hint:'', explanation:'' }; }
-function reload():void { activities.value = getBibleActivities('crossword'); }
-function goBack():void { if (mode.value !== 'library') { stopGame(); mode.value='library'; return; } void router.push('/actividades'); }
-function createActivity():void { editingId.value=null; title.value=''; rounds.value=[newRound(),newRound()]; activeId.value=rounds.value[0]?.id ?? ''; rebuildPreview(); mode.value='editor'; }
-function editActivity(a:BibleActivityRecord):void { editingId.value=a.id; title.value=a.title; rounds.value=a.rounds.map(r=>({...r})); activeId.value=rounds.value[0]?.id ?? ''; rebuildPreview(); mode.value='editor'; }
-function cancelEditor():void { mode.value='library'; }
-function addWord():void { const r=newRound(); rounds.value.push(r); activeId.value=r.id; rebuildPreview(); }
-function deleteWord(id:string):void { rounds.value=rounds.value.filter(r=>r.id!==id); activeId.value=rounds.value[0]?.id ?? ''; rebuildPreview(); }
-function rebuildPreview():void { const result=buildCrossword(rounds.value); placedWords.value=result.words; board.value=result.board; }
-function validate():boolean { if(!title.value.trim()){warn('Escribe un nombre para el crucigrama.');return false;} const valid=rounds.value.filter(r=>normalizeWord(r.answer).length>=2&&r.prompt.trim()); if(valid.length<2){warn('Agrega al menos dos palabras con sus pistas.');return false;} return true; }
-function saveActivity():void { if(!validate())return; const now=new Date().toISOString(); const existing=editingId.value?activities.value.find(a=>a.id===editingId.value):null; saveBibleActivity({id:editingId.value??createBibleActivityId('crossword'),type:'crossword',title:title.value.trim(),rounds:rounds.value.map(r=>({...r,answer:normalizeWord(r.answer),prompt:r.prompt.trim(),bibleReference:r.bibleReference.trim()})),createdAt:existing?.createdAt??now,updatedAt:now}); reload(); mode.value='library'; $q.notify({type:'positive',message:'Crucigrama guardado.',position:'top'}); }
-function removeActivity(a:BibleActivityRecord):void { if(!window.confirm(`¿Eliminar “${a.title}”?`))return; deleteBibleActivity(a.id); reload(); }
-function playActivity(a:BibleActivityRecord):void { playing.value=a; solvedIds.value=new Set(); const result=buildCrossword(a.rounds); placedWords.value=result.words; board.value=result.board; mode.value='play'; sendLive(); }
-function stopGame():void { if(mode.value==='play') window.icpStudio?.projection.setState({mode:'blank'}); playing.value=null; solvedIds.value=new Set(); }
-function toggleSolved(id:string):void { const next=new Set(solvedIds.value); next.has(id)?next.delete(id):next.add(id); solvedIds.value=next; sendLive(); }
-function clearSolved():void { solvedIds.value=new Set(); sendLive(); }
-function isCellRevealed(cell:BoardCell):boolean { return cell.wordIds.some(id=>solvedIds.value.has(id)); }
-function sendLive():void { if(!playing.value)return; const text=renderProjectionText(); window.icpStudio?.projection.setState({mode:'content',title:playing.value.title,body:text,footer:'Crucigrama bíblico'}); }
-function renderProjectionText():string { const lines=placedWords.value.map(w=>`${w.number}. ${w.prompt}${solvedIds.value.has(w.id)?` — ${w.answer}`:''}`); return lines.join('\n\n'); }
-function warn(message:string):void { $q.notify({type:'warning',message,position:'top'}); }
-
-function buildCrossword(source:BibleActivityRound[]):{words:PlacedWord[];board:Board}{
-  const entries=source.map(r=>({...r,word:normalizeWord(r.answer)})).filter(r=>r.word.length>=2&&r.prompt.trim()).sort((a,b)=>b.word.length-a.word.length);
-  if(!entries.length)return{words:[],board:{rows:0,cols:0,cells:[]}};
-  const grid=new Map<string,{letter:string;wordIds:string[]}>();
-  const words:PlacedWord[]=[];
-  const key=(r:number,c:number)=>`${r}:${c}`;
-  const place=(entry:typeof entries[number],row:number,col:number,direction:Direction)=>{ const chars=[...entry.word]; chars.forEach((ch,i)=>{const r=row+(direction==='down'?i:0);const c=col+(direction==='across'?i:0);const k=key(r,c);const current=grid.get(k); if(current){current.wordIds.push(entry.id);}else grid.set(k,{letter:ch,wordIds:[entry.id]});}); words.push({id:entry.id,answer:entry.word,prompt:entry.prompt,bibleReference:entry.bibleReference,row,col,direction,number:0}); };
-  place(entries[0]!,0,0,'across');
-  for(const entry of entries.slice(1)){
-    let placed=false;
-    for(const existing of words){ if(placed)break; for(let ei=0;ei<existing.answer.length&&!placed;ei++){ const ch=existing.answer[ei]; for(let ni=0;ni<entry.word.length&&!placed;ni++){ if(entry.word[ni]!==ch)continue; const direction:Direction=existing.direction==='across'?'down':'across'; const crossRow=existing.row+(existing.direction==='down'?ei:0); const crossCol=existing.col+(existing.direction==='across'?ei:0); const row=crossRow-(direction==='down'?ni:0); const col=crossCol-(direction==='across'?ni:0); if(canPlace(entry.word,row,col,direction,grid,key)){place(entry,row,col,direction);placed=true;} } } }
-    if(!placed){ const maxRow=Math.max(...[...grid.keys()].map(k=>Number(k.split(':')[0]))); place(entry,maxRow+2,0,'across'); }
+const router=useRouter(); const $q=useQuasar(); const mode=ref<Mode>('library'); const activities=ref<BibleActivityRecord[]>([]); const editingId=ref<string|null>(null); const title=ref(''); const rounds=ref<BibleActivityRound[]>([]); const activeId=ref(''); const playing=ref<BibleActivityRecord|null>(null); const solvedIds=ref(new Set<string>()); const placedWords=ref<PlacedWord[]>([]); const board=ref<Board>({rows:0,cols:0,cells:[]});
+const activeRound=computed(()=>rounds.value.find(r=>r.id===activeId.value)??null); const boardStyle=computed(()=>({'--cw-cols':String(board.value.cols),'--cw-rows':String(board.value.rows)})); const horizontalWords=computed(()=>placedWords.value.filter(w=>w.direction==='across')); const verticalWords=computed(()=>placedWords.value.filter(w=>w.direction==='down'));
+function normalizeWord(value:string):string{return value.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();}
+function newRound():BibleActivityRound{return{id:createBibleActivityId('crossword-round'),prompt:'',answer:'',bibleReference:'',hint:'',explanation:''};}
+function reload():void{activities.value=getBibleActivities('crossword');}
+function goBack():void{if(mode.value!=='library'){stopGame();mode.value='library';return;}void router.push('/actividades');}
+function createActivity():void{editingId.value=null;title.value='';rounds.value=[newRound(),newRound()];activeId.value=rounds.value[0]?.id??'';rebuildPreview();mode.value='editor';}
+function editActivity(a:BibleActivityRecord):void{editingId.value=a.id;title.value=a.title;rounds.value=a.rounds.map(r=>({...r}));activeId.value=rounds.value[0]?.id??'';rebuildPreview();mode.value='editor';}
+function cancelEditor():void{mode.value='library';}
+function addWord():void{const r=newRound();rounds.value.push(r);activeId.value=r.id;rebuildPreview();}
+function deleteWord(id:string):void{rounds.value=rounds.value.filter(r=>r.id!==id);activeId.value=rounds.value[0]?.id??'';rebuildPreview();}
+function rebuildPreview():void{const result=buildCrossword(rounds.value);placedWords.value=result.words;board.value=result.board;}
+function validate():boolean{if(!title.value.trim()){warn('Escribe un nombre para el crucigrama.');return false;}const valid=rounds.value.filter(r=>normalizeWord(r.answer).length>=2&&r.prompt.trim());if(valid.length<2){warn('Agrega al menos dos palabras con sus pistas.');return false;}return true;}
+function saveActivity():void{if(!validate())return;const now=new Date().toISOString();const existing=editingId.value?activities.value.find(a=>a.id===editingId.value):null;saveBibleActivity({id:editingId.value??createBibleActivityId('crossword'),type:'crossword',title:title.value.trim(),rounds:rounds.value.map(r=>({...r,answer:normalizeWord(r.answer),prompt:r.prompt.trim(),bibleReference:r.bibleReference.trim()})),createdAt:existing?.createdAt??now,updatedAt:now});reload();mode.value='library';$q.notify({type:'positive',message:'Crucigrama guardado.',position:'top'});}
+function removeActivity(a:BibleActivityRecord):void{if(!window.confirm(`¿Eliminar “${a.title}”?`))return;deleteBibleActivity(a.id);reload();}
+function playActivity(a:BibleActivityRecord):void{playing.value=a;solvedIds.value=new Set();const result=buildCrossword(a.rounds);placedWords.value=result.words;board.value=result.board;mode.value='play';sendLive();}
+function stopGame():void{if(mode.value==='play')window.icpStudio?.projection.setState({mode:'blank'});playing.value=null;solvedIds.value=new Set();}
+function toggleSolved(id:string):void{
+  const next=new Set(solvedIds.value);
+  if(next.has(id)){
+    next.delete(id);
+  }else{
+    next.add(id);
   }
-  const minRow=Math.min(...words.map(w=>w.row)); const minCol=Math.min(...words.map(w=>w.col)); words.forEach(w=>{w.row-=minRow;w.col-=minCol;});
-  const shifted=new Map<string,{letter:string;wordIds:string[]}>(); grid.forEach((v,k)=>{const [r,c]=k.split(':').map(Number);shifted.set(key((r??0)-minRow,(c??0)-minCol),v);});
-  const numberMap=new Map<string,number>(); let number=1; [...words].sort((a,b)=>a.row-b.row||a.col-b.col).forEach(w=>{const k=key(w.row,w.col); if(!numberMap.has(k))numberMap.set(k,number++); w.number=numberMap.get(k)!;});
-  const maxRow=Math.max(...words.map(w=>w.row+(w.direction==='down'?w.answer.length-1:0))); const maxCol=Math.max(...words.map(w=>w.col+(w.direction==='across'?w.answer.length-1:0)));
-  const cells:BoardCell[]=[]; for(let r=0;r<=maxRow;r++){for(let c=0;c<=maxCol;c++){const v=shifted.get(key(r,c));cells.push({row:r,col:c,letter:v?.letter??'',number:numberMap.get(key(r,c))??null,wordIds:v?.wordIds??[]});}}
-  return{words,board:{rows:maxRow+1,cols:maxCol+1,cells}};
+  solvedIds.value=next;
+  sendLive();
 }
-function canPlace(word:string,row:number,col:number,direction:Direction,grid:Map<string,{letter:string;wordIds:string[]}>,key:(r:number,c:number)=>string):boolean{
-  for(let i=0;i<word.length;i++){const r=row+(direction==='down'?i:0);const c=col+(direction==='across'?i:0);const current=grid.get(key(r,c)); if(current&&current.letter!==word[i])return false;} return true;
-}
-
+function clearSolved():void{solvedIds.value=new Set();sendLive();}
+function isCellRevealed(cell:BoardCell):boolean{return cell.wordIds.some(id=>solvedIds.value.has(id));}
+function sendLive():void{if(!playing.value)return;const text=renderProjectionText();window.icpStudio?.projection.setState({mode:'content',title:playing.value.title,body:text,footer:'Crucigrama bíblico'});}
+function renderProjectionText():string{const lines=placedWords.value.map(w=>`${w.number}. ${w.prompt}${solvedIds.value.has(w.id)?` — ${w.answer}`:''}`);return lines.join('\n\n');}
+function warn(message:string):void{$q.notify({type:'warning',message,position:'top'});}
+function buildCrossword(source:BibleActivityRound[]):{words:PlacedWord[];board:Board}{const entries=source.map(r=>({...r,word:normalizeWord(r.answer)})).filter(r=>r.word.length>=2&&r.prompt.trim()).sort((a,b)=>b.word.length-a.word.length);if(!entries.length)return{words:[],board:{rows:0,cols:0,cells:[]}};const grid=new Map<string,{letter:string;wordIds:string[]}>();const words:PlacedWord[]=[];const key=(r:number,c:number)=>`${r}:${c}`;const place=(entry:typeof entries[number],row:number,col:number,direction:Direction)=>{const chars=[...entry.word];chars.forEach((ch,i)=>{const r=row+(direction==='down'?i:0);const c=col+(direction==='across'?i:0);const k=key(r,c);const current=grid.get(k);if(current){current.wordIds.push(entry.id);}else{grid.set(k,{letter:ch,wordIds:[entry.id]});}});words.push({id:entry.id,answer:entry.word,prompt:entry.prompt,bibleReference:entry.bibleReference,row,col,direction,number:0});};place(entries[0]!,0,0,'across');for(const entry of entries.slice(1)){let placed=false;for(const existing of words){if(placed)break;for(let ei=0;ei<existing.answer.length&&!placed;ei++){const ch=existing.answer[ei];for(let ni=0;ni<entry.word.length&&!placed;ni++){if(entry.word[ni]!==ch)continue;const direction:Direction=existing.direction==='across'?'down':'across';const crossRow=existing.row+(existing.direction==='down'?ei:0);const crossCol=existing.col+(existing.direction==='across'?ei:0);const row=crossRow-(direction==='down'?ni:0);const col=crossCol-(direction==='across'?ni:0);if(canPlace(entry.word,row,col,direction,grid,key)){place(entry,row,col,direction);placed=true;}}}}if(!placed){const maxRow=Math.max(...[...grid.keys()].map(k=>Number(k.split(':')[0])));place(entry,maxRow+2,0,'across');}}const minRow=Math.min(...words.map(w=>w.row));const minCol=Math.min(...words.map(w=>w.col));words.forEach(w=>{w.row-=minRow;w.col-=minCol;});const shifted=new Map<string,{letter:string;wordIds:string[]}>();grid.forEach((v,k)=>{const [r,c]=k.split(':').map(Number);shifted.set(key((r??0)-minRow,(c??0)-minCol),v);});const numberMap=new Map<string,number>();let number=1;[...words].sort((a,b)=>a.row-b.row||a.col-b.col).forEach(w=>{const k=key(w.row,w.col);if(!numberMap.has(k))numberMap.set(k,number++);w.number=numberMap.get(k)!;});const maxRow=Math.max(...words.map(w=>w.row+(w.direction==='down'?w.answer.length-1:0)));const maxCol=Math.max(...words.map(w=>w.col+(w.direction==='across'?w.answer.length-1:0)));const cells:BoardCell[]=[];for(let r=0;r<=maxRow;r++){for(let c=0;c<=maxCol;c++){const v=shifted.get(key(r,c));cells.push({row:r,col:c,letter:v?.letter??'',number:numberMap.get(key(r,c))??null,wordIds:v?.wordIds??[]});}}return{words,board:{rows:maxRow+1,cols:maxCol+1,cells}};}
+function canPlace(word:string,row:number,col:number,direction:Direction,grid:Map<string,{letter:string;wordIds:string[]}>,key:(r:number,c:number)=>string):boolean{for(let i=0;i<word.length;i++){const r=row+(direction==='down'?i:0);const c=col+(direction==='across'?i:0);const current=grid.get(key(r,c));if(current&&current.letter!==word[i])return false;}return true;}
 onMounted(reload);
 </script>
 
