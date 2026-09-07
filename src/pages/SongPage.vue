@@ -14,7 +14,7 @@
               outlined
               dense
               clearable
-              placeholder="Buscar alabanza por título o autor..."
+              placeholder="Buscar por número, título, autor o letra..."
               class="song-search"
             >
               <template #prepend><q-icon name="search" /></template>
@@ -339,9 +339,17 @@ const filteredSongs = computed(() => {
   const term = normalizedSearch.value;
 
   return term
-    ? songs.value.filter(
-        (song) => normalize(song.title).includes(term) || normalize(song.author).includes(term),
-      )
+    ? songs.value.filter((song) => {
+        const searchableText = [
+          song.title,
+          song.author,
+          ...song.parts.map((part) => part.content),
+        ]
+          .map(normalize)
+          .join(' ');
+
+        return searchableText.includes(term);
+      })
     : songs.value;
 });
 const allFilteredSongsSelected = computed(
