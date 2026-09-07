@@ -12,7 +12,7 @@
       <q-card-section class="card-header">
         <div>
           <strong>Pantallas que utilizará ICP Studio</strong>
-          <small>Automático usa todas las pantallas externas. Personalizado te permite desactivar monitores.</small>
+          <small>Automático usa todas las pantallas externas. La pantalla del operador se habilita aparte.</small>
         </div>
       </q-card-section>
       <q-separator dark />
@@ -41,13 +41,32 @@
             <div class="display-info">
               <strong>{{ display.label }}</strong>
               <small>{{ display.bounds.width }} × {{ display.bounds.height }} · escala {{ display.scaleFactor }}</small>
-              <q-badge :color="display.isPrimary ? 'blue-grey-7' : isProjectionSelected(display) ? 'positive' : 'blue-grey-8'" :label="display.isPrimary ? 'Operador' : isProjectionSelected(display) ? 'Disponible para proyección' : 'Desactivada'" />
+              <q-badge
+                :color="display.isPrimary ? (operatorDisplayProjectionEnabled ? 'positive' : 'blue-grey-7') : isProjectionSelected(display) ? 'positive' : 'blue-grey-8'"
+                :label="display.isPrimary ? (operatorDisplayProjectionEnabled ? 'Operador + Proyección' : 'Solo operador') : isProjectionSelected(display) ? 'Disponible para proyección' : 'Desactivada'"
+              />
             </div>
           </q-card-section>
           <q-separator dark />
           <q-card-section class="display-controls">
-            <q-toggle :model-value="isProjectionSelected(display)" :disable="display.isPrimary || mode === 'automatic'" color="positive" label="Usar esta pantalla" @update:model-value="toggleProjection(display, Boolean($event))" />
-            <small v-if="display.isPrimary" class="control-help">Pantalla del operador</small>
+            <q-toggle
+              v-if="display.isPrimary"
+              :model-value="operatorDisplayProjectionEnabled"
+              color="positive"
+              label="Permitir proyección en esta pantalla"
+              @update:model-value="toggleOperatorProjection(Boolean($event))"
+            />
+            <q-toggle
+              v-else
+              :model-value="isProjectionSelected(display)"
+              :disable="mode === 'automatic'"
+              color="positive"
+              label="Usar esta pantalla"
+              @update:model-value="toggleProjection(display, Boolean($event))"
+            />
+            <small v-if="display.isPrimary" class="control-help">
+              {{ operatorDisplayProjectionEnabled ? 'Puede asignarse a un área y abrirá una ventana de proyección sobre la pantalla del operador.' : 'No se usará como salida de proyección.' }}
+            </small>
             <small v-else-if="mode === 'automatic'" class="control-help">Incluida por modo automático</small>
             <small v-else class="control-help">Puedes dejarla fuera de la proyección</small>
           </q-card-section>
@@ -97,7 +116,7 @@
                     label="Pantallas del área"
                     class="area-display"
                     popup-content-class="projection-area-menu"
-                    @update:model-value="setAreaDisplays(area.localId, $event as number[])"
+                    @update:model-value="setAreaDisplaysFromValue(area.localId, $event)"
                   >
                     <template #prepend><q-icon name="desktop_windows" /></template>
                   </q-select>
@@ -144,6 +163,7 @@
 
       <div class="summary-row">
         <div><q-icon name="tv" /><span>{{ selectedProjectionIds.length }} pantalla{{ selectedProjectionIds.length === 1 ? '' : 's' }} disponible{{ selectedProjectionIds.length === 1 ? '' : 's' }}</span></div>
+        <div><q-icon :name="operatorDisplayProjectionEnabled ? 'laptop_mac' : 'laptop'" /><span>{{ operatorDisplayProjectionEnabled ? 'Pantalla del operador habilitada para proyección' : 'Pantalla del operador solo para control' }}</span></div>
         <div><q-icon :name="independentProjectionEnabled ? 'splitscreen' : 'content_copy'" /><span>{{ independentProjectionEnabled ? `${activeAreaCount} área${activeAreaCount === 1 ? '' : 's'} activa${activeAreaCount === 1 ? '' : 's'}` : 'Modo espejo' }}</span></div>
         <div><q-icon :name="audioDisplayId === null ? 'volume_off' : 'volume_up'" /><span>{{ audioDisplayLabel }}</span></div>
       </div>
@@ -176,13 +196,14 @@ interface ProjectionAreaDraft {
 
 const modeOptions = [
   { value: 'automatic' as const, label: 'Automático', icon: 'auto_awesome', description: 'Todas las pantallas externas quedan disponibles.' },
-  { value: 'custom' as const, label: 'Personalizado', icon: 'tune', description: 'Tú decides cuáles pantallas puede utilizar ICP Studio.' },
+  { value: 'custom' as const, label: 'Personalizado', icon: 'tune', description: 'Tú decides cuáles pantallas externas puede utilizar ICP Studio.' },
 ];
 
 const displays = ref<DisplayInfo[]>([]);
 const mode = ref<DisplayConfigurationMode>('automatic');
 const customProjectionIds = ref<number[]>([]);
 const independentProjectionEnabled = ref(false);
+const operatorDisplayProjectionEnabled = ref(false);
 const projectionAreas = ref<ProjectionAreaDraft[]>([]);
 const audioDisplayId = ref<number | null>(null);
 const loading = ref(true);
@@ -190,13 +211,21 @@ const applying = ref(false);
 const identifying = ref(false);
 let unsubscribeStatus: (() => void) | undefined;
 
+const primaryDisplay = computed(() => displays.value.find((display) => display.isPrimary) ?? null);
 const externalDisplays = computed(() => displays.value.filter((display) => !display.isPrimary));
-const selectedProjectionIds = computed(() =>
+const selectedExternalProjectionIds = computed(() =>
   mode.value === 'automatic'
     ? externalDisplays.value.map((display) => display.id)
     : customProjectionIds.value.filter((id) => externalDisplays.value.some((display) => display.id === id)),
 );
-const selectedAudioDisplays = computed(() => externalDisplays.value.filter((display) => selectedProjectionIds.value.includes(display.id)));
+const selectedProjectionIds = computed(() => {
+  const ids = [...selectedExternalProjectionIds.value];
+  if (operatorDisplayProjectionEnabled.value && primaryDisplay.value) {
+    ids.unshift(primaryDisplay.value.id);
+  }
+  return ids;
+});
+const selectedAudioDisplays = computed(() => displays.value.filter((display) => selectedProjectionIds.value.includes(display.id)));
 const activeAreaCount = computed(() => projectionAreas.value.filter((area) => area.enabled && area.displayIds.length > 0).length);
 const displayOptions = computed(() => selectedProjectionIds.value.map((id) => ({ value: id, label: displayOptionLabel(id) })));
 const audioDisplayLabel = computed(() => audioDisplayId.value === null ? 'Audio desactivado en pantallas' : `Audio: ${displayLabel(audioDisplayId.value)}`);
@@ -211,7 +240,9 @@ function displayLabel(displayId: number): string {
 
 function displayOptionLabel(displayId: number): string {
   const display = displays.value.find((item) => item.id === displayId);
-  return display ? `Pantalla ${displayNumber(display)} · ${display.label}` : `Pantalla ${displayId}`;
+  if (!display) return `Pantalla ${displayId}`;
+  const suffix = display.isPrimary ? ' · Operador' : '';
+  return `Pantalla ${displayNumber(display)} · ${display.label}${suffix}`;
 }
 
 function areaDisplaySummary(displayIds: number[]): string {
@@ -219,7 +250,8 @@ function areaDisplaySummary(displayIds: number[]): string {
 }
 
 function isProjectionSelected(display: DisplayInfo): boolean {
-  return !display.isPrimary && selectedProjectionIds.value.includes(display.id);
+  if (display.isPrimary) return operatorDisplayProjectionEnabled.value;
+  return selectedExternalProjectionIds.value.includes(display.id);
 }
 
 function validateAudioSelection(): void {
@@ -250,6 +282,17 @@ function setAreaDisplays(localId: string, nextDisplayIds: number[]): void {
     }
   });
   target.displayIds = uniqueNext;
+}
+
+function setAreaDisplaysFromValue(localId: string, value: unknown): void {
+  if (!Array.isArray(value)) return;
+  setAreaDisplays(localId, value.filter((item): item is number => typeof item === 'number' && Number.isInteger(item)));
+}
+
+function toggleOperatorProjection(enabled: boolean): void {
+  operatorDisplayProjectionEnabled.value = enabled;
+  validateAudioSelection();
+  validateAreaAssignments();
 }
 
 function toggleProjection(display: DisplayInfo, explicitValue?: boolean): void {
@@ -293,6 +336,7 @@ function applyStatus(status: DisplayStatus): void {
   displays.value = status.displays;
   mode.value = status.configuration.mode;
   independentProjectionEnabled.value = status.configuration.independentProjectionEnabled;
+  operatorDisplayProjectionEnabled.value = status.configuration.operatorDisplayProjectionEnabled;
   customProjectionIds.value = status.activeProjectionDisplayIds.filter((id) => status.displays.some((display) => !display.isPrimary && display.id === id));
   projectionAreas.value = status.configuration.projectionOutputs.map((output) => ({
     localId: output.outputId,
@@ -331,7 +375,8 @@ async function applyConfiguration(): Promise<void> {
     const status = await window.icpStudio?.displays.applyConfiguration({
       mode: mode.value,
       independentProjectionEnabled: independentProjectionEnabled.value,
-      projectionDisplayIds: selectedProjectionIds.value,
+      operatorDisplayProjectionEnabled: operatorDisplayProjectionEnabled.value,
+      projectionDisplayIds: selectedExternalProjectionIds.value,
       audioDisplayId: audioDisplayId.value,
       projectionOutputs: areas,
     });
@@ -402,7 +447,7 @@ onBeforeUnmount(() => unsubscribeStatus?.());
 .area-status { display: flex; align-items: center; gap: 8px; padding: 0 12px 10px 58px; color: #8295aa; font-size: 12px; }
 .areas-empty { display: flex; min-height: 100px; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; color: #74879d; background: #0b1520; border: 1px dashed #2d4056; border-radius: 10px; }
 .audio-options { display: flex; flex-wrap: wrap; gap: 10px 22px; }
-.summary-row { justify-content: space-between; margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
+.summary-row { justify-content: space-between; flex-wrap: wrap; margin-top: 18px; padding: 12px 14px; background: #0d1621; border: 1px solid #26384d; border-radius: 10px; }
 .summary-row > div { display: flex; align-items: center; gap: 8px; color: #aebed0; }
 .actions-row { justify-content: flex-end; margin-top: 16px; }
 :deep(.projection-area-menu) { color: #e8eef6; background: #111c29; border: 1px solid #30455e; }
