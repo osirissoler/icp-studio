@@ -2,11 +2,13 @@ import { BrowserWindow, app, screen, type Display } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
+  ActiveProjectionOutput,
   ApplyDisplayConfigurationRequest,
   DisplayConfiguration,
   DisplayInfo,
   DisplayReference,
   DisplayStatus,
+  ProjectionOutputConfiguration,
 } from '../../src/shared/display';
 
 const SETTINGS_FILENAME = 'display-settings.json';
@@ -14,6 +16,7 @@ const SETTINGS_FILENAME = 'display-settings.json';
 let configuration: DisplayConfiguration = {
   mode: 'automatic',
   projectionDisplays: [],
+  projectionOutputs: [],
   audioDisplay: null,
 };
 
@@ -37,6 +40,17 @@ function displayReference(display: Display): DisplayReference {
   };
 }
 
+function defaultOutputName(index: number): string {
+  if (index === 0) return 'Principal';
+  if (index === 1) return 'Retorno';
+  if (index === 2) return 'Lobby';
+  return `Salida ${index + 1}`;
+}
+
+function createOutputId(index: number): string {
+  return `output-${index + 1}`;
+}
+
 export function getConnectedDisplays(): DisplayInfo[] {
   const primaryDisplayId = screen.getPrimaryDisplay().id;
 
@@ -54,7 +68,9 @@ export function getConnectedDisplays(): DisplayInfo[] {
   }));
 }
 
-function validConfiguration(value: unknown): value is DisplayConfiguration {
+function validConfiguration(value: unknown): value is Omit<DisplayConfiguration, 'projectionOutputs'> & {
+  projectionOutputs?: ProjectionOutputConfiguration[];
+} {
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -63,8 +79,43 @@ function validConfiguration(value: unknown): value is DisplayConfiguration {
   return (
     (candidate.mode === 'automatic' || candidate.mode === 'custom') &&
     Array.isArray(candidate.projectionDisplays) &&
+    (candidate.projectionOutputs === undefined || Array.isArray(candidate.projectionOutputs)) &&
     (candidate.audioDisplay === null || typeof candidate.audioDisplay === 'object')
   );
+}
+
+function normalizeConfiguration(
+  value: Omit<DisplayConfiguration, 'projectionOutputs'> & {
+    projectionOutputs?: ProjectionOutputConfiguration[];
+  },
+): DisplayConfiguration {
+  const projectionOutputs = Array.isArray(value.projectionOutputs)
+    ? value.projectionOutputs
+        .filter(
+          (output) =>
+            output &&
+            typeof output.outputId === 'string' &&
+            typeof output.name === 'string' &&
+            output.display &&
+            typeof output.display === 'object',
+        )
+        .map((output) => ({
+          outputId: output.outputId,
+          name: output.name.trim() || 'Salida',
+          display: output.display,
+        }))
+    : value.projectionDisplays.map((display, index) => ({
+        outputId: createOutputId(index),
+        name: defaultOutputName(index),
+        display,
+      }));
+
+  return {
+    mode: value.mode,
+    projectionDisplays: value.projectionDisplays,
+    projectionOutputs,
+    audioDisplay: value.audioDisplay,
+  };
 }
 
 export async function loadDisplayConfiguration(): Promise<void> {
@@ -78,7 +129,7 @@ export async function loadDisplayConfiguration(): Promise<void> {
     const raw = await readFile(settingsPath(), 'utf-8');
     const parsed: unknown = JSON.parse(raw);
     if (validConfiguration(parsed)) {
-      configuration = parsed;
+      configuration = normalizeConfiguration(parsed);
     }
   } catch {
     // La primera ejecución usa la configuración automática predeterminada.
@@ -120,8 +171,43 @@ function matchReference(
   return ranked[0] && ranked[0].score >= 30 ? ranked[0].display : null;
 }
 
+function resolveConfiguredOutputs(selected: Display[]): ActiveProjectionOutput[] {
+  const usedDisplayIds = new Set<number>();
+  const resolved: ActiveProjectionOutput[] = [];
+
+  for (const output of configuration.projectionOutputs) {
+    const display = matchReference(output.display, selected, usedDisplayIds);
+    if (!display) {
+      continue;
+    }
+
+    usedDisplayIds.add(display.id);
+    resolved.push({
+      outputId: output.outputId,
+      name: output.name,
+      displayId: display.id,
+    });
+  }
+
+  for (const display of selected) {
+    if (usedDisplayIds.has(display.id)) {
+      continue;
+    }
+
+    const index = resolved.length;
+    resolved.push({
+      outputId: createOutputId(index),
+      name: defaultOutputName(index),
+      displayId: display.id,
+    });
+  }
+
+  return resolved;
+}
+
 export interface ResolvedProjectionTargets {
   displays: Display[];
+  outputs: ActiveProjectionOutput[];
   audioDisplayId: number | null;
   usesOperatorDisplay: boolean;
 }
@@ -152,13 +238,15 @@ export function resolveProjectionTargets(): ResolvedProjectionTargets {
     selected = [primary];
   }
 
+  const outputs = resolveConfiguredOutputs(selected);
+
   let audioDisplayId: number | null = null;
   if (!usesOperatorDisplay && selected.length > 0) {
     const matchedAudio = matchReference(configuration.audioDisplay, selected);
     audioDisplayId = matchedAudio?.id ?? null;
   }
 
-  return { displays: selected, audioDisplayId, usesOperatorDisplay };
+  return { displays: selected, outputs, audioDisplayId, usesOperatorDisplay };
 }
 
 export function getDisplayStatus(): DisplayStatus {
@@ -167,6 +255,7 @@ export function getDisplayStatus(): DisplayStatus {
     displays: getConnectedDisplays(),
     configuration,
     activeProjectionDisplayIds: resolved.displays.map((display) => display.id),
+    activeProjectionOutputs: resolved.outputs,
     audioDisplayId: resolved.audioDisplayId,
     usesOperatorDisplay: resolved.usesOperatorDisplay,
   };
@@ -192,9 +281,22 @@ export async function applyDisplayConfiguration(
             display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
         ) ?? null;
 
+  const previousOutputs = configuration.projectionOutputs;
+  const projectionOutputs = selected.map((display, index) => {
+    const previous = previousOutputs.find((output) => matchScore(output.display, display) >= 30);
+    const requestedName = request.outputNames?.[display.id]?.trim();
+
+    return {
+      outputId: previous?.outputId ?? createOutputId(index),
+      name: requestedName || previous?.name || defaultOutputName(index),
+      display: displayReference(display),
+    };
+  });
+
   configuration = {
     mode: request.mode === 'custom' ? 'custom' : 'automatic',
     projectionDisplays: selected.map(displayReference),
+    projectionOutputs,
     audioDisplay: audio ? displayReference(audio) : null,
   };
 
