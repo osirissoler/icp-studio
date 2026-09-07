@@ -2,18 +2,41 @@ import type { Router } from 'vue-router';
 import { watch } from 'vue';
 import { useProjectionWorkspaceStore } from '../stores/projection-workspace-store';
 
-const supportedRoutes = new Set([
-  '/ruleta',
-  '/reloj-tiempo',
-  '/metronomo',
-  '/actividades/imagen-escondida',
-]);
+const calendarRoute = '/calendario';
+const knownHeaderSelectors: Record<string, string> = {
+  '/ruleta': '.header-actions',
+  '/reloj-tiempo': '.header-actions',
+  '/metronomo': '.metronome-header-actions',
+  '/actividades/imagen-escondida': '.page-header',
+};
 
-function headerSelector(path: string): string | null {
-  if (path === '/metronomo') return '.metronome-header-actions';
-  if (path === '/actividades/imagen-escondida') return '.page-header';
-  if (path === '/ruleta' || path === '/reloj-tiempo') return '.header-actions';
-  return null;
+const liveActionLabels = [
+  'enviar a en vivo',
+  'enviar en vivo',
+  'comenzar en vivo',
+  'actualizar en vivo',
+  'control en vivo',
+];
+
+function hasLiveAction(element: HTMLElement): boolean {
+  const text = (element.textContent ?? '').toLocaleLowerCase('es');
+  return liveActionLabels.some((label) => text.includes(label));
+}
+
+function findPresentableTarget(path: string): HTMLElement | null {
+  if (path === calendarRoute) return null;
+
+  const knownSelector = knownHeaderSelectors[path];
+  if (knownSelector) {
+    const knownTarget = document.querySelector<HTMLElement>(knownSelector);
+    if (knownTarget) return knownTarget;
+  }
+
+  const candidates = document.querySelectorAll<HTMLElement>(
+    '.header-actions, .metronome-header-actions, .page-header',
+  );
+
+  return [...candidates].find(hasLiveAction) ?? null;
 }
 
 export function installProjectionDestinationPortal(router: Router): () => void {
@@ -116,15 +139,17 @@ export function installProjectionDestinationPortal(router: Router): () => void {
     renderQueued = false;
     decorateMonitorHeader();
 
-    const path = router.currentRoute.value.path;
-    if (!supportedRoutes.has(path) || workspaceStore.outputs.length === 0) {
+    if (workspaceStore.outputs.length === 0) {
       removePortal();
       return;
     }
 
-    const selector = headerSelector(path);
-    const nextTarget = selector ? document.querySelector<HTMLElement>(selector) : null;
-    if (!nextTarget) return;
+    const path = router.currentRoute.value.path;
+    const nextTarget = findPresentableTarget(path);
+    if (!nextTarget) {
+      removePortal();
+      return;
+    }
 
     if (target !== nextTarget || !portal?.isConnected) {
       removePortal();
@@ -155,11 +180,11 @@ export function installProjectionDestinationPortal(router: Router): () => void {
 
   observer = new MutationObserver(() => {
     const undecoratedMonitor = document.querySelector('.monitor-header:not([data-tool-header="true"])');
-    const path = router.currentRoute.value.path;
+    const nextTarget = findPresentableTarget(router.currentRoute.value.path);
     const needsPortal =
-      supportedRoutes.has(path) &&
       workspaceStore.outputs.length > 0 &&
-      (!portal?.isConnected || !target?.isConnected);
+      Boolean(nextTarget) &&
+      (!portal?.isConnected || !target?.isConnected || target !== nextTarget);
     if (undecoratedMonitor || needsPortal) queueRender();
   });
   observer.observe(document.body, { childList: true, subtree: true });
