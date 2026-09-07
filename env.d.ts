@@ -7,7 +7,11 @@ import type {
   BibleTransferResult,
   BibleVersion,
 } from './src/shared/bible';
-import type { DisplayInfo } from './src/shared/display';
+import type {
+  ApplyDisplayConfigurationRequest,
+  DisplayInfo,
+  DisplayStatus,
+} from './src/shared/display';
 import type { MediaImportProgress, MediaKind, MediaLibraryItem } from './src/shared/media';
 import type { MediaPlaybackCommand, ProjectionState } from './src/shared/projection';
 import type {
@@ -21,7 +25,11 @@ import type { DefaultSongCollection } from './src/shared/song';
 interface IcpStudioApi {
   displays: {
     list: () => Promise<DisplayInfo[]>;
+    getStatus: () => Promise<DisplayStatus>;
+    applyConfiguration: (request: ApplyDisplayConfigurationRequest) => Promise<DisplayStatus>;
+    identify: () => Promise<void>;
     onChanged: (listener: (displays: DisplayInfo[]) => void) => () => void;
+    onStatusChanged: (listener: (status: DisplayStatus) => void) => () => void;
   };
   bible: {
     getVersions: () => Promise<BibleVersion[]>;
