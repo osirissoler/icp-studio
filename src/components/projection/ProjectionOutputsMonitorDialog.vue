@@ -271,14 +271,19 @@ function displaySummary(displayIds: number[]): string {
 
 <style scoped>
 .monitor-dialog {
+  display: flex;
+  width: 100vw;
   height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
   color: #e8eef6;
   background: #08111b;
 }
 
 .monitor-header {
   display: flex;
-  height: 72px;
+  min-height: 72px;
+  flex: 0 0 72px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -301,23 +306,30 @@ function displaySummary(displayIds: number[]): string {
 }
 
 .monitor-body {
-  height: calc(100vh - 73px);
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
   padding: 16px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .monitor-grid {
   display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  grid-auto-rows: 620px;
-  align-items: start;
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .monitor-card {
   display: flex;
-  height: 620px;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
   flex-direction: column;
   overflow: hidden;
   color: #dbe7f5;
@@ -572,7 +584,8 @@ function displaySummary(displayIds: number[]): string {
 
 .monitor-empty {
   display: flex;
-  min-height: 50vh;
+  width: 100%;
+  height: 100%;
   align-items: center;
   justify-content: center;
   flex-direction: column;
@@ -582,8 +595,9 @@ function displaySummary(displayIds: number[]): string {
 
 @media (max-width: 780px) {
   .monitor-grid {
-    grid-template-columns: 1fr;
-    grid-auto-rows: 620px;
+    grid-template-columns: minmax(360px, 1fr);
+    grid-auto-columns: minmax(360px, 1fr);
+    grid-auto-flow: column;
   }
 }
 </style>
