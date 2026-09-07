@@ -29,7 +29,10 @@ import { type ClockDisplayStyle, type TimeToolMode } from '../src/shared/time-to
 
 import { WINDOW_CHANNELS } from '../src/shared/window';
 
-import { DISPLAY_CHANNELS, type DisplayInfo } from '../src/shared/display';
+import {
+  DISPLAY_CHANNELS,
+  type ApplyDisplayConfigurationRequest,
+} from '../src/shared/display';
 
 import { registerBibleIpc, unregisterBibleIpc } from './bible/bible-ipc';
 
@@ -38,6 +41,15 @@ import { closeBibleDatabase } from './bible/bible-database';
 import { registerSongIpc, unregisterSongIpc } from './song/song-ipc';
 
 import { registerMediaIpc, unregisterMediaIpc } from './media/media-ipc';
+
+import {
+  applyDisplayConfiguration,
+  getConnectedDisplays,
+  getDisplayStatus,
+  identifyDisplays,
+  loadDisplayConfiguration,
+  resolveProjectionTargets,
+} from './display/display-settings';
 
 import {
   REMOTE_CHANNELS,
@@ -263,30 +275,6 @@ function registerMediaProtocol(): void {
   );
 }
 
-function getConnectedDisplays(): DisplayInfo[] {
-  const primaryDisplayId = screen.getPrimaryDisplay().id;
-
-  return screen.getAllDisplays().map((display, index) => ({
-    id: display.id,
-
-    label: display.label || `Pantalla ${index + 1}`,
-
-    isPrimary: display.id === primaryDisplayId,
-
-    bounds: {
-      x: display.bounds.x,
-
-      y: display.bounds.y,
-
-      width: display.bounds.width,
-
-      height: display.bounds.height,
-    },
-
-    scaleFactor: display.scaleFactor,
-  }));
-}
-
 const windows: {
   main: BrowserWindow | null;
 } = {
@@ -297,46 +285,90 @@ const projectionWindows = new Map<number, BrowserWindow>();
 
 function notifyRendererDisplays(): void {
   windows.main?.webContents.send(DISPLAY_CHANNELS.changed, getConnectedDisplays());
+  windows.main?.webContents.send(DISPLAY_CHANNELS.statusChanged, getDisplayStatus());
 }
 
-async function synchronizeProjectionWindows(): Promise<void> {
-  const primaryDisplay = screen.getPrimaryDisplay();
+async function closeProjectionWindows(): Promise<void> {
+  for (const projectionWindow of projectionWindows.values()) {
+    if (!projectionWindow.isDestroyed()) {
+      projectionWindow.close();
+    }
+  }
+  projectionWindows.clear();
+}
 
-  const externalDisplays = screen
-    .getAllDisplays()
-    .filter((display) => display.id !== primaryDisplay.id);
-
-  const usesOperatorDisplay = externalDisplays.length === 0;
-
-  const outputDisplays = usesOperatorDisplay ? [primaryDisplay] : externalDisplays;
-
+async function synchronizeProjectionWindows(forceRecreate = false): Promise<void> {
+  const { displays: outputDisplays, audioDisplayId, usesOperatorDisplay } = resolveProjectionTargets();
   const outputDisplayIds = new Set(outputDisplays.map((display) => display.id));
 
-  for (const [displayId, projectionWindow] of projectionWindows) {
-    if (!outputDisplayIds.has(displayId)) {
-      projectionWindows.delete(displayId);
+  if (forceRecreate) {
+    await closeProjectionWindows();
+  } else {
+    for (const [displayId, projectionWindow] of projectionWindows) {
+      if (!outputDisplayIds.has(displayId)) {
+        projectionWindows.delete(displayId);
 
-      if (!projectionWindow.isDestroyed()) {
-        projectionWindow.close();
+        if (!projectionWindow.isDestroyed()) {
+          projectionWindow.close();
+        }
       }
     }
   }
 
   for (const [index, display] of outputDisplays.entries()) {
     if (!projectionWindows.has(display.id)) {
-      await createProjectionWindow(display, index, usesOperatorDisplay);
+      await createProjectionWindow(
+        display,
+        index,
+        usesOperatorDisplay,
+        display.id === audioDisplayId,
+      );
     }
   }
-}
-
-function handleDisplayConfigurationChanged(): void {
-  void synchronizeProjectionWindows();
 
   notifyRendererDisplays();
 }
 
+function handleDisplayConfigurationChanged(): void {
+  void synchronizeProjectionWindows();
+}
+
+function isDisplayConfigurationRequest(value: unknown): value is ApplyDisplayConfigurationRequest {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<ApplyDisplayConfigurationRequest>;
+  return (
+    (request.mode === 'automatic' || request.mode === 'custom') &&
+    Array.isArray(request.projectionDisplayIds) &&
+    request.projectionDisplayIds.every((id) => typeof id === 'number' && Number.isInteger(id)) &&
+    (request.audioDisplayId === null ||
+      (typeof request.audioDisplayId === 'number' && Number.isInteger(request.audioDisplayId)))
+  );
+}
+
 function registerDisplayMonitoring(): void {
   ipcMain.handle(DISPLAY_CHANNELS.list, () => getConnectedDisplays());
+
+  ipcMain.handle(DISPLAY_CHANNELS.getStatus, () => getDisplayStatus());
+
+  ipcMain.handle(DISPLAY_CHANNELS.applyConfiguration, async (event, value: unknown) => {
+    if (event.sender !== windows.main?.webContents || !isDisplayConfigurationRequest(value)) {
+      throw new Error('Configuración de pantallas inválida.');
+    }
+
+    await applyDisplayConfiguration(value);
+    await synchronizeProjectionWindows(true);
+    return getDisplayStatus();
+  });
+
+  ipcMain.handle(DISPLAY_CHANNELS.identify, async (event) => {
+    if (event.sender !== windows.main?.webContents) {
+      return;
+    }
+    await identifyDisplays();
+  });
 
   screen.on('display-added', handleDisplayConfigurationChanged);
 
@@ -347,6 +379,9 @@ function registerDisplayMonitoring(): void {
 
 function unregisterDisplayMonitoring(): void {
   ipcMain.removeHandler(DISPLAY_CHANNELS.list);
+  ipcMain.removeHandler(DISPLAY_CHANNELS.getStatus);
+  ipcMain.removeHandler(DISPLAY_CHANNELS.applyConfiguration);
+  ipcMain.removeHandler(DISPLAY_CHANNELS.identify);
 
   screen.off('display-added', handleDisplayConfigurationChanged);
 
@@ -1041,6 +1076,7 @@ async function createProjectionWindow(
   display: Display | null,
   index: number,
   usesOperatorDisplay = false,
+  audioMaster = false,
 ): Promise<void> {
   const displayWindowOptions = display
     ? {
@@ -1167,15 +1203,11 @@ async function createProjectionWindow(
   );
 
   /*
-   * Si hay tres proyectores:
-   *
-   * proyector 1 -> imagen + sonido
-   * proyector 2 -> imagen sin sonido
-   * proyector 3 -> imagen sin sonido
-   *
-   * Esto evita tres clics simultáneos.
+   * Solo la pantalla configurada como audio principal
+   * reproduce el clic del metrónomo. Las demás conservan
+   * exactamente la misma imagen sin duplicar el sonido.
    */
-  const metronomeAudioMaster = index === 0 ? '1' : '0';
+  const metronomeAudioMaster = audioMaster ? '1' : '0';
 
   await loadAppWindow(projectorWindow, `/projector?metronomeAudio=${metronomeAudioMaster}`);
 }
@@ -1215,6 +1247,7 @@ async function createWindow(): Promise<void> {
 
   await loadAppWindow(mainWindow);
 
+  await loadDisplayConfiguration();
   await synchronizeProjectionWindows();
 
   if (import.meta.env.QUASAR_DEBUG) {
