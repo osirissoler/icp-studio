@@ -17,7 +17,12 @@ import {
 } from '../src/shared/projection';
 import { SONG_CHANNELS, type DefaultSongCollection } from '../src/shared/song';
 import { WINDOW_CHANNELS } from '../src/shared/window';
-import { DISPLAY_CHANNELS, type DisplayInfo } from '../src/shared/display';
+import {
+  DISPLAY_CHANNELS,
+  type ApplyDisplayConfigurationRequest,
+  type DisplayInfo,
+  type DisplayStatus,
+} from '../src/shared/display';
 import {
   MEDIA_CHANNELS,
   type MediaImportProgress,
@@ -36,12 +41,31 @@ const displayApi = {
   list: (): Promise<DisplayInfo[]> => {
     return ipcRenderer.invoke(DISPLAY_CHANNELS.list) as Promise<DisplayInfo[]>;
   },
+  getStatus: (): Promise<DisplayStatus> => {
+    return ipcRenderer.invoke(DISPLAY_CHANNELS.getStatus) as Promise<DisplayStatus>;
+  },
+  applyConfiguration: (request: ApplyDisplayConfigurationRequest): Promise<DisplayStatus> => {
+    return ipcRenderer.invoke(
+      DISPLAY_CHANNELS.applyConfiguration,
+      request,
+    ) as Promise<DisplayStatus>;
+  },
+  identify: (): Promise<void> => {
+    return ipcRenderer.invoke(DISPLAY_CHANNELS.identify) as Promise<void>;
+  },
   onChanged: (listener: (displays: DisplayInfo[]) => void): (() => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, displays: DisplayInfo[]) =>
       listener(displays);
 
     ipcRenderer.on(DISPLAY_CHANNELS.changed, subscription);
     return () => ipcRenderer.removeListener(DISPLAY_CHANNELS.changed, subscription);
+  },
+  onStatusChanged: (listener: (status: DisplayStatus) => void): (() => void) => {
+    const subscription = (_event: Electron.IpcRendererEvent, status: DisplayStatus) =>
+      listener(status);
+
+    ipcRenderer.on(DISPLAY_CHANNELS.statusChanged, subscription);
+    return () => ipcRenderer.removeListener(DISPLAY_CHANNELS.statusChanged, subscription);
   },
 };
 
