@@ -12,6 +12,7 @@ import type { BibleBook, BiblePassage, BibleVerse } from '../shared/bible';
 import type { DocumentFormat, MediaKind, MediaLibraryItem } from '../shared/media';
 import type { LibraryViewModule } from '../shared/library-view';
 import type { PresentationFrame, ServicePresentationItem } from '../shared/presentation';
+import type { MediaPlaybackCommand } from '../shared/projection';
 import type {
   RemoteBridgeRequest,
   RemoteCatalogItem,
@@ -309,7 +310,10 @@ async function handleRemoteRequest(request: RemoteBridgeRequest): Promise<void> 
     } else if (request.action === 'control-media') {
       const action = stringPayload(request.payload.action);
       if (action !== 'play' && action !== 'pause' && action !== 'seek') throw new Error('Control de reproducción inválido.');
-      const command = { action, ...(typeof request.payload.time === 'number' ? { time: request.payload.time } : {}) };
+      const command: MediaPlaybackCommand = {
+        action,
+        ...(typeof request.payload.time === 'number' ? { time: request.payload.time } : {}),
+      };
       if (outputId) workspaceStore.controlWorkspaceMedia(outputId, command);
       else presentationStore.controlLiveMedia(command);
       data = state();
