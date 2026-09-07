@@ -55,6 +55,21 @@ function createOutputId(): string {
   return `projection-area-${randomUUID()}`;
 }
 
+function uniqueOutputId(preferred: string | undefined, usedIds: Set<string>): string {
+  const normalized = preferred?.trim() ?? '';
+  if (normalized && !usedIds.has(normalized)) {
+    usedIds.add(normalized);
+    return normalized;
+  }
+
+  let generated = createOutputId();
+  while (usedIds.has(generated)) {
+    generated = createOutputId();
+  }
+  usedIds.add(generated);
+  return generated;
+}
+
 export function getConnectedDisplays(): DisplayInfo[] {
   const primaryDisplayId = screen.getPrimaryDisplay().id;
 
@@ -103,6 +118,7 @@ function validConfiguration(value: unknown): value is StoredDisplayConfiguration
 
 function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfiguration {
   const storedOutputs = Array.isArray(value.projectionOutputs) ? value.projectionOutputs : [];
+  const usedOutputIds = new Set<string>();
   const projectionOutputs: ProjectionOutputConfiguration[] = storedOutputs
     .filter(
       (output) =>
@@ -112,19 +128,16 @@ function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfi
         (output.display === null || typeof output.display === 'object'),
     )
     .map((output, index) => ({
-      outputId: output.outputId.trim() || createOutputId(),
+      outputId: uniqueOutputId(output.outputId, usedOutputIds),
       name: output.name.trim() || defaultOutputName(index),
       enabled: output.enabled !== false,
       display: output.display,
     }));
 
-  // Versiones anteriores creaban una "salida" por monitor automáticamente.
-  // Las conservamos como áreas preparadas, pero el modo independiente queda
-  // apagado hasta que el usuario lo habilite explícitamente.
   if (projectionOutputs.length === 0 && value.projectionDisplays.length > 0) {
     value.projectionDisplays.forEach((display, index) => {
       projectionOutputs.push({
-        outputId: createOutputId(),
+        outputId: uniqueOutputId(undefined, usedOutputIds),
         name: defaultOutputName(index),
         enabled: true,
         display,
@@ -153,6 +166,7 @@ export async function loadDisplayConfiguration(): Promise<void> {
     const parsed: unknown = JSON.parse(raw);
     if (validConfiguration(parsed)) {
       configuration = normalizeConfiguration(parsed);
+      await persistConfiguration();
     }
   } catch {
     // La primera ejecución usa modo espejo/automático.
@@ -283,15 +297,16 @@ function buildProjectionOutputs(
   request: ApplyDisplayConfigurationRequest,
   selected: Display[],
 ): ProjectionOutputConfiguration[] {
+  const usedOutputIds = new Set<string>();
+
   if (!Array.isArray(request.projectionOutputs)) {
-    // Compatibilidad con el panel anterior, que enviaba únicamente nombres.
     if (request.outputNames) {
       return selected.map((display, index) => {
         const previous = configuration.projectionOutputs.find(
           (output) => output.display && matchScore(output.display, display) >= 30,
         );
         return {
-          outputId: previous?.outputId ?? createOutputId(),
+          outputId: uniqueOutputId(previous?.outputId, usedOutputIds),
           name: request.outputNames?.[display.id]?.trim() || previous?.name || defaultOutputName(index),
           enabled: true,
           display: displayReference(display),
@@ -299,7 +314,10 @@ function buildProjectionOutputs(
       });
     }
 
-    return configuration.projectionOutputs;
+    return configuration.projectionOutputs.map((output) => ({
+      ...output,
+      outputId: uniqueOutputId(output.outputId, usedOutputIds),
+    }));
   }
 
   const usedDisplayIds = new Set<number>();
@@ -320,7 +338,7 @@ function buildProjectionOutputs(
         : undefined;
 
       return {
-        outputId: previous?.outputId ?? createOutputId(),
+        outputId: uniqueOutputId(previous?.outputId ?? output.outputId, usedOutputIds),
         name: output.name.trim().slice(0, 60) || previous?.name || defaultOutputName(index),
         enabled: output.enabled !== false,
         display: display ? displayReference(display) : null,
