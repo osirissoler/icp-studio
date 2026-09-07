@@ -16,6 +16,7 @@
               clearable
               placeholder="Buscar por número, título, autor o letra..."
               class="song-search"
+              @clear="searchText = ''"
             >
               <template #prepend><q-icon name="search" /></template>
             </q-input>
@@ -321,7 +322,7 @@ const projectionSettings = useProjectionSettingsStore();
 const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 
 const songs = ref<Song[]>([]);
-const searchText = ref('');
+const searchText = ref<string | null>('');
 const selectedSong = ref<Song | null>(null);
 const selectedSongIds = ref(new Set<string>());
 const selectionMode = ref(false);
@@ -336,21 +337,17 @@ let lastSelectionIndex: number | null = null;
 const normalizedSearch = computed(() => normalize(searchText.value));
 const libraryViewMode = computed(() => libraryViewSettings.views.song);
 const filteredSongs = computed(() => {
-  const term = normalizedSearch.value;
+  const terms = normalizedSearch.value.split(' ').filter(Boolean);
 
-  return term
-    ? songs.value.filter((song) => {
-        const searchableText = [
-          song.title,
-          song.author,
-          ...song.parts.map((part) => part.content),
-        ]
-          .map(normalize)
-          .join(' ');
+  if (!terms.length) return songs.value;
 
-        return searchableText.includes(term);
-      })
-    : songs.value;
+  return songs.value.filter((song) => {
+    const searchableText = normalize(
+      [song.title, song.author, ...song.parts.map((part) => part.content)].join(' '),
+    );
+
+    return terms.every((term) => searchableText.includes(term));
+  });
 });
 const allFilteredSongsSelected = computed(
   () =>
@@ -372,11 +369,13 @@ const livePartPosition = computed(() => {
   return liveSong.value.parts.findIndex((part) => part.id === livePart.value?.id) + 1;
 });
 
-function normalize(value: string): string {
-  return value
+function normalize(value: string | null | undefined): string {
+  return (value ?? '')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
