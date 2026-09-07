@@ -4,7 +4,7 @@
       <q-card-section class="monitor-header">
         <div>
           <strong>Monitoreo de pantallas</strong>
-          <small>Cada área conserva su propia pantalla en vivo, contenido activo, orden y desplazamiento.</small>
+          <small>Cada área conserva su propia pantalla en vivo, contenido activo, orden, controles y desplazamiento.</small>
         </div>
         <q-btn flat round icon="close" color="blue-grey-3" @click="dialogOpen = false" />
       </q-card-section>
@@ -31,7 +31,7 @@
               </div>
               <q-badge
                 :color="activeOutputId === output.outputId ? 'primary' : 'blue-grey-8'"
-                :label="activeOutputId === output.outputId ? 'Área del operador' : 'Monitoreando'"
+                :label="activeOutputId === output.outputId ? 'Área del operador' : 'Control independiente'"
               />
             </header>
 
@@ -69,6 +69,19 @@
                     <q-badge v-if="liveFrame(output.outputId)" color="primary" label="Seleccionado" />
                     <q-btn flat round dense size="xs" icon="keyboard_arrow_down" :disable="!canMoveFrame(output.outputId, 1)" aria-label="Contenido siguiente" @mousedown.stop @click.stop="moveFrame(output.outputId, 1)">
                       <q-tooltip>Contenido siguiente</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      size="xs"
+                      icon="delete_sweep"
+                      color="red-4"
+                      :disable="!workspace(output.outputId).liveItem"
+                      @mousedown.stop
+                      @click.stop="workspaceStore.clearWorkspaceLive(output.outputId)"
+                    >
+                      <q-tooltip>Limpiar esta salida</q-tooltip>
                     </q-btn>
                   </span>
                 </header>
@@ -123,6 +136,18 @@
                         muted
                         preload="metadata"
                       />
+                      <div class="media-playback-controls">
+                        <q-btn
+                          flat
+                          round
+                          dense
+                          size="sm"
+                          :icon="workspace(output.outputId).mediaPlayback.isPlaying ? 'pause' : 'play_arrow'"
+                          color="primary"
+                          @click="toggleMedia(output.outputId)"
+                        />
+                        <small>{{ workspace(output.outputId).mediaPlayback.isPlaying ? 'Reproduciendo' : 'Pausado' }}</small>
+                      </div>
                     </div>
 
                     <div
@@ -131,6 +156,18 @@
                     >
                       <q-icon name="album" size="52px" />
                       <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
+                      <div class="media-playback-controls">
+                        <q-btn
+                          flat
+                          round
+                          dense
+                          size="sm"
+                          :icon="workspace(output.outputId).mediaPlayback.isPlaying ? 'pause' : 'play_arrow'"
+                          color="primary"
+                          @click="toggleMedia(output.outputId)"
+                        />
+                        <small>{{ workspace(output.outputId).mediaPlayback.isPlaying ? 'Reproduciendo' : 'Pausado' }}</small>
+                      </div>
                     </div>
 
                     <DocumentViewer
@@ -140,7 +177,7 @@
                         liveFrame(output.outputId)?.documentFormat
                       "
                       :url="liveFrame(output.outputId)?.mediaUrl ?? ''"
-                      :format="liveFrame(output.outputId)!.documentFormat!"
+                      :format="liveFrame(output.outputId)?.documentFormat ?? 'pdf'"
                       :page-index="liveFrame(output.outputId)?.pageIndex ?? 0"
                     />
 
@@ -184,7 +221,99 @@
 
                 <div v-else class="active-content-shell" :style="activeContentStyle">
                   <div v-if="workspace(output.outputId).liveItem" class="active-content-list">
-                    <div class="active-content-title">{{ workspace(output.outputId).liveItem?.title }}</div>
+                    <div class="active-content-title-row">
+                      <div class="active-content-title">{{ workspace(output.outputId).liveItem?.title }}</div>
+
+                      <div
+                        v-if="workspace(output.outputId).liveItem?.type === 'game' && liveFrame(output.outputId)?.roulette"
+                        class="tool-actions"
+                      >
+                        <q-toggle
+                          :model-value="liveFrame(output.outputId)?.roulette?.timedSpin ?? false"
+                          dark
+                          dense
+                          size="xs"
+                          color="primary"
+                          label="Tiempo"
+                          :disable="liveFrame(output.outputId)?.roulette?.spinning"
+                          @update:model-value="workspaceStore.setWorkspaceRouletteTimed(output.outputId, Boolean($event))"
+                        />
+                        <q-input
+                          v-if="liveFrame(output.outputId)?.roulette?.timedSpin"
+                          :model-value="rouletteSeconds(output.outputId)"
+                          dark
+                          outlined
+                          dense
+                          type="number"
+                          min="1"
+                          max="600"
+                          suffix="seg"
+                          :disable="liveFrame(output.outputId)?.roulette?.spinning"
+                          @update:model-value="setRouletteSeconds(output.outputId, $event)"
+                        />
+                        <q-btn
+                          v-if="!liveFrame(output.outputId)?.roulette?.spinning"
+                          unelevated
+                          no-caps
+                          dense
+                          size="sm"
+                          color="primary"
+                          icon="play_arrow"
+                          label="Girar"
+                          :disable="(liveFrame(output.outputId)?.roulette?.options.length ?? 0) < 2"
+                          @click="workspaceStore.spinWorkspaceRoulette(output.outputId)"
+                        />
+                        <q-btn
+                          v-else
+                          unelevated
+                          no-caps
+                          dense
+                          size="sm"
+                          color="red-6"
+                          icon="stop"
+                          label="Detener"
+                          @click="workspaceStore.stopWorkspaceRoulette(output.outputId)"
+                        />
+                        <q-btn flat round dense size="sm" icon="restart_alt" @click="workspaceStore.resetWorkspaceRoulette(output.outputId)">
+                          <q-tooltip>Reiniciar ruleta</q-tooltip>
+                        </q-btn>
+                      </div>
+
+                      <div
+                        v-else-if="workspace(output.outputId).liveItem?.type === 'time-tool' && liveFrame(output.outputId)?.timeTool"
+                        class="tool-actions"
+                      >
+                        <q-badge color="blue-grey-8" :label="timeToolModeLabel(output.outputId)" />
+                        <template v-if="liveFrame(output.outputId)?.timeTool?.mode !== 'clock'">
+                          <q-btn
+                            v-if="!liveFrame(output.outputId)?.timeTool?.running"
+                            unelevated
+                            no-caps
+                            dense
+                            size="sm"
+                            color="primary"
+                            icon="play_arrow"
+                            label="Iniciar"
+                            @click="workspaceStore.startWorkspaceTimeTool(output.outputId)"
+                          />
+                          <q-btn
+                            v-else
+                            unelevated
+                            no-caps
+                            dense
+                            size="sm"
+                            color="orange-7"
+                            icon="pause"
+                            label="Pausar"
+                            @click="workspaceStore.pauseWorkspaceTimeTool(output.outputId)"
+                          />
+                          <q-btn flat round dense size="sm" icon="restart_alt" @click="workspaceStore.resetWorkspaceTimeTool(output.outputId)">
+                            <q-tooltip>Reiniciar</q-tooltip>
+                          </q-btn>
+                        </template>
+                        <q-badge v-else color="positive" label="Funcionando" />
+                      </div>
+                    </div>
 
                     <button
                       v-for="(frame, frameIndex) in workspace(output.outputId).liveItem?.frames ?? []"
@@ -333,6 +462,31 @@ function canMoveFrame(outputId: string, direction: -1 | 1): boolean {
   return snapshot.liveFrameIndex < frameCount - 1;
 }
 
+function toggleMedia(outputId: string): void {
+  const snapshot = workspace(outputId);
+  workspaceStore.controlWorkspaceMedia(outputId, {
+    action: snapshot.mediaPlayback.isPlaying ? 'pause' : 'play',
+    time: snapshot.mediaPlayback.time,
+  });
+}
+
+function rouletteSeconds(outputId: string): number {
+  return Math.max(1, Math.round((liveFrame(outputId)?.roulette?.spinDuration ?? 6000) / 1000));
+}
+
+function setRouletteSeconds(outputId: string, value: string | number | null): void {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return;
+  workspaceStore.setWorkspaceRouletteDuration(outputId, seconds * 1000);
+}
+
+function timeToolModeLabel(outputId: string): string {
+  const mode = liveFrame(outputId)?.timeTool?.mode;
+  if (mode === 'timer') return 'Temporizador';
+  if (mode === 'stopwatch') return 'Cronómetro';
+  return 'Reloj';
+}
+
 function frameContentLabel(frame: PresentationFrame): string {
   if (frame.mediaType === 'image') return 'Imagen';
   if (frame.mediaType === 'video') return 'Video';
@@ -374,13 +528,20 @@ function displaySummary(displayIds: number[]): string {
 .technical-screen { position: relative; display: flex; min-height: 0; flex: 1; align-items: center; justify-content: center; overflow: hidden; text-align: center; }
 .technical-screen--activity { align-items: stretch !important; justify-content: stretch !important; }
 .live-media, .live-video { width: 100%; height: 100%; object-fit: contain; }
-.live-video { display: flex; min-height: 0; align-items: center; justify-content: center; }
-.live-audio { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--projection-text-color, inherit); }
+.live-video { position: relative; display: flex; min-height: 0; align-items: center; justify-content: center; }
+.live-audio { position: relative; display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--projection-text-color, inherit); }
+.media-playback-controls { position: absolute; right: 8px; bottom: 8px; left: 8px; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 5px 8px; background: rgb(0 0 0 / 55%); border-radius: 8px; }
+.media-playback-controls small { color: #dcecff; font-size: 9px; }
 .technical-selection { position: absolute; top: 8px; right: 8px; z-index: 3; max-width: 66%; padding: 4px 7px; overflow: hidden; color: var(--projection-text-color, #fff); background: rgb(0 0 0 / 42%); border: 1px solid rgb(255 255 255 / 16%); border-radius: 6px; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .screen-footer { position: absolute; right: 10px; bottom: 8px; left: 10px; z-index: 2; overflow: hidden; color: var(--projection-footer-color, #aebed4); font-size: calc(10px * var(--projection-font-scale, 1)); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .active-content-shell { min-height: 0; flex: 1; overflow: hidden; }
 .active-content-list { height: 100%; padding: 6px; overflow-y: auto; overscroll-behavior: contain; }
-.active-content-title { position: sticky; top: -6px; z-index: 1; padding: 6px 5px 8px; overflow: hidden; color: var(--active-content-text, #dce8f4); background: #0b131d; font-size: var(--active-content-font-size, 11px); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.active-content-title-row { position: sticky; top: -6px; z-index: 2; display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 6px; padding: 5px; background: #0b131d; }
+.active-content-title { min-width: 0; overflow: hidden; color: var(--active-content-text, #dce8f4); font-size: var(--active-content-font-size, 11px); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.tool-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 4px; }
+.tool-actions .q-field { width: 82px; }
+.tool-actions :deep(.q-field__control) { min-height: 28px; height: 28px; }
+.tool-actions :deep(.q-field__native), .tool-actions :deep(.q-field__suffix) { font-size: 9px; }
 .active-content-row { display: grid; width: 100%; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 7px; margin-bottom: 3px; padding: 5px; color: var(--inactive-content-text, #93a3b5); background: transparent; border: 1px solid transparent; border-radius: 6px; font-size: var(--active-content-font-size, 11px); text-align: left; cursor: pointer; }
 .active-content-row:hover { color: var(--active-content-text, #d9edff); background: color-mix(in srgb, var(--active-content-background, #10243a) 45%, transparent); border-color: color-mix(in srgb, var(--active-content-border, #284b6c) 55%, transparent); }
 .active-content-row--selected { color: var(--active-content-text, #f2f8ff); background: var(--active-content-background, #1d4f7d); border-color: var(--active-content-border, #60a5fa); box-shadow: inset 3px 0 var(--active-content-border, #60a5fa); }
