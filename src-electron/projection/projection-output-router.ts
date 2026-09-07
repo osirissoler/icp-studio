@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, type Display } from 'electron';
 import type { ActiveProjectionOutput } from '../../src/shared/display';
 import {
   PROJECTION_CHANNELS,
+  type MediaPlaybackCommand,
+  type MediaPlaybackDispatchRequest,
   type ProjectionDispatchRequest,
   type ProjectionState,
 } from '../../src/shared/projection';
@@ -56,6 +58,19 @@ function isProjectionState(value: unknown): value is ProjectionState {
   );
 }
 
+function isMediaPlaybackCommand(value: unknown): value is MediaPlaybackCommand {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const command = value as Partial<MediaPlaybackCommand>;
+  return (
+    (command.action === 'play' || command.action === 'pause' || command.action === 'seek') &&
+    (command.time === undefined ||
+      (typeof command.time === 'number' && Number.isFinite(command.time)))
+  );
+}
+
 function isDispatchRequest(value: unknown): value is ProjectionDispatchRequest {
   if (!value || typeof value !== 'object') {
     return false;
@@ -67,6 +82,20 @@ function isDispatchRequest(value: unknown): value is ProjectionDispatchRequest {
     request.outputId.length > 0 &&
     request.outputId.length <= 120 &&
     isProjectionState(request.state)
+  );
+}
+
+function isMediaDispatchRequest(value: unknown): value is MediaPlaybackDispatchRequest {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<MediaPlaybackDispatchRequest>;
+  return (
+    typeof request.outputId === 'string' &&
+    request.outputId.length > 0 &&
+    request.outputId.length <= 120 &&
+    isMediaPlaybackCommand(request.command)
   );
 }
 
@@ -88,31 +117,47 @@ function resolveWindowOutput(
   return null;
 }
 
+function findOutputWindow(
+  outputId: string,
+  resolveTargets: ResolveProjectionTargets,
+): BrowserWindow | null {
+  const snapshot = resolveTargets();
+  const output = snapshot.outputs.find((item) => item.outputId === outputId);
+  if (!output) {
+    return null;
+  }
+
+  const display = snapshot.displays.find((item) => item.id === output.displayId);
+  if (!display) {
+    return null;
+  }
+
+  return (
+    BrowserWindow.getAllWindows().find(
+      (window) =>
+        !window.isDestroyed() &&
+        isProjectionWindow(window) &&
+        windowBelongsToDisplay(window, display),
+    ) ?? null
+  );
+}
+
 function sendStateToOutput(
   outputId: string,
   state: ProjectionState,
   resolveTargets: ResolveProjectionTargets,
 ): void {
-  const snapshot = resolveTargets();
-  const output = snapshot.outputs.find((item) => item.outputId === outputId);
-  if (!output) {
-    return;
-  }
+  const window = findOutputWindow(outputId, resolveTargets);
+  window?.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
+}
 
-  const display = snapshot.displays.find((item) => item.id === output.displayId);
-  if (!display) {
-    return;
-  }
-
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (
-      !window.isDestroyed() &&
-      isProjectionWindow(window) &&
-      windowBelongsToDisplay(window, display)
-    ) {
-      window.webContents.send(PROJECTION_CHANNELS.stateChanged, state);
-    }
-  }
+function sendMediaControlToOutput(
+  outputId: string,
+  command: MediaPlaybackCommand,
+  resolveTargets: ResolveProjectionTargets,
+): void {
+  const window = findOutputWindow(outputId, resolveTargets);
+  window?.webContents.send(PROJECTION_CHANNELS.mediaControl, command);
 }
 
 function restoreTargetedState(
@@ -156,6 +201,14 @@ export function registerProjectionOutputRouter(
 
     latestStateByOutput.set(value.outputId, value.state);
     sendStateToOutput(value.outputId, value.state, resolveTargets);
+  });
+
+  ipcMain.on(PROJECTION_CHANNELS.controlMediaForOutput, (_event, value: unknown) => {
+    if (!isMediaDispatchRequest(value)) {
+      return;
+    }
+
+    sendMediaControlToOutput(value.outputId, value.command, resolveTargets);
   });
 
   app.on('browser-window-created', (_event, window) => {
