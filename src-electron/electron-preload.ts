@@ -94,7 +94,15 @@ const projectionApi = {
     });
   },
   controlMedia: (command: MediaPlaybackCommand): void => {
-    ipcRenderer.send(PROJECTION_CHANNELS.controlMedia, command);
+    if (projectionOutputTarget === null) {
+      ipcRenderer.send(PROJECTION_CHANNELS.controlMedia, command);
+      return;
+    }
+
+    ipcRenderer.send(PROJECTION_CHANNELS.controlMediaForOutput, {
+      command,
+      outputId: projectionOutputTarget,
+    });
   },
   onMediaControl: (listener: (command: MediaPlaybackCommand) => void): (() => void) => {
     const subscription = (_event: Electron.IpcRendererEvent, command: MediaPlaybackCommand) =>
