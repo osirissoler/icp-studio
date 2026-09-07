@@ -76,50 +76,104 @@
                 <div
                   v-if="section === 'screen'"
                   class="technical-screen"
+                  :class="{
+                    'technical-screen--activity':
+                      workspace(output.outputId).liveItem?.type === 'activity' ||
+                      Boolean(liveFrame(output.outputId)?.roulette || liveFrame(output.outputId)?.timeTool),
+                  }"
                   :style="[surfaceStyle, contentLayoutStyle]"
                 >
                   <template v-if="workspace(output.outputId).liveItem && liveFrame(output.outputId)">
-                    <img v-if="liveFrame(output.outputId)?.mediaType === 'image' && liveFrame(output.outputId)?.mediaUrl" :src="liveFrame(output.outputId)?.mediaUrl" :alt="workspace(output.outputId).liveItem?.title" class="live-media" />
+                    <ActivityProjectionView
+                      v-if="workspace(output.outputId).liveItem?.type === 'activity' && liveFrame(output.outputId)?.activity"
+                      :activity="liveFrame(output.outputId)!.activity!"
+                      compact
+                    />
 
-                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'video'" class="media-placeholder">
-                      <q-icon name="movie" size="36px" />
+                    <RouletteWheel
+                      v-else-if="workspace(output.outputId).liveItem?.type === 'game' && liveFrame(output.outputId)?.roulette"
+                      :roulette="liveFrame(output.outputId)!.roulette!"
+                      compact
+                      play-sounds
+                      show-timer
+                    />
+
+                    <TimeToolDisplay
+                      v-else-if="workspace(output.outputId).liveItem?.type === 'time-tool' && liveFrame(output.outputId)?.timeTool"
+                      :tool="liveFrame(output.outputId)!.timeTool!"
+                      compact
+                      play-sounds
+                    />
+
+                    <img
+                      v-else-if="liveFrame(output.outputId)?.mediaType === 'image' && liveFrame(output.outputId)?.mediaUrl"
+                      :src="liveFrame(output.outputId)?.mediaUrl"
+                      :alt="workspace(output.outputId).liveItem?.title"
+                      class="live-media"
+                    />
+
+                    <div
+                      v-else-if="liveFrame(output.outputId)?.mediaType === 'video' && liveFrame(output.outputId)?.mediaUrl"
+                      class="live-video"
+                    >
+                      <video
+                        :key="liveFrame(output.outputId)?.id"
+                        :src="liveFrame(output.outputId)?.mediaUrl"
+                        class="live-media"
+                        muted
+                        preload="metadata"
+                      />
+                    </div>
+
+                    <div
+                      v-else-if="liveFrame(output.outputId)?.mediaType === 'audio' && liveFrame(output.outputId)?.mediaUrl"
+                      class="live-audio"
+                    >
+                      <q-icon name="album" size="52px" />
                       <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
-                      <small>Video en vivo</small>
                     </div>
 
-                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'audio'" class="media-placeholder">
-                      <q-icon name="graphic_eq" size="36px" />
-                      <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
-                      <small>Audio en vivo</small>
-                    </div>
+                    <DocumentViewer
+                      v-else-if="
+                        liveFrame(output.outputId)?.mediaType === 'document' &&
+                        liveFrame(output.outputId)?.mediaUrl &&
+                        liveFrame(output.outputId)?.documentFormat
+                      "
+                      :url="liveFrame(output.outputId)!.mediaUrl"
+                      :format="liveFrame(output.outputId)!.documentFormat!"
+                      :page-index="liveFrame(output.outputId)?.pageIndex ?? 0"
+                    />
 
-                    <div v-else-if="liveFrame(output.outputId)?.mediaType === 'document'" class="media-placeholder">
-                      <q-icon name="description" size="36px" />
-                      <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
-                      <small>{{ liveFrame(output.outputId)?.label }}</small>
-                    </div>
+                    <FittedTechnicalText
+                      v-else
+                      :text="liveDisplayText(output.outputId)"
+                      :min-size="10"
+                      :max-size="26"
+                    />
 
-                    <div v-else-if="liveFrame(output.outputId)?.activity" class="text-preview">
-                      <strong>{{ liveFrame(output.outputId)?.activity?.title }}</strong>
-                      <span>{{ liveFrame(output.outputId)?.activity?.description }}</span>
-                    </div>
+                    <span
+                      v-if="
+                        liveFrame(output.outputId) &&
+                        workspace(output.outputId).liveItem?.type !== 'activity' &&
+                        !liveFrame(output.outputId)?.roulette &&
+                        !liveFrame(output.outputId)?.timeTool
+                      "
+                      class="technical-selection"
+                    >
+                      {{ liveFrame(output.outputId)?.label }} · Seleccionado
+                    </span>
 
-                    <div v-else-if="liveFrame(output.outputId)?.roulette" class="media-placeholder">
-                      <q-icon name="casino" size="36px" />
-                      <strong>{{ liveFrame(output.outputId)?.roulette?.title }}</strong>
-                      <small>Ruleta en vivo</small>
-                    </div>
-
-                    <div v-else-if="liveFrame(output.outputId)?.timeTool" class="media-placeholder">
-                      <q-icon name="schedule" size="36px" />
-                      <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
-                      <small>Herramienta de tiempo</small>
-                    </div>
-
-                    <div v-else class="text-preview">
-                      <strong>{{ workspace(output.outputId).liveItem?.title }}</strong>
-                      <span>{{ liveFrame(output.outputId)?.text }}</span>
-                    </div>
+                    <span
+                      v-if="
+                        !liveFrame(output.outputId)?.mediaType &&
+                        workspace(output.outputId).liveItem?.type !== 'activity' &&
+                        !liveFrame(output.outputId)?.roulette &&
+                        !liveFrame(output.outputId)?.timeTool
+                      "
+                      class="screen-footer"
+                    >
+                      {{ workspace(output.outputId).liveItem?.footer }}
+                    </span>
                   </template>
 
                   <template v-else>
@@ -128,7 +182,7 @@
                   </template>
                 </div>
 
-                <div v-else class="active-content-shell">
+                <div v-else class="active-content-shell" :style="activeContentStyle">
                   <div v-if="workspace(output.outputId).liveItem" class="active-content-list">
                     <div class="active-content-title">{{ workspace(output.outputId).liveItem?.title }}</div>
 
@@ -142,8 +196,13 @@
                     >
                       <span class="active-content-position">{{ frameIndex + 1 }}</span>
                       <span class="active-content-copy">
-                        <strong>{{ frame.label }}</strong>
-                        <small>{{ frame.text || frameContentLabel(frame) }}</small>
+                        <strong v-if="workspace(output.outputId).liveItem?.type === 'bible'" class="active-content-inline">
+                          {{ displayFrameLabel(output.outputId, frame) }}. {{ frame.text }}
+                        </strong>
+                        <template v-else>
+                          <strong>{{ displayFrameLabel(output.outputId, frame) }}</strong>
+                          <small>{{ frame.text || frameContentLabel(frame) }}</small>
+                        </template>
                       </span>
                       <q-icon v-if="workspace(output.outputId).liveFrameIndex === frameIndex" name="radio_button_checked" color="light-blue-3" />
                     </button>
@@ -166,6 +225,11 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { storeToRefs } from 'pinia';
+import ActivityProjectionView from '../ActivityProjectionView.vue';
+import DocumentViewer from '../DocumentViewer.vue';
+import FittedTechnicalText from '../FittedTechnicalText.vue';
+import RouletteWheel from '../RouletteWheel.vue';
+import TimeToolDisplay from '../TimeToolDisplay.vue';
 import type { PresentationFrame, ServicePresentationItem } from '../../shared/presentation';
 import { useProjectionSettingsStore } from '../../stores/projection-settings';
 import { useProjectionWorkspaceStore } from '../../stores/projection-workspace-store';
@@ -178,7 +242,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 const workspaceStore = useProjectionWorkspaceStore();
 const projectionSettings = useProjectionSettingsStore();
 const { activeOutputId, outputs } = storeToRefs(workspaceStore);
-const { surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
+const { activeContent, surfaceStyle, contentLayoutStyle } = storeToRefs(projectionSettings);
 const sectionOrders = reactive<Record<string, MonitorSection[]>>({});
 const draggingSections = reactive<Record<string, MonitorSection | null>>({});
 
@@ -187,6 +251,15 @@ const dialogOpen = computed({
   set: (value: boolean) => emit('update:modelValue', value),
 });
 
+const activeContentStyle = computed<Record<string, string>>(() => ({
+  '--active-content-background': activeContent.value.activeBackgroundColor,
+  '--active-content-border': activeContent.value.activeBorderColor,
+  '--active-content-text': activeContent.value.activeTextColor,
+  '--inactive-content-text': activeContent.value.inactiveTextColor,
+  '--active-content-font-size': `${activeContent.value.fontSize}px`,
+  '--active-content-lines': String(activeContent.value.visibleLines),
+}));
+
 function workspace(outputId: string) {
   return workspaceStore.workspaceSnapshot(outputId);
 }
@@ -194,6 +267,20 @@ function workspace(outputId: string) {
 function liveFrame(outputId: string): ServicePresentationItem['frames'][number] | null {
   const snapshot = workspace(outputId);
   return snapshot.liveItem?.frames[snapshot.liveFrameIndex] ?? null;
+}
+
+function liveDisplayText(outputId: string): string {
+  const snapshot = workspace(outputId);
+  const frame = snapshot.liveItem?.frames[snapshot.liveFrameIndex];
+  if (!frame) return '';
+  if (snapshot.liveItem?.type !== 'bible') return frame.text;
+  const verseNumber = frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label;
+  return `${verseNumber}. ${frame.text}`;
+}
+
+function displayFrameLabel(outputId: string, frame: PresentationFrame): string {
+  if (workspace(outputId).liveItem?.type !== 'bible') return frame.label;
+  return frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label;
 }
 
 function sectionsFor(outputId: string): MonitorSection[] {
@@ -285,24 +372,25 @@ function displaySummary(displayIds: number[]): string {
 .output-label { max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-dot { width: 7px; height: 7px; flex: 0 0 7px; background: #f05252; border-radius: 50%; }
 .technical-screen { position: relative; display: flex; min-height: 0; flex: 1; align-items: center; justify-content: center; overflow: hidden; text-align: center; }
-.live-media { width: 100%; height: 100%; object-fit: contain; }
-.media-placeholder, .text-preview, .active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; padding: 16px; color: inherit; text-align: center; }
-.media-placeholder strong, .text-preview strong { max-width: 92%; overflow: hidden; color: var(--projection-text-color, #f2f7fc); text-overflow: ellipsis; white-space: nowrap; }
-.media-placeholder small { color: var(--projection-footer-color, #70849a); font-size: 9px; }
-.text-preview span { display: -webkit-box; max-width: 92%; overflow: hidden; color: var(--projection-text-color, #d4dfeb); font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
+.technical-screen--activity { align-items: stretch !important; justify-content: stretch !important; }
+.live-media, .live-video { width: 100%; height: 100%; object-fit: contain; }
+.live-video { display: flex; min-height: 0; align-items: center; justify-content: center; }
+.live-audio { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--projection-text-color, inherit); }
+.technical-selection { position: absolute; top: 8px; right: 8px; z-index: 3; max-width: 66%; padding: 4px 7px; overflow: hidden; color: var(--projection-text-color, #fff); background: rgb(0 0 0 / 42%); border: 1px solid rgb(255 255 255 / 16%); border-radius: 6px; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.screen-footer { position: absolute; right: 10px; bottom: 8px; left: 10px; z-index: 2; overflow: hidden; color: var(--projection-footer-color, #aebed4); font-size: calc(10px * var(--projection-font-scale, 1)); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .active-content-shell { min-height: 0; flex: 1; overflow: hidden; }
 .active-content-list { height: 100%; padding: 6px; overflow-y: auto; overscroll-behavior: contain; }
-.active-content-title { position: sticky; top: -6px; z-index: 1; padding: 6px 5px 8px; overflow: hidden; color: #dce8f4; background: #0b131d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.active-content-row { display: grid; width: 100%; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 7px; margin-bottom: 3px; padding: 5px; color: #93a3b5; background: transparent; border: 1px solid transparent; border-radius: 6px; text-align: left; cursor: pointer; }
-.active-content-row:hover { color: #d9edff; background: #10243a; border-color: #284b6c; }
-.active-content-row--selected { color: #f2f8ff; background: #1d4f7d; border-color: #60a5fa; box-shadow: inset 3px 0 #60a5fa; }
-.active-content-position { display: grid; width: 22px; height: 22px; place-items: center; color: #93c5fd; background: #172d49; border-radius: 5px; font-size: 9px; }
+.active-content-title { position: sticky; top: -6px; z-index: 1; padding: 6px 5px 8px; overflow: hidden; color: var(--active-content-text, #dce8f4); background: #0b131d; font-size: var(--active-content-font-size, 11px); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.active-content-row { display: grid; width: 100%; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 7px; margin-bottom: 3px; padding: 5px; color: var(--inactive-content-text, #93a3b5); background: transparent; border: 1px solid transparent; border-radius: 6px; font-size: var(--active-content-font-size, 11px); text-align: left; cursor: pointer; }
+.active-content-row:hover { color: var(--active-content-text, #d9edff); background: color-mix(in srgb, var(--active-content-background, #10243a) 45%, transparent); border-color: color-mix(in srgb, var(--active-content-border, #284b6c) 55%, transparent); }
+.active-content-row--selected { color: var(--active-content-text, #f2f8ff); background: var(--active-content-background, #1d4f7d); border-color: var(--active-content-border, #60a5fa); box-shadow: inset 3px 0 var(--active-content-border, #60a5fa); }
+.active-content-position { display: grid; width: 22px; height: 22px; place-items: center; color: var(--active-content-text, #93c5fd); background: color-mix(in srgb, var(--active-content-background, #172d49) 72%, #000); border-radius: 5px; font-size: 9px; }
 .active-content-copy { display: flex; min-width: 0; flex-direction: column; }
-.active-content-row strong, .active-content-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.active-content-row strong { font-size: 10px; }
-.active-content-row small { margin-top: 1px; color: #75889d; font-size: 9px; }
-.active-content-row--selected small { color: #d5e8ff; }
-.active-content-empty { color: #66758a; font-size: 10px; }
+.active-content-row strong, .active-content-row small { overflow: hidden; text-overflow: ellipsis; }
+.active-content-row strong { display: -webkit-box; font-size: inherit; line-height: 1.2; -webkit-box-orient: vertical; -webkit-line-clamp: var(--active-content-lines, 2); }
+.active-content-row small { display: -webkit-box; margin-top: 1px; color: inherit; font-size: .86em; line-height: 1.2; opacity: .75; -webkit-box-orient: vertical; -webkit-line-clamp: var(--active-content-lines, 2); }
+.active-content-inline { white-space: normal; }
+.active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; color: var(--inactive-content-text, #66758a); font-size: var(--active-content-font-size, 11px); }
 .monitor-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #76899e; }
 @media (max-width: 780px) { .monitor-grid { grid-template-columns: minmax(360px, 1fr); grid-auto-columns: minmax(360px, 1fr); grid-auto-flow: column; } }
 </style>
