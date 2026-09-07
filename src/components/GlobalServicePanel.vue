@@ -17,6 +17,11 @@
       <ProjectionOutputSelector v-model="projectionOutputTarget" />
     </div>
 
+    <div v-if="activeOutputName" class="active-area-caption">
+      <q-icon name="desktop_windows" />
+      <span>Servicio de <strong>{{ activeOutputName }}</strong></span>
+    </div>
+
     <div v-if="serviceItems.length" ref="serviceListElement" class="service-list">
       <button
         v-for="(item, index) in serviceItems"
@@ -50,53 +55,60 @@
     <div v-else class="empty-state">
       <q-icon name="playlist_add" size="40px" />
       <strong>Servicio vacío</strong>
-      <span>Los elementos agregados aparecerán aquí.</span>
+      <span v-if="activeOutputName">Agrega elementos al servicio de {{ activeOutputName }}.</span>
+      <span v-else>Los elementos agregados aparecerán aquí.</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import ProjectionOutputSelector from './projection/ProjectionOutputSelector.vue';
 import type { PresentationItemType } from '../shared/presentation';
 import type { ProjectionOutputTarget } from '../shared/projection';
 import { usePresentationStore } from '../stores/presentation-store';
+import { useProjectionWorkspaceStore } from '../stores/projection-workspace-store';
 
-const projectionOutputStorageKey = 'icp-studio-live-projection-output';
 const serviceListElement = ref<HTMLElement | null>(null);
 const presentationStore = usePresentationStore();
+const workspaceStore = useProjectionWorkspaceStore();
 const { serviceItems, selectedServiceItemId } = storeToRefs(presentationStore);
+const { activeOutputId, activeOutput } = storeToRefs(workspaceStore);
 const { activateServiceItem, removeFromService, selectServiceItem } = presentationStore;
 
-function loadProjectionOutputTarget(): ProjectionOutputTarget {
-  try {
-    const stored = localStorage.getItem(projectionOutputStorageKey);
-    return stored && stored.length > 0 ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-const projectionOutputTarget = ref<ProjectionOutputTarget>(loadProjectionOutputTarget());
+const projectionOutputTarget = ref<ProjectionOutputTarget>(activeOutputId.value);
+const activeOutputName = computed(() => activeOutput.value?.name ?? '');
+let unsubscribeDisplayStatus: (() => void) | undefined;
 
 watch(
   projectionOutputTarget,
   (outputId) => {
-    window.icpStudio?.projection.setTargetOutput(outputId);
-
-    try {
-      if (outputId === null) {
-        localStorage.removeItem(projectionOutputStorageKey);
-      } else {
-        localStorage.setItem(projectionOutputStorageKey, outputId);
-      }
-    } catch {
-      // La selección sigue funcionando aunque el almacenamiento local no esté disponible.
-    }
+    workspaceStore.switchWorkspace(outputId);
   },
-  { immediate: true },
 );
+
+watch(activeOutputId, (outputId) => {
+  if (projectionOutputTarget.value !== outputId) {
+    projectionOutputTarget.value = outputId;
+  }
+});
+
+function applyDisplayStatus(status: Awaited<ReturnType<NonNullable<typeof window.icpStudio>['displays']['getStatus']>>): void {
+  workspaceStore.applyDisplayState(
+    status.configuration.independentProjectionEnabled,
+    status.activeProjectionOutputs,
+  );
+  projectionOutputTarget.value = workspaceStore.activeOutputId;
+}
+
+async function initializeProjectionAreas(): Promise<void> {
+  const status = await window.icpStudio?.displays.getStatus();
+  if (status) {
+    applyDisplayStatus(status);
+  }
+  unsubscribeDisplayStatus = window.icpStudio?.displays.onStatusChanged(applyDisplayStatus);
+}
 
 function moveServiceSelection(direction: -1 | 1): void {
   if (serviceItems.value.length === 0) {
@@ -149,6 +161,15 @@ function itemIcon(type: PresentationItemType): string {
 
   return icons[type];
 }
+
+onMounted(() => {
+  void initializeProjectionAreas();
+});
+
+onBeforeUnmount(() => {
+  workspaceStore.saveCurrentWorkspace();
+  unsubscribeDisplayStatus?.();
+});
 </script>
 
 <style scoped>
@@ -169,8 +190,23 @@ function itemIcon(type: PresentationItemType): string {
 }
 
 .projection-target {
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
+
+.active-area-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  color: #8eb9df;
+  background: #0d1d2c;
+  border: 1px solid #24425e;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.active-area-caption strong { color: #d9efff; }
 
 .service-list {
   min-height: 0;
