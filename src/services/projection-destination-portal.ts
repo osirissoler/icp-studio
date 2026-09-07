@@ -75,8 +75,41 @@ export function installProjectionDestinationPortal(router: Router): () => void {
     return wrapper;
   }
 
+  function decorateMonitorHeader(): void {
+    const header = document.querySelector<HTMLElement>('.monitor-header');
+    if (!header || header.dataset.toolHeader === 'true') return;
+    const copy = header.querySelector<HTMLElement>(':scope > div');
+    const originalClose = header.querySelector<HTMLButtonElement>(':scope > button');
+    if (!copy || !originalClose) return;
+
+    header.dataset.toolHeader = 'true';
+    header.classList.add('monitor-header--tool-style');
+    copy.classList.add('monitor-header__copy');
+
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'monitor-header__eyebrow';
+    eyebrow.textContent = 'Proyección · Control de salidas';
+    copy.prepend(eyebrow);
+
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'monitor-header__back';
+    back.setAttribute('aria-label', 'Volver');
+    back.innerHTML = '<span class="material-icons">arrow_back</span>';
+    back.addEventListener('click', () => originalClose.click());
+
+    const icon = document.createElement('span');
+    icon.className = 'monitor-header__icon material-icons';
+    icon.textContent = 'grid_view';
+
+    header.prepend(icon);
+    header.prepend(back);
+  }
+
   function render(): void {
     renderQueued = false;
+    decorateMonitorHeader();
+
     const path = router.currentRoute.value.path;
     if (!supportedRoutes.has(path) || workspaceStore.outputs.length === 0) {
       removePortal();
@@ -91,7 +124,9 @@ export function installProjectionDestinationPortal(router: Router): () => void {
       removePortal();
       target = nextTarget;
       portal = createPortal();
-      if (path === '/actividades/imagen-escondida') portal.classList.add('tool-projection-destination--activity');
+      if (path === '/actividades/imagen-escondida') {
+        portal.classList.add('tool-projection-destination--activity');
+      }
       target.append(portal);
     }
     fillOptions();
@@ -105,13 +140,14 @@ export function installProjectionDestinationPortal(router: Router): () => void {
 
   const removeAfterEach = router.afterEach(() => queueRender());
   const stopOutputsWatch = watch(
-    () => [workspaceStore.activeOutputId, workspaceStore.outputs.map((output) => `${output.outputId}:${output.name}`).join('|')],
+    () => [
+      workspaceStore.activeOutputId,
+      workspaceStore.outputs.map((output) => `${output.outputId}:${output.name}`).join('|'),
+    ],
     () => queueRender(),
   );
 
-  observer = new MutationObserver(() => {
-    if (!portal?.isConnected || !target?.isConnected) queueRender();
-  });
+  observer = new MutationObserver(() => queueRender());
   observer.observe(document.body, { childList: true, subtree: true });
   queueRender();
 
