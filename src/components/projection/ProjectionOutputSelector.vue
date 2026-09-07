@@ -29,24 +29,11 @@
 
     <template v-else>
       <div class="destination-heading">
-        <span>Enviar en vivo a</span>
+        <span>Área de trabajo</span>
         <q-icon name="screen_share" />
       </div>
 
       <div class="destination-buttons">
-        <button
-          type="button"
-          class="destination-button"
-          :class="{ 'destination-button--active': selectedOutputId === null }"
-          @click="selectOutput(null)"
-        >
-          <q-icon name="select_all" />
-          <span>
-            <strong>Todas</strong>
-            <small>{{ activeOutputs.length }} áreas</small>
-          </span>
-        </button>
-
         <button
           v-for="output in activeOutputs"
           :key="output.outputId"
@@ -55,7 +42,7 @@
           :class="{ 'destination-button--active': selectedOutputId === output.outputId }"
           @click="selectOutput(output.outputId)"
         >
-          <q-icon name="desktop_windows" />
+          <q-icon :name="selectedOutputId === output.outputId ? 'radio_button_checked' : 'radio_button_unchecked'" />
           <span>
             <strong>{{ output.name }}</strong>
             <small>{{ displayLabel(output.displayId) }}</small>
@@ -96,7 +83,7 @@ function displayLabel(displayId: number): string {
   return display?.label ?? `Pantalla ${displayId}`;
 }
 
-function selectOutput(outputId: ProjectionOutputTarget): void {
+function selectOutput(outputId: string): void {
   selectedOutputId.value = outputId;
 }
 
@@ -108,13 +95,14 @@ function applyStatus(nextStatus: DisplayStatus): void {
     return;
   }
 
-  if (
+  const currentIsValid =
     selectedOutputId.value !== null &&
-    !nextStatus.activeProjectionOutputs.some(
+    nextStatus.activeProjectionOutputs.some(
       (output) => output.outputId === selectedOutputId.value,
-    )
-  ) {
-    selectedOutputId.value = null;
+    );
+
+  if (!currentIsValid) {
+    selectedOutputId.value = nextStatus.activeProjectionOutputs[0]?.outputId ?? null;
   }
 }
 
@@ -161,7 +149,7 @@ onBeforeUnmount(() => {
 .mirror-status small, .no-areas-status small { margin-top: 1px; color: #75879c; font-size: 9px; line-height: 1.25; }
 .destination-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: #91a4b9; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .destination-buttons { display: flex; gap: 6px; padding-bottom: 2px; overflow-x: auto; }
-.destination-button { display: flex; min-width: 108px; max-width: 170px; align-items: center; gap: 7px; padding: 8px 9px; color: #aebed0; background: #0b1520; border: 1px solid #2a3b50; border-radius: 9px; text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, color .16s ease; }
+.destination-button { display: flex; min-width: 116px; max-width: 180px; align-items: center; gap: 7px; padding: 8px 9px; color: #aebed0; background: #0b1520; border: 1px solid #2a3b50; border-radius: 9px; text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, color .16s ease; }
 .destination-button:hover { color: #e8f4ff; border-color: #3f6f9f; background: #102235; }
 .destination-button--active { color: #eef9ff; background: #12304a; border-color: #4ba3ff; box-shadow: inset 0 0 0 1px rgba(75, 163, 255, .16); }
 .destination-button > .q-icon { flex: 0 0 auto; color: #69b8ff; font-size: 18px; }
