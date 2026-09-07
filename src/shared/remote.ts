@@ -83,6 +83,27 @@ export interface RemotePreviewState {
   }>;
 }
 
+export interface RemoteServiceItemSummary {
+  id: string;
+  title: string;
+  module: RemoteModule;
+  frameCount: number;
+}
+
+export interface RemoteProjectionOutputState {
+  outputId: string;
+  name: string;
+  isOperatorArea: boolean;
+  live: RemotePreviewState | null;
+  serviceCount: number;
+  serviceItems: RemoteServiceItemSummary[];
+  mediaPlayback: {
+    isPlaying: boolean;
+    time: number;
+    duration: number;
+  };
+}
+
 export interface RemoteControlState {
   preview: RemotePreviewState | null;
   live: RemotePreviewState | null;
@@ -93,6 +114,8 @@ export interface RemoteControlState {
     time: number;
     duration: number;
   };
+  activeOutputId?: string | null;
+  outputs?: RemoteProjectionOutputState[];
 }
 
 export interface RemoteServerStatus {
