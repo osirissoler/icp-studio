@@ -19,6 +19,7 @@ const SETTINGS_FILENAME = 'display-settings.json';
 let configuration: DisplayConfiguration = {
   mode: 'automatic',
   independentProjectionEnabled: false,
+  operatorDisplayProjectionEnabled: false,
   projectionDisplays: [],
   projectionOutputs: [],
   audioDisplay: null,
@@ -57,7 +58,6 @@ function createOutputId(): string {
 
 export function getConnectedDisplays(): DisplayInfo[] {
   const primaryDisplayId = screen.getPrimaryDisplay().id;
-
   return screen.getAllDisplays().map((display, index) => ({
     id: display.id,
     label: display.label || `Pantalla ${index + 1}`,
@@ -83,6 +83,7 @@ interface StoredProjectionOutput {
 interface StoredDisplayConfiguration {
   mode: 'automatic' | 'custom';
   independentProjectionEnabled?: boolean;
+  operatorDisplayProjectionEnabled?: boolean;
   projectionDisplays: DisplayReference[];
   projectionOutputs?: StoredProjectionOutput[];
   audioDisplay: DisplayReference | null;
@@ -94,6 +95,7 @@ function validConfiguration(value: unknown): value is StoredDisplayConfiguration
   return (
     (candidate.mode === 'automatic' || candidate.mode === 'custom') &&
     (candidate.independentProjectionEnabled === undefined || typeof candidate.independentProjectionEnabled === 'boolean') &&
+    (candidate.operatorDisplayProjectionEnabled === undefined || typeof candidate.operatorDisplayProjectionEnabled === 'boolean') &&
     Array.isArray(candidate.projectionDisplays) &&
     (candidate.projectionOutputs === undefined || Array.isArray(candidate.projectionOutputs)) &&
     (candidate.audioDisplay === null || typeof candidate.audioDisplay === 'object')
@@ -140,6 +142,7 @@ function normalizeConfiguration(value: StoredDisplayConfiguration): DisplayConfi
   return {
     mode: value.mode,
     independentProjectionEnabled: value.independentProjectionEnabled === true,
+    operatorDisplayProjectionEnabled: value.operatorDisplayProjectionEnabled === true,
     projectionDisplays: value.projectionDisplays,
     projectionOutputs,
     audioDisplay: value.audioDisplay,
@@ -227,28 +230,34 @@ export function resolveProjectionTargets(): ResolvedProjectionTargets {
   const primary = screen.getPrimaryDisplay();
   const external = screen.getAllDisplays().filter((display) => display.id !== primary.id);
 
-  let selected: Display[];
+  let selectedExternal: Display[];
   if (configuration.mode === 'automatic') {
-    selected = external;
+    selectedExternal = external;
   } else {
     const usedIds = new Set<number>();
-    selected = [];
+    selectedExternal = [];
     for (const reference of configuration.projectionDisplays) {
       const matched = matchReference(reference, external, usedIds);
       if (matched) {
         usedIds.add(matched.id);
-        selected.push(matched);
+        selectedExternal.push(matched);
       }
     }
   }
 
-  const usesOperatorDisplay = selected.length === 0 && external.length === 0;
-  if (usesOperatorDisplay) selected = [primary];
+  const selected = configuration.operatorDisplayProjectionEnabled
+    ? [primary, ...selectedExternal]
+    : [...selectedExternal];
+
+  const usesOperatorDisplay = configuration.operatorDisplayProjectionEnabled;
+  if (selected.length === 0 && external.length === 0) {
+    selected.push(primary);
+  }
 
   const outputs = resolveConfiguredOutputs(selected);
 
   let audioDisplayId: number | null = null;
-  if (!usesOperatorDisplay && selected.length > 0) {
+  if (selected.length > 0) {
     const matchedAudio = matchReference(configuration.audioDisplay, selected);
     audioDisplayId = matchedAudio?.id ?? null;
   }
@@ -317,25 +326,26 @@ function buildProjectionOutputs(request: ApplyDisplayConfigurationRequest, selec
 }
 
 export async function applyDisplayConfiguration(request: ApplyDisplayConfigurationRequest): Promise<DisplayStatus> {
-  const primaryId = screen.getPrimaryDisplay().id;
-  const external = screen.getAllDisplays().filter((display) => display.id !== primaryId);
+  const primary = screen.getPrimaryDisplay();
+  const external = screen.getAllDisplays().filter((display) => display.id !== primary.id);
   const selectedIds = new Set(
     Array.isArray(request.projectionDisplayIds)
       ? request.projectionDisplayIds.filter((id) => Number.isInteger(id))
       : [],
   );
 
-  const selected = external.filter((display) => selectedIds.has(display.id));
+  const selectedExternal = external.filter((display) => selectedIds.has(display.id));
+  const operatorEnabled = request.operatorDisplayProjectionEnabled === true;
+  const selected = operatorEnabled ? [primary, ...selectedExternal] : selectedExternal;
   const audio = request.audioDisplayId === null
     ? null
-    : external.find(
-        (display) => display.id === request.audioDisplayId && selected.some((item) => item.id === display.id),
-      ) ?? null;
+    : selected.find((display) => display.id === request.audioDisplayId) ?? null;
 
   configuration = {
     mode: request.mode === 'custom' ? 'custom' : 'automatic',
     independentProjectionEnabled: request.independentProjectionEnabled === true,
-    projectionDisplays: selected.map(displayReference),
+    operatorDisplayProjectionEnabled: operatorEnabled,
+    projectionDisplays: selectedExternal.map(displayReference),
     projectionOutputs: buildProjectionOutputs(request, selected),
     audioDisplay: audio ? displayReference(audio) : null,
   };
