@@ -333,7 +333,19 @@
                           <small>{{ frame.text || frameContentLabel(frame) }}</small>
                         </template>
                       </span>
-                      <q-icon v-if="workspace(output.outputId).liveFrameIndex === frameIndex" name="radio_button_checked" color="light-blue-3" />
+                      <DocumentThumbnail
+                        v-if="frame.mediaType === 'document' && frame.mediaUrl && frame.documentFormat"
+                        :url="frame.mediaUrl"
+                        :format="frame.documentFormat"
+                        :page-index="frame.pageIndex ?? 0"
+                      />
+                      <div
+                        v-else-if="workspace(output.outputId).liveItem?.type === 'activity' && frame.activity"
+                        class="activity-frame-thumbnail"
+                        :style="activityThumbnail(frame.activity.imageUrl)"
+                      >
+                        <q-icon v-if="!frame.activity.imageUrl" name="event" />
+                      </div>
                     </button>
                   </div>
 
@@ -355,6 +367,7 @@
 import { computed, reactive } from 'vue';
 import { storeToRefs } from 'pinia';
 import ActivityProjectionView from '../ActivityProjectionView.vue';
+import DocumentThumbnail from '../DocumentThumbnail.vue';
 import DocumentViewer from '../DocumentViewer.vue';
 import FittedTechnicalText from '../FittedTechnicalText.vue';
 import RouletteWheel from '../RouletteWheel.vue';
@@ -410,6 +423,10 @@ function liveDisplayText(outputId: string): string {
 function displayFrameLabel(outputId: string, frame: PresentationFrame): string {
   if (workspace(outputId).liveItem?.type !== 'bible') return frame.label;
   return frame.label.match(/(\d+:\d+)$/)?.[1] ?? frame.label;
+}
+
+function activityThumbnail(imageUrl: string): Record<string, string> {
+  return imageUrl ? { backgroundImage: `url("${imageUrl.replaceAll('"', '%22')}")` } : {};
 }
 
 function sectionsFor(outputId: string): MonitorSection[] {
@@ -551,6 +568,7 @@ function displaySummary(displayIds: number[]): string {
 .active-content-row strong { display: -webkit-box; font-size: inherit; line-height: 1.2; -webkit-box-orient: vertical; -webkit-line-clamp: var(--active-content-lines, 2); }
 .active-content-row small { display: -webkit-box; margin-top: 1px; color: inherit; font-size: .86em; line-height: 1.2; opacity: .75; -webkit-box-orient: vertical; -webkit-line-clamp: var(--active-content-lines, 2); }
 .active-content-inline { white-space: normal; }
+.activity-frame-thumbnail { display: grid; width: 58px; height: 34px; flex: 0 0 58px; overflow: hidden; place-items: center; color: #7690a8; background: radial-gradient(circle at 70% 30%, #2d506f, transparent 40%), #101d2a; background-position: center; background-size: cover; border-radius: 4px; }
 .active-content-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 7px; color: var(--inactive-content-text, #66758a); font-size: var(--active-content-font-size, 11px); }
 .monitor-empty { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #76899e; }
 @media (max-width: 780px) { .monitor-grid { grid-template-columns: minmax(360px, 1fr); grid-auto-columns: minmax(360px, 1fr); grid-auto-flow: column; } }
