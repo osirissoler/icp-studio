@@ -30,23 +30,10 @@
                 <small>{{ displayLabel(output.displayId) }}</small>
               </div>
 
-              <div class="monitor-card-actions">
-                <q-badge
-                  :color="activeOutputId === output.outputId ? 'primary' : 'blue-grey-8'"
-                  :label="activeOutputId === output.outputId ? 'Área del operador' : 'Monitoreando'"
-                />
-                <q-btn
-                  flat
-                  round
-                  dense
-                  size="sm"
-                  icon="open_in_new"
-                  color="light-blue-3"
-                  @click="selectOutput(output.outputId)"
-                >
-                  <q-tooltip>Abrir esta área en el operador</q-tooltip>
-                </q-btn>
-              </div>
+              <q-badge
+                :color="activeOutputId === output.outputId ? 'primary' : 'blue-grey-8'"
+                :label="activeOutputId === output.outputId ? 'Área del operador' : 'Monitoreando'"
+              />
             </header>
 
             <section class="monitor-live-section">
@@ -198,10 +185,6 @@ function frameContentLabel(frame: PresentationFrame): string {
 function displayLabel(displayId: number): string {
   return `Pantalla ${displayId}`;
 }
-
-function selectOutput(outputId: string): void {
-  workspaceStore.switchWorkspace(outputId);
-}
 </script>
 
 <style scoped>
@@ -217,7 +200,6 @@ function selectOutput(outputId: string): void {
 .monitor-card-header, .monitor-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
 .monitor-card-header > div:first-child { display: flex; min-width: 0; flex-direction: column; }
 .monitor-card-header small, .monitor-card-footer span { color: #71859b; font-size: 10px; }
-.monitor-card-actions { display: flex; align-items: center; gap: 5px; }
 .monitor-live-section, .monitor-active-section { display: flex; min-height: 0; flex-direction: column; border-top: 1px solid #24354a; }
 .monitor-live-section { flex: 0 0 auto; }
 .monitor-active-section { flex: 1; }
